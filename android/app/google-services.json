@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "856063251417",
+    "project_id": "wordbox-64b19",
+    "storage_bucket": "wordbox-64b19.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:856063251417:android:c7b6bc5afce965ce697fc8",
+        "android_client_info": {
+          "package_name": "com.wordboxil.wordbox_hebrew"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtJePOWx0Xv3-lplC0bKh4L-ofTqTpPNo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

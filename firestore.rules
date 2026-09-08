@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// כללי אבטחה ל-Firestore: כל שחקן/ית יכולים לקרוא ולכתוב רק למסמך
+// ההתקדמות האישי שלהם (players/{uid}), ולחדרי רב-משתתפים בהתאם
+// לתפקידם - ראו docs/FIREBASE_SETUP.md לפירוט המלא.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /players/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /rooms/{roomCode} {
+      allow read: if request.auth != null;
+      allow write: if false; // רק Cloud Functions כותבות לסטטוס החדר עצמו
+
+      match /players/{uid} {
+        allow read: if request.auth != null;
+        allow create, update: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+  }
+}

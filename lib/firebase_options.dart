@@ -1,18 +1,13 @@
-// ⚠️ קובץ זה הוא Placeholder בלבד ואינו מכיל פרויקט Firebase אמיתי.
+// קובץ זה נוצר אוטומטית ע"י `flutterfire configure` ומכיל את הגדרות
+// פרויקט ה-Firebase האמיתי של המשחק (wordbox-64b19). המפתחות כאן (apiKey
+// וכו') אינם סודיים - זוהי דרך העבודה הרגילה/מתועדת של Firebase; ההגנה
+// האמיתית היא בכללי האבטחה של Firestore/Auth בקונסולה, לא בהסתרת הקובץ.
 //
-// כדי לחבר את המשחק ל-Firebase אמיתי (Auth, Firestore, Realtime Database,
-// Hosting) יש להריץ את הפקודה הבאה מתוך תיקיית הפרויקט (דורשת חשבון
-// Google וכניסה ל-Firebase CLI - לא ניתן לבצע זאת אוטומטית מתוך הסוכן):
+// כדי לעדכן/לרענן את ההגדרות בעתיד (למשל אחרי הוספת אפליקציה חדשה):
+//   flutterfire configure --project=wordbox-64b19
 //
-//   dart pub global activate flutterfire_cli
-//   flutterfire configure
-//
-// הפקודה תדרוס אוטומטית את הקובץ הזה עם ערכים אמיתיים, ותוסיף את קבצי
-// ההגדרה הנדרשים לכל פלטפורמה (google-services.json / GoogleService-Info.plist).
-// לפרטים מלאים ראו docs/FIREBASE_SETUP.md.
-//
-// עד אז, AppConfig.useFirebaseBackend נשאר false והמשחק פועל במלואו
-// במצב מקומי (ללא רשת), כך שהקובץ הזה לא נטען בפועל.
+// ה-Backend מופעל בפועל רק כש-AppConfig.useFirebaseBackend == true - ראו
+// docs/FIREBASE_SETUP.md לפרטי הפעלת ספקי ההתחברות ו-Firestore בקונסולה.
 
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
@@ -33,28 +28,28 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'REPLACE_ME',
-    appId: 'REPLACE_ME',
-    messagingSenderId: 'REPLACE_ME',
-    projectId: 'wordbox-il-placeholder',
-    authDomain: 'wordbox-il-placeholder.firebaseapp.com',
-    storageBucket: 'wordbox-il-placeholder.appspot.com',
+    apiKey: 'AIzaSyCZ8qZ4JgWY-54zRo7iYyiiDhzyLt9QWk8',
+    appId: '1:856063251417:web:8c744bd4324a4a68697fc8',
+    messagingSenderId: '856063251417',
+    projectId: 'wordbox-64b19',
+    authDomain: 'wordbox-64b19.firebaseapp.com',
+    storageBucket: 'wordbox-64b19.firebasestorage.app',
+    measurementId: 'G-8VZF3JSVD6',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'REPLACE_ME',
-    appId: 'REPLACE_ME',
-    messagingSenderId: 'REPLACE_ME',
-    projectId: 'wordbox-il-placeholder',
-    storageBucket: 'wordbox-il-placeholder.appspot.com',
+    apiKey: 'AIzaSyAtJePOWx0Xv3-lplC0bKh4L-ofTqTpPNo',
+    appId: '1:856063251417:android:c7b6bc5afce965ce697fc8',
+    messagingSenderId: '856063251417',
+    projectId: 'wordbox-64b19',
+    storageBucket: 'wordbox-64b19.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'REPLACE_ME',
-    appId: 'REPLACE_ME',
-    messagingSenderId: 'REPLACE_ME',
-    projectId: 'wordbox-il-placeholder',
-    storageBucket: 'wordbox-il-placeholder.appspot.com',
+    apiKey: 'AIzaSyD_wIuVNT3yUVUj5ycZs1zi3sD2pHbPg0E',
+    appId: '1:856063251417:ios:76307dca59da7098697fc8',
+    messagingSenderId: '856063251417',
+    projectId: 'wordbox-64b19',
+    storageBucket: 'wordbox-64b19.firebasestorage.app',
     iosBundleId: 'com.wordboxil.wordboxHebrew',
   );
 }
