@@ -1,0 +1,37 @@
+{
+    "name": "מילה־קסם - משחק המילים בעברית",
+    "short_name": "מילה־קסם",
+    "lang": "he",
+    "dir": "rtl",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#13B8B0",
+    "theme_color": "#FF7A45",
+    "description": "משחק מילים בעברית בסגנון Boggle/Wordbox - חברו אותיות שכנות, מצאו מילים, וטפסו במפת השלבים.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

@@ -1,0 +1,358 @@
+import 'dart:async';
+
+import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../core/theme/app_colors.dart';
+import '../../game_engine/board_generator.dart';
+import '../../game_engine/dictionary/hebrew_trie.dart';
+import '../../game_engine/game_session.dart';
+import '../../game_engine/models/grid_position.dart';
+import '../../game_engine/models/level_config.dart';
+import '../../providers/dictionary_provider.dart';
+import '../../providers/letter_frequency_provider.dart';
+import '../../providers/player_profile_provider.dart';
+import 'widgets/found_words_panel.dart';
+import 'widgets/grid_board.dart';
+import 'widgets/mascot_widget.dart';
+import 'widgets/timer_bar.dart';
+
+/// תוצאת שלב שהושלם - מועברת למסך התוצאה דרך go_router `extra`.
+class GameScreenResult extends Equatable {
+  final int score;
+  final int stars;
+  final int foundWordsCount;
+  final int totalPossibleWords;
+  final int totalPossibleScore;
+  final List<String> foundWordsDisplay;
+  final int coinsEarned;
+
+  const GameScreenResult({
+    required this.score,
+    required this.stars,
+    required this.foundWordsCount,
+    required this.totalPossibleWords,
+    required this.totalPossibleScore,
+    required this.foundWordsDisplay,
+    required this.coinsEarned,
+  });
+
+  @override
+  List<Object?> get props =>
+      [score, stars, foundWordsCount, totalPossibleWords, totalPossibleScore, coinsEarned];
+}
+
+class GameScreen extends ConsumerStatefulWidget {
+  final int levelNumber;
+
+  const GameScreen({super.key, required this.levelNumber});
+
+  @override
+  ConsumerState<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends ConsumerState<GameScreen> {
+  GameSession? _session;
+  late LevelConfig _config;
+  Duration _remaining = Duration.zero;
+  Timer? _ticker;
+  final _boardKey = GlobalKey<GridBoardState>();
+
+  String? _bannerText;
+  bool _bannerIsError = false;
+  Timer? _bannerTimer;
+
+  bool _finished = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _config = CampaignLevels.byLevelNumber(widget.levelNumber);
+    _remaining = _config.timeLimit;
+    _initSession();
+  }
+
+  Future<void> _initSession() async {
+    final dictionary = await ref.read(dictionaryLoadProvider.future);
+    final weights = await ref.read(letterFrequencyProvider.future);
+
+    final generator = BoardGenerator(trie: dictionary.trie, letterWeights: weights);
+    final board = generator.generate(
+      size: _config.gridSize,
+      minWordsRequired: 5 + _config.gridSize,
+    );
+
+    final session = GameSession(config: _config, board: board, trie: dictionary.trie);
+
+    if (!mounted) return;
+    setState(() => _session = session);
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _ticker = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted) return;
+      setState(() {
+        _remaining -= const Duration(milliseconds: 100);
+        if (_remaining <= Duration.zero) {
+          _remaining = Duration.zero;
+          timer.cancel();
+          _finishLevel();
+        }
+      });
+    });
+  }
+
+  void _showBanner(String text, {bool isError = false}) {
+    _bannerTimer?.cancel();
+    setState(() {
+      _bannerText = text;
+      _bannerIsError = isError;
+    });
+    _bannerTimer = Timer(const Duration(milliseconds: 900), () {
+      if (mounted) setState(() => _bannerText = null);
+    });
+  }
+
+  void _onPathSubmitted(List<GridPosition> path) {
+    final session = _session;
+    if (session == null || _finished) return;
+    final result = session.submitPath(path);
+
+    switch (result.status) {
+      case WordSubmitStatus.accepted:
+        _showBanner('${result.displayWord}  +${result.pointsAwarded}');
+        setState(() {});
+        if (session.isFullyCompleted) {
+          Future.delayed(const Duration(milliseconds: 500), _finishLevel);
+        }
+        break;
+      case WordSubmitStatus.duplicate:
+        _showBanner('כבר מצאת את "${result.displayWord}"', isError: true);
+        _boardKey.currentState?.flashError();
+        break;
+      case WordSubmitStatus.invalidWord:
+        _showBanner('לא נמצאה מילה כזו', isError: true);
+        _boardKey.currentState?.flashError();
+        break;
+      case WordSubmitStatus.tooShort:
+      case WordSubmitStatus.invalidPath:
+        _boardKey.currentState?.flashError();
+        break;
+    }
+  }
+
+  Future<void> _finishLevel() async {
+    if (_finished) return;
+    _finished = true;
+    _ticker?.cancel();
+    final session = _session;
+    if (session == null) return;
+
+    final stars = session.currentStars;
+    final coinsEarned = stars * 10 + session.foundWordsCount * 2;
+
+    await ref.read(playerProfileProvider.notifier).completeLevel(
+          levelNumber: widget.levelNumber,
+          stars: stars,
+          score: session.score,
+          coinsEarned: coinsEarned,
+        );
+
+    if (!mounted) return;
+
+    final result = GameScreenResult(
+      score: session.score,
+      stars: stars,
+      foundWordsCount: session.foundWordsCount,
+      totalPossibleWords: session.totalPossibleWords,
+      totalPossibleScore: session.totalPossibleScore,
+      foundWordsDisplay: session.foundNormalizedWords
+          .map((w) => HebrewTrie.toDisplayWord(w))
+          .toList(),
+      coinsEarned: coinsEarned,
+    );
+
+    context.pushReplacement('/level/${widget.levelNumber}/result', extra: result);
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _bannerTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = _session;
+    final worldIndex = _config.tier.index;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go('/campaign');
+      },
+      child: Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: AppColors.gradientForWorldIndex(worldIndex),
+            ),
+          ),
+          child: SafeArea(
+            child: session == null
+                ? const _LoadingBoard()
+                : Column(
+                    children: [
+                      _GameHeader(
+                        levelNumber: widget.levelNumber,
+                        score: session.score,
+                        onExit: () => context.go('/campaign'),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: TimerBar(
+                          progress: _remaining.inMilliseconds /
+                              _config.timeLimit.inMilliseconds,
+                          urgent: _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: Stack(
+                          alignment: Alignment.topCenter,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  // ריבוע גדול ככל האפשר שעדיין נכנס לגמרי
+                                  // בשטח הפנוי - כך כל השורות תמיד גלויות.
+                                  final side = constraints.maxWidth < constraints.maxHeight
+                                      ? constraints.maxWidth
+                                      : constraints.maxHeight;
+                                  return Center(
+                                    child: SizedBox(
+                                      width: side,
+                                      height: side,
+                                      child: GridBoard(
+                                        key: _boardKey,
+                                        letters: session.board.letters,
+                                        onPathSubmitted: _onPathSubmitted,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            if (_bannerText != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: _bannerIsError
+                                        ? AppColors.error
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: const [
+                                      BoxShadow(color: Colors.black26, blurRadius: 10),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    _bannerText!,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 18,
+                                      color: _bannerIsError
+                                          ? Colors.white
+                                          : AppColors.success,
+                                    ),
+                                  ),
+                                ).animate(key: ValueKey(_bannerText)).fadeIn().moveY(
+                                    begin: 10, end: 0, duration: 200.ms),
+                              ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: FoundWordsPanel(
+                          words: session.foundNormalizedWords
+                              .map((w) => HebrewTrie.toDisplayWord(w))
+                              .toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GameHeader extends StatelessWidget {
+  final int levelNumber;
+  final int score;
+  final VoidCallback onExit;
+
+  const _GameHeader({required this.levelNumber, required this.score, required this.onExit});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: onExit,
+            icon: const Icon(Icons.close_rounded, color: Colors.white),
+          ),
+          Text(
+            'שלב $levelNumber',
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text('$score נק׳', style: const TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoadingBoard extends StatelessWidget {
+  const _LoadingBoard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          MascotWidget(mood: MascotMood.idle, size: 100),
+          SizedBox(height: 16),
+          CircularProgressIndicator(color: Colors.white),
+          SizedBox(height: 12),
+          Text('בונים לוח מילים...', style: TextStyle(color: Colors.white)),
+        ],
+      ),
+    );
+  }
+}
