@@ -101,6 +101,31 @@ class FirebaseAuthRepository implements AuthRepository {
     return _auth.signInWithCredential(credential);
   }
 
+  /// גרסת ה-Web של [_linkOrSignIn]: מנסה לקשר את משתמש/ת האורח/ת הנוכחי/ת
+  /// ל-popup של הספק, ואם מתברר שהחשבון הזה (למשל אותו חשבון Google
+  /// שהתחברתם איתו בעבר, לפני שהתנתקתם) כבר קיים כחשבון עצמאי - מתחברים
+  /// ישירות אליו במקום להיכשל עם שגיאה. זה קורה בדיוק במקרה של: התחברתם
+  /// עם Google, התנתקתם (מה שהופך אתכם לאורח/ת חדש/ה), ואז ניסיתם להתחבר
+  /// שוב עם אותו חשבון Google - הקרדנציאל שהתקבל מה-popup הכושל מוחזר
+  /// בתוך השגיאה עצמה (e.credential), כך שאין צורך לפתוח popup שני.
+  Future<fb.UserCredential> _linkOrSignInWithPopup(fb.AuthProvider provider) async {
+    final current = _auth.currentUser;
+    if (current != null && current.isAnonymous) {
+      try {
+        return await current.linkWithPopup(provider);
+      } on fb.FirebaseAuthException catch (e) {
+        if (e.code != 'credential-already-in-use' && e.code != 'email-already-in-use') rethrow;
+        final credential = e.credential;
+        if (credential != null) {
+          return await _auth.signInWithCredential(credential);
+        }
+        // גיבוי: אם הפעם הזו לא חוזרת קרדנציאל שמיש, פותחים popup נוסף.
+        return await _auth.signInWithPopup(provider);
+      }
+    }
+    return _auth.signInWithPopup(provider);
+  }
+
   @override
   Future<AuthUser> signInAsGuest() async {
     try {
@@ -115,11 +140,7 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<AuthUser> signInWithGoogle() async {
     try {
       if (kIsWeb) {
-        final current = _auth.currentUser;
-        final provider = fb.GoogleAuthProvider();
-        final userCred = (current != null && current.isAnonymous)
-            ? await current.linkWithPopup(provider)
-            : await _auth.signInWithPopup(provider);
+        final userCred = await _linkOrSignInWithPopup(fb.GoogleAuthProvider());
         return _mapUser(userCred.user!);
       }
 
@@ -145,13 +166,10 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<AuthUser> signInWithApple() async {
     try {
       if (kIsWeb) {
-        final current = _auth.currentUser;
         final provider = fb.OAuthProvider('apple.com')
           ..addScope('email')
           ..addScope('name');
-        final userCred = (current != null && current.isAnonymous)
-            ? await current.linkWithPopup(provider)
-            : await _auth.signInWithPopup(provider);
+        final userCred = await _linkOrSignInWithPopup(provider);
         return _mapUser(userCred.user!);
       }
 
@@ -186,11 +204,7 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<AuthUser> signInWithFacebook() async {
     try {
       if (kIsWeb) {
-        final current = _auth.currentUser;
-        final provider = fb.FacebookAuthProvider();
-        final userCred = (current != null && current.isAnonymous)
-            ? await current.linkWithPopup(provider)
-            : await _auth.signInWithPopup(provider);
+        final userCred = await _linkOrSignInWithPopup(fb.FacebookAuthProvider());
         return _mapUser(userCred.user!);
       }
 
