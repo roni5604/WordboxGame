@@ -1,15 +1,16 @@
 /// דגלי תצורה גלובליים לאפליקציה.
 ///
-/// [useFirebaseBackend] כבוי כברירת מחדל כדי שהמשחק היחיד-שחקן ירוץ באופן
-/// מלא ואופליין ללא שום הגדרה חיצונית. לאחר הרצת `flutterfire configure`
-/// (ראו docs/FIREBASE_SETUP.md) ניתן להפעיל את הדגל כדי לחבר סנכרון ענן,
-/// לוח מובילים, והתחברות משתמשים.
+/// [useFirebaseBackend] מופעל כברירת מחדל - פרויקט Firebase אמיתי
+/// (wordbox-64b19) כבר מחובר (ראו lib/firebase_options.dart ו-
+/// docs/FIREBASE_SETUP.md): Authentication (אורח/מייל/Google/Apple) ו-
+/// Firestore פעילים. אפשר לכבות זמנית לצורך פיתוח אופליין עם:
+///   flutter run --dart-define=USE_FIREBASE=false
 class AppConfig {
   AppConfig._();
 
   static const bool useFirebaseBackend = bool.fromEnvironment(
     'USE_FIREBASE',
-    defaultValue: false,
+    defaultValue: true,
   );
 
   /// מצב רב-משתתפים עדיין בפיתוח (שלב 2 בתוכנית) - כרגע מוצג כ"בקרוב".
