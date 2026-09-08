@@ -30,8 +30,10 @@ class FirebaseAuthRepository implements AuthRepository {
 
   AuthUser _mapUser(fb.User user) {
     AuthProviderType provider = AuthProviderType.guest;
+    fb.UserInfo? providerInfo;
     if (!user.isAnonymous) {
-      final providerId = user.providerData.isNotEmpty ? user.providerData.first.providerId : '';
+      providerInfo = user.providerData.isNotEmpty ? user.providerData.first : null;
+      final providerId = providerInfo?.providerId ?? '';
       provider = switch (providerId) {
         'google.com' => AuthProviderType.google,
         'apple.com' => AuthProviderType.apple,
@@ -40,11 +42,24 @@ class FirebaseAuthRepository implements AuthRepository {
         _ => AuthProviderType.email,
       };
     }
+    // כשמקשרים חשבון אורח/ת לספק (Google/Apple/Facebook) עם
+    // linkWithCredential/linkWithPopup, Firebase לא בהכרח מעדכן את השדות
+    // הראשיים displayName/photoURL של המשתמש - הם נשארים null (מהאורח/ת),
+    // בזמן שהמידע האמיתי מהספק קיים רק בתוך providerData. לכן, כל עוד
+    // השדה הראשי ריק, נופלים חזרה למידע מה-provider כדי שהשם והתמונה
+    // האמיתיים באמת יופיעו במקום להישאר "תקועים" עם ערך ריק.
+    final displayName = (user.displayName?.trim().isNotEmpty ?? false)
+        ? user.displayName
+        : providerInfo?.displayName;
+    final photoUrl = (user.photoURL?.trim().isNotEmpty ?? false)
+        ? user.photoURL
+        : providerInfo?.photoURL;
+    final email = user.email ?? providerInfo?.email;
     return AuthUser(
       uid: user.uid,
-      displayName: user.displayName,
-      email: user.email,
-      photoUrl: user.photoURL,
+      displayName: displayName,
+      email: email,
+      photoUrl: photoUrl,
       isAnonymous: user.isAnonymous,
       provider: provider,
     );
@@ -85,20 +100,46 @@ class FirebaseAuthRepository implements AuthRepository {
     return AuthException('משהו השתבש בהתחברות. נסו שוב.');
   }
 
+  /// אחרי קישור/התחברות מוצלחת, מעתיק displayName/photoURL מ-providerData
+  /// (המידע האמיתי מהספק) לשדות הראשיים של המשתמש, אם הם עדיין ריקים -
+  /// כדי שהשם והתמונה יישארו נכונים בכל מקום שקורא אותם ישירות מ-Firebase,
+  /// ולא רק דרך ה-fallback שב-_mapUser. לא קריטי אם זה נכשל.
+  Future<void> _backfillProfileFromProvider(fb.User user) async {
+    if (user.providerData.isEmpty) return;
+    final info = user.providerData.first;
+    try {
+      if ((user.displayName?.trim().isEmpty ?? true) &&
+          (info.displayName?.trim().isNotEmpty ?? false)) {
+        await user.updateDisplayName(info.displayName);
+      }
+      if ((user.photoURL?.trim().isEmpty ?? true) &&
+          (info.photoURL?.trim().isNotEmpty ?? false)) {
+        await user.updatePhotoURL(info.photoURL);
+      }
+    } catch (_) {
+      // לא קריטי - _mapUser עושה fallback בכל מקרה גם בלי זה.
+    }
+  }
+
   /// מנסה "לשדרג" משתמש אורח קיים לחשבון אמיתי (linkWithCredential) כדי
   /// לשמר את ההתקדמות שכבר נצברה; אם הקרדנציאל כבר שייך לחשבון אחר,
   /// נופלים חזרה להתחברות רגילה (המשתמש יעבור לפרופיל הקיים שלו בענן).
   Future<fb.UserCredential> _linkOrSignIn(fb.AuthCredential credential) async {
     final current = _auth.currentUser;
+    fb.UserCredential result;
     if (current != null && current.isAnonymous) {
       try {
-        return await current.linkWithCredential(credential);
+        result = await current.linkWithCredential(credential);
+        await _backfillProfileFromProvider(result.user!);
+        return result;
       } on fb.FirebaseAuthException catch (e) {
         if (e.code != 'credential-already-in-use' && e.code != 'email-already-in-use') rethrow;
         // ממשיכים להתחברות רגילה עם הקרדנציאל הקיים.
       }
     }
-    return _auth.signInWithCredential(credential);
+    result = await _auth.signInWithCredential(credential);
+    await _backfillProfileFromProvider(result.user!);
+    return result;
   }
 
   /// גרסת ה-Web של [_linkOrSignIn]: מנסה לקשר את משתמש/ת האורח/ת הנוכחי/ת
@@ -110,20 +151,29 @@ class FirebaseAuthRepository implements AuthRepository {
   /// בתוך השגיאה עצמה (e.credential), כך שאין צורך לפתוח popup שני.
   Future<fb.UserCredential> _linkOrSignInWithPopup(fb.AuthProvider provider) async {
     final current = _auth.currentUser;
+    fb.UserCredential result;
     if (current != null && current.isAnonymous) {
       try {
-        return await current.linkWithPopup(provider);
+        result = await current.linkWithPopup(provider);
+        await _backfillProfileFromProvider(result.user!);
+        return result;
       } on fb.FirebaseAuthException catch (e) {
         if (e.code != 'credential-already-in-use' && e.code != 'email-already-in-use') rethrow;
         final credential = e.credential;
         if (credential != null) {
-          return await _auth.signInWithCredential(credential);
+          result = await _auth.signInWithCredential(credential);
+          await _backfillProfileFromProvider(result.user!);
+          return result;
         }
         // גיבוי: אם הפעם הזו לא חוזרת קרדנציאל שמיש, פותחים popup נוסף.
-        return await _auth.signInWithPopup(provider);
+        result = await _auth.signInWithPopup(provider);
+        await _backfillProfileFromProvider(result.user!);
+        return result;
       }
     }
-    return _auth.signInWithPopup(provider);
+    result = await _auth.signInWithPopup(provider);
+    await _backfillProfileFromProvider(result.user!);
+    return result;
   }
 
   @override

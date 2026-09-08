@@ -12,6 +12,7 @@ import '../../game_engine/dictionary/hebrew_trie.dart';
 import '../../game_engine/game_session.dart';
 import '../../game_engine/models/grid_position.dart';
 import '../../game_engine/models/level_config.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/dictionary_provider.dart';
 import '../../providers/letter_frequency_provider.dart';
 import '../../providers/player_profile_provider.dart';
@@ -353,9 +354,36 @@ class _GameHeader extends ConsumerWidget {
     required this.onHint,
   });
 
+  /// רמזים שמורים לחשבונות אמיתיים - לאורח/ת מציגים הזמנה להירשם במקום
+  /// לצרוך רמז, כדי לא לתת לאורח/ת גישה ל"אפשרות רמזים" בכלל.
+  void _showGuestHintPrompt(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('רמזים שמורים למי שנרשם/ת'),
+        content: const Text(
+          'הרשמו בחינם עם Google, Apple, Facebook או מייל וקבלו רמזי מתנה '
+          'מיד ובונוס יומי - בלי לאבד את ההתקדמות הנוכחית שלכם.',
+        ),
+        actions: [
+          TextButton(onPressed: () => dialogContext.pop(), child: const Text('אחר כך')),
+          FilledButton(
+            onPressed: () {
+              dialogContext.pop();
+              context.push('/auth');
+            },
+            child: const Text('הרשמה'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hints = ref.watch(playerProfileProvider).valueOrNull?.hints ?? 0;
+    final authUser = ref.watch(authStateProvider).valueOrNull;
+    final isGuest = authUser == null || authUser.isAnonymous;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -375,14 +403,19 @@ class _GameHeader extends ConsumerWidget {
             borderRadius: BorderRadius.circular(20),
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
-              onTap: onHint,
+              onTap: isGuest ? () => _showGuestHintPrompt(context) : onHint,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.lightbulb_rounded, color: AppColors.star, size: 18),
+                    Icon(
+                      isGuest ? Icons.lock_outline_rounded : Icons.lightbulb_rounded,
+                      color: isGuest ? Colors.black45 : AppColors.star,
+                      size: 18,
+                    ),
                     const SizedBox(width: 4),
-                    Text('$hints', style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text(isGuest ? 'הרשמה' : '$hints',
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
                   ],
                 ),
               ),

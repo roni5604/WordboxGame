@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
 
@@ -52,6 +53,8 @@ class StoreScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(playerProfileProvider);
+    final authUser = ref.watch(authStateProvider).valueOrNull;
+    final isGuest = authUser == null || authUser.isAnonymous;
 
     return Scaffold(
       backgroundColor: AppColors.primaryDark,
@@ -109,39 +112,94 @@ class StoreScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    '💡 יש לך כרגע ${profile.hints} רמזים',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
+                  if (isGuest) ...[
+                    const Expanded(child: _GuestHintsCta()),
+                  ] else ...[
+                    Text(
+                      '💡 יש לך כרגע ${profile.hints} רמזים',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ).animate().fadeIn().scale(begin: const Offset(0.9, 0.9)),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'רמז מציג לכם מילה שעוד לא מצאתם, כדי לעזור לכם להתקדם.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
                     ),
-                  ).animate().fadeIn().scale(begin: const Offset(0.9, 0.9)),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'רמז מציג לכם מילה שעוד לא מצאתם, כדי לעזור לכם להתקדם.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
-                  const SizedBox(height: 28),
-                  Expanded(
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _packs.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 16),
-                      itemBuilder: (context, i) {
-                        final pack = _packs[i];
-                        return _PackCard(
-                          pack: pack,
-                          onBuy: () => _buy(context, ref, pack),
-                        ).animate().fadeIn(delay: (100 * i).ms).slideY(begin: 0.15, end: 0);
-                      },
+                    const SizedBox(height: 28),
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        itemCount: _packs.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemBuilder: (context, i) {
+                          final pack = _packs[i];
+                          return _PackCard(
+                            pack: pack,
+                            onBuy: () => _buy(context, ref, pack),
+                          ).animate().fadeIn(delay: (100 * i).ms).slideY(begin: 0.15, end: 0);
+                        },
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// מוצג במקום חנות הרמזים כשמשחקים כאורח/ת - רמזים (כולל מתנת הפתיחה
+/// והבונוס היומי) שמורים לחשבונות אמיתיים, כדי לתת סיבה טובה להירשם.
+class _GuestHintsCta extends StatelessWidget {
+  const _GuestHintsCta();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🎁', style: TextStyle(fontSize: 56))
+                .animate()
+                .scale(curve: Curves.elasticOut, duration: 600.ms),
+            const SizedBox(height: 16),
+            const Text(
+              'רמזים שמורים למי שנרשם/ת',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'הרשמו בחינם עם Google, Apple, Facebook או מייל - ותקבלו 5 רמזי '
+              'מתנה מיד, בונוס רמזים חדש בכל יום, ואפשרות לקנות עוד עם המטבעות '
+              'שלכם.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppColors.primaryDark,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () => context.push('/auth'),
+                child: const Text('הרשמה / התחברות',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ],
         ),
       ),
     );

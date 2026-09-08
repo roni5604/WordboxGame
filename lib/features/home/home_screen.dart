@@ -24,9 +24,12 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _dailyRewardChecked = false;
 
-  Future<void> _maybeShowDailyReward(PlayerProfile profile) async {
+  Future<void> _maybeShowDailyReward(PlayerProfile profile, bool isGuest) async {
     if (_dailyRewardChecked) return;
     _dailyRewardChecked = true;
+    // בונוס הרמזים היומי שמור לחשבונות אמיתיים בלבד - זו אחת הסיבות
+    // הכי טובות להירשם, אז אין טעם להציג אותו למי שעדיין אורח/ת.
+    if (isGuest) return;
     final reward = await ref.read(playerProfileProvider.notifier).claimDailyHintIfAvailable();
     if (reward != null && mounted) {
       ref.read(soundServiceProvider).playDailyReward();
@@ -42,6 +45,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(playerProfileProvider);
     final authUser = ref.watch(authStateProvider).valueOrNull;
+    final isGuest = authUser == null || authUser.isAnonymous;
 
     return Scaffold(
       backgroundColor: AppColors.primaryDark,
@@ -61,7 +65,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             data: (profile) {
               WidgetsBinding.instance
-                  .addPostFrameCallback((_) => _maybeShowDailyReward(profile));
+                  .addPostFrameCallback((_) => _maybeShowDailyReward(profile, isGuest));
 
               // גלילה + גובה מינימלי = תוכן ממורכז יפה במסכים גבוהים, אך
               // לעולם לא "נחתך" מחוץ למסך במסכים קצרים/רחבים (למשל דפדפן
@@ -88,13 +92,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       iconColor: Colors.amberAccent,
                                       label: '${profile.coins}'),
                                   const SizedBox(width: 8),
-                                  GestureDetector(
-                                    onTap: () => context.push('/store'),
-                                    child: _Pill(
-                                        icon: Icons.lightbulb_rounded,
-                                        iconColor: AppColors.star,
-                                        label: '${profile.hints}'),
-                                  ),
+                                  // רמזים שמורים לחשבונות אמיתיים בלבד - לאורח/ת מציגים
+                                  // הזמנה קצרה להירשם במקום המספר/החנות.
+                                  if (isGuest)
+                                    GestureDetector(
+                                      onTap: () => context.push('/auth'),
+                                      child: const _Pill(
+                                        icon: Icons.lock_outline_rounded,
+                                        iconColor: Colors.amberAccent,
+                                        label: 'הרשמה לרמזים',
+                                      ),
+                                    )
+                                  else
+                                    GestureDetector(
+                                      onTap: () => context.push('/store'),
+                                      child: _Pill(
+                                          icon: Icons.lightbulb_rounded,
+                                          iconColor: AppColors.star,
+                                          label: '${profile.hints}'),
+                                    ),
                                   const Spacer(),
                                   IconButton(
                                     onPressed: () => context.push('/settings'),
@@ -111,6 +127,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ],
                               ),
                             ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: Text(
+                                  'שלום, ${profile.displayName}! 👋',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ).animate().fadeIn(),
                             const Spacer(),
                             AnimatedAvatar(
                               avatarId: profile.avatarId,
