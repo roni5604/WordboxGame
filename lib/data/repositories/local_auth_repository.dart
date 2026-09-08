@@ -27,7 +27,11 @@ class LocalAuthRepository implements AuthRepository {
     final box = await _openBox();
     var id = box.get('guest_id') as String?;
     if (id == null) {
-      id = 'guest_${Random().nextInt(1 << 32)}_${DateTime.now().microsecondsSinceEpoch}';
+      // הערה: לא משתמשים ב-`1 << 32` כדי לחשב את הטווח - באפליקציית Web
+      // (dart2js/DDC) פעולות bitwise על int מוגבלות ל-32 ביט בפועל (JS),
+      // כך ש-`1 << 32` מתאפס ל-0 וגורם ל-RangeError בתוך nextInt. משתמשים
+      // בליטרל מספרי מפורש (2^32) שמחושב בזמן קומפילציה ולא דרך shift.
+      id = 'guest_${Random().nextInt(4294967296)}_${DateTime.now().microsecondsSinceEpoch}';
       await box.put('guest_id', id);
     }
     return id;
