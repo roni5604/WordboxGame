@@ -15,6 +15,18 @@ class AppColors {
   static const Color tileSelected = Color(0xFFFFE066);
   static const Color tileShadow = Color(0x33000000);
 
+  /// פלטת "האריחים הצבעוניים" - בהשראת אייקון האפליקציה (ריבועים מעוגלים
+  /// קרם/אפרסק/כתום/פוקסיה) עם אות אדומה עבה ומתאר לבן. כל תא בלוח מקבל
+  /// צבע מהפלטה הזו לפי מיקומו, כדי שהלוח ייראה כמו פסיפס חגיגי כמו האייקון.
+  static const List<Color> tileCandyPalette = [
+    Color(0xFFFFF3E0), // קרם
+    Color(0xFFFFD9A0), // אפרסק
+    Color(0xFFFFC178), // כתום בהיר
+    Color(0xFFEC4899), // פוקסיה
+  ];
+
+  static const Color tileLetterRed = Color(0xFFE0303B);
+
   static const Color success = Color(0xFF4CD97B);
   static const Color error = Color(0xFFFF5C5C);
 

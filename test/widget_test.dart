@@ -11,7 +11,9 @@ void main() {
       ),
     );
 
-    expect(find.text('א'), findsOneWidget);
+    // אריח idle מצייר את האות פעמיים בסגנון "מדבקה" (מתאר לבן + מילוי
+    // אדום), בהשראת אייקון האפליקציה - לכן מצפים לשני widgets עם אותו טקסט.
+    expect(find.text('א'), findsNWidgets(2));
   });
 
   testWidgets('MascotWidget renders without throwing (sad mood)', (tester) async {

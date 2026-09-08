@@ -34,7 +34,21 @@ class GridBoardState extends State<GridBoard> {
     final col = (localOffset.dx / cellSize).floor();
     final row = (localOffset.dy / cellSize).floor();
     if (row < 0 || row >= _size || col < 0 || col >= _size) return null;
-    return GridPosition(row, col);
+
+    // תיקון לבאג "האלכסון נתפס": חלוקה מלבנית פשוטה (floor) גורמת לכך
+    // שבגרירה אלכסונית מהירה, נקודת המגע יכולה לחצות רגעית את הגבול של
+    // התא השכן האורתוגונלי (לא זה שבאלכסון) ליד הפינה המשותפת בין 4
+    // תאים - וכך "נתפסת" בטעות בתא הלא-נכון. הפתרון: דורשים שהנקודה
+    // תהיה קרובה מספיק (במרחק אוקלידי) למרכז התא המועמד; ליד הפינות
+    // (המרוחקות ~0.71*cellSize מהמרכז) הנקודה תיפסל ותיחשב "אזור מת",
+    // ואילו ליד אמצע הצלעות (מרוחק לכל היותר 0.5*cellSize) היא תמיד
+    // תתקבל - כך שהתגובתיות הרגילה לא נפגעת, רק פינות אמביגואליות.
+    final candidate = GridPosition(row, col);
+    final center = _centerForPosition(candidate, cellSize);
+    final distance = (localOffset - center).distance;
+    if (distance > cellSize * 0.62) return null;
+
+    return candidate;
   }
 
   Offset _centerForPosition(GridPosition pos, double cellSize) {
@@ -138,6 +152,10 @@ class GridBoardState extends State<GridBoard> {
                         child: LetterTile(
                           letter: widget.letters[r][c],
                           size: cellSize * 0.82,
+                          // דפוס פסאודו-אקראי אך יציב לפי מיקום, כדי שהלוח
+                          // ייראה כמו פסיפס צבעוני (כמו אייקון האפליקציה)
+                          // ולא יתחלף מחדש בכל build.
+                          paletteIndex: (r * 31 + c * 17) % 4,
                           state: _isError && _path.contains(GridPosition(r, c))
                               ? TileVisualState.error
                               : _path.contains(GridPosition(r, c))

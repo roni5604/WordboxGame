@@ -5,7 +5,7 @@
     "dir": "rtl",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#13B8B0",
+    "background_color": "#FF7A45",
     "theme_color": "#FF7A45",
     "description": "משחק מילים בעברית בסגנון Boggle/Wordbox - חברו אותיות שכנות, מצאו מילים, וטפסו במפת השלבים.",
     "orientation": "portrait-primary",

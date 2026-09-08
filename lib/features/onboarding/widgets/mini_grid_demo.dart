@@ -59,6 +59,7 @@ class MiniGridDemo extends StatelessWidget {
                 child: LetterTile(
                   letter: letters[i],
                   size: tileSize,
+                  paletteIndex: (i ~/ columns * 31 + i % columns * 17) % 4,
                   state: isActive ? TileVisualState.selected : TileVisualState.idle,
                 ),
               );
