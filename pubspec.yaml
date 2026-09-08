@@ -1,5 +1,5 @@
 name: wordbox_hebrew
-description: "Wordbox-IL - משחק מילים בעברית בהשראת Wordbox, בסגנון Boggle. iOS, Android ו-Web מקוד אחד."
+description: "מצא ת׳מילה - משחק מילים בעברית בהשראת Wordbox, בסגנון Boggle. משחקה של ליאן רודן. iOS, Android ו-Web מקוד אחד."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -53,6 +53,8 @@ flutter:
     - assets/dictionaries/
     - assets/config/
     - assets/icon/
+    - assets/mascot/
+    - assets/avatar/
 
 flutter_launcher_icons:
   android: true

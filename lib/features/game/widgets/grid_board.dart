@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -27,6 +29,8 @@ class GridBoardState extends State<GridBoard> {
   List<GridPosition> _path = [];
   Offset? _dragPosition;
   bool _isError = false;
+  List<GridPosition> _hintPath = [];
+  Timer? _hintTimer;
 
   int get _size => widget.letters.length;
 
@@ -110,6 +114,23 @@ class GridBoardState extends State<GridBoard> {
     });
   }
 
+  /// מציג רמז: מדגיש זמנית (בזהב זוהר) את הנתיב של מילה שטרם נמצאה, כדי
+  /// ש"מציג את המילה עוד לפני שהיא נמצאה" - השחקן/ית עדיין צריך/ה לגרור
+  /// בעצמו/ה מעל האותיות המודגשות כדי לזכות בניקוד.
+  void showHint(List<GridPosition> path) {
+    _hintTimer?.cancel();
+    setState(() => _hintPath = path);
+    _hintTimer = Timer(const Duration(milliseconds: 2600), () {
+      if (mounted) setState(() => _hintPath = []);
+    });
+  }
+
+  @override
+  void dispose() {
+    _hintTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -160,7 +181,9 @@ class GridBoardState extends State<GridBoard> {
                               ? TileVisualState.error
                               : _path.contains(GridPosition(r, c))
                                   ? TileVisualState.selected
-                                  : TileVisualState.idle,
+                                  : _hintPath.contains(GridPosition(r, c))
+                                      ? TileVisualState.hint
+                                      : TileVisualState.idle,
                         ),
                       ),
                     ),

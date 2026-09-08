@@ -44,6 +44,15 @@ class LocalProgressRepository implements ProgressRepository {
         ),
     };
 
+    // מתנת פתיחה חד-פעמית: כל שחקן חדש (שעדיין לא אותחל אצלו מנגנון
+    // הרמזים) מקבל 5 רמזי מתנה בפעם הראשונה שהפרופיל שלו נטען.
+    final hintsInitialized = box.get('hints_initialized', defaultValue: false) as bool;
+    int hints = box.get('hints', defaultValue: 0) as int;
+    if (!hintsInitialized) {
+      hints = 5;
+      await box.putAll({'hints_initialized': true, 'hints': hints});
+    }
+
     return PlayerProfile(
       levelProgress: levelProgress,
       coins: box.get('coins', defaultValue: 0) as int,
@@ -52,6 +61,10 @@ class LocalProgressRepository implements ProgressRepository {
       hapticsOn: box.get('haptics_on', defaultValue: true) as bool,
       onboardingCompleted: box.get('onboarding_completed', defaultValue: false) as bool,
       displayName: box.get('display_name', defaultValue: 'שחקן/ית') as String,
+      avatarId: box.get('avatar_id', defaultValue: 'detective') as String,
+      hints: hints,
+      hintStreakDay: box.get('hint_streak_day', defaultValue: 0) as int,
+      lastHintClaimDate: box.get('last_hint_claim_date') as String?,
     );
   }
 
@@ -79,6 +92,11 @@ class LocalProgressRepository implements ProgressRepository {
       'haptics_on': profile.hapticsOn,
       'onboarding_completed': profile.onboardingCompleted,
       'display_name': profile.displayName,
+      'avatar_id': profile.avatarId,
+      'hints_initialized': true,
+      'hints': profile.hints,
+      'hint_streak_day': profile.hintStreakDay,
+      'last_hint_claim_date': profile.lastHintClaimDate,
     });
   }
 }

@@ -3,7 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/theme/app_colors.dart';
 
-enum TileVisualState { idle, selected, success, error }
+enum TileVisualState { idle, selected, success, error, hint }
 
 /// אריח אות בודד בלוח - בסגנון "ריבוע מעוגל צבעוני" (squircle) עם אות
 /// עבה ומתאר לבן, בהשראת אייקון האפליקציה. כל תא במצב idle מקבל צבע
@@ -36,6 +36,8 @@ class LetterTile extends StatelessWidget {
         return AppColors.success;
       case TileVisualState.error:
         return AppColors.error;
+      case TileVisualState.hint:
+        return AppColors.star;
     }
   }
 
@@ -65,7 +67,9 @@ class LetterTile extends StatelessWidget {
         ],
         border: state == TileVisualState.selected
             ? Border.all(color: Colors.white, width: 3)
-            : null,
+            : state == TileVisualState.hint
+                ? Border.all(color: Colors.white, width: 3)
+                : null,
       ),
       alignment: Alignment.center,
       child: _useRedOutlinedLetter
@@ -82,6 +86,11 @@ class LetterTile extends StatelessWidget {
 
     if (state == TileVisualState.selected) {
       return tile.animate().scaleXY(begin: 1, end: 1.12, duration: 120.ms, curve: Curves.easeOut);
+    }
+    if (state == TileVisualState.hint) {
+      return tile
+          .animate(onPlay: (c) => c.repeat(reverse: true))
+          .scaleXY(begin: 1, end: 1.1, duration: 300.ms, curve: Curves.easeInOut);
     }
     return tile;
   }

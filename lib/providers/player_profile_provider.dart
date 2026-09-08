@@ -5,6 +5,22 @@ import '../data/models/player_profile.dart';
 import '../data/repositories/progress_repository.dart';
 import 'repository_providers.dart';
 
+/// תוצאה של תביעת בונוס הרמזים היומי - יום נוכחי במחזור (1-7) ומספר
+/// הרמזים שהוענקו, כדי שהממשק יוכל להציג פופ-אפ חגיגי "יום X! +Y רמזים".
+class DailyHintReward {
+  final int day;
+  final int hintsAwarded;
+
+  const DailyHintReward({required this.day, required this.hintsAwarded});
+}
+
+String _todayKey() {
+  final now = DateTime.now();
+  return '${now.year.toString().padLeft(4, '0')}-'
+      '${now.month.toString().padLeft(2, '0')}-'
+      '${now.day.toString().padLeft(2, '0')}';
+}
+
 class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   final ProgressRepository _repository;
   late final Future<void> _initialLoad;
@@ -71,9 +87,49 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   Future<void> setOnboardingCompleted() =>
       _mutate((c) => c.copyWith(onboardingCompleted: true));
   Future<void> setDisplayName(String name) => _mutate((c) => c.copyWith(displayName: name));
+  Future<void> setAvatarId(String avatarId) =>
+      _mutate((c) => c.copyWith(avatarId: avatarId));
 
   Future<void> resetProgress() async {
     await _mutate((_) => const PlayerProfile());
+  }
+
+  /// בודק אם השחקן כבר תבע את בונוס הרמזים היומי היום, ואם לא - מזכה
+  /// אותו ומקדם את מונה הרצף (1..7, מתאפס חזרה ל-1 אחרי יום 7).
+  /// מחזיר את פרטי הזיכוי כדי שהממשק יציג פופ-אפ, או null אם כבר נתבע היום.
+  Future<DailyHintReward?> claimDailyHintIfAvailable() async {
+    final current = state.valueOrNull;
+    if (current == null) return null;
+
+    final today = _todayKey();
+    if (current.lastHintClaimDate == today) return null;
+
+    final nextDay = current.hintStreakDay >= 7 ? 1 : current.hintStreakDay + 1;
+    await _mutate((c) => c.copyWith(
+          hints: c.hints + nextDay,
+          hintStreakDay: nextDay,
+          lastHintClaimDate: today,
+        ));
+
+    return DailyHintReward(day: nextDay, hintsAwarded: nextDay);
+  }
+
+  /// צורך רמז אחד (למשל בעת שימוש ברמז במהלך שלב). מחזיר false אם אין
+  /// לשחקן מספיק רמזים.
+  Future<bool> useHint() async {
+    final current = state.valueOrNull;
+    if (current == null || current.hints <= 0) return false;
+    await _mutate((c) => c.copyWith(hints: c.hints - 1));
+    return true;
+  }
+
+  /// קונה [amount] רמזים תמורת [cost] מטבעות (בחנות). מחזיר false אם אין
+  /// מספיק מטבעות.
+  Future<bool> buyHints({required int amount, required int cost}) async {
+    final current = state.valueOrNull;
+    if (current == null || current.coins < cost) return false;
+    await _mutate((c) => c.copyWith(coins: c.coins - cost, hints: c.hints + amount));
+    return true;
   }
 }
 

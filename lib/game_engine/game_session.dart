@@ -1,7 +1,10 @@
+import 'dart:math';
+
 import 'board_generator.dart';
 import 'dictionary/hebrew_trie.dart';
 import 'models/grid_position.dart';
 import 'models/level_config.dart';
+import 'word_finder.dart';
 
 enum WordSubmitStatus { accepted, duplicate, tooShort, invalidWord, invalidPath }
 
@@ -85,4 +88,21 @@ class GameSession {
   }
 
   int get currentStars => starsForScore(_score);
+
+  /// בוחר מילה שטרם נמצאה עבור מנגנון הרמזים - מעדיפים את המילים
+  /// הקצרות/קלות שנותרו (כדי שהרמז יעזור אך לא "יפתור" את כל השלב),
+  /// ובוחרים אקראית מתוכן כדי שלא תמיד יוצע אותו רמז.
+  FoundWord? hintForUnfoundWord({Random? random}) {
+    final remaining = board.possibleWords
+        .where((w) => !_foundNormalizedWords.contains(w.normalizedWord))
+        .toList();
+    if (remaining.isEmpty) return null;
+
+    remaining.sort((a, b) => a.normalizedWord.length.compareTo(b.normalizedWord.length));
+    final shortestLength = remaining.first.normalizedWord.length;
+    final easiest = remaining.where((w) => w.normalizedWord.length == shortestLength).toList();
+
+    final rnd = random ?? Random();
+    return easiest[rnd.nextInt(easiest.length)];
+  }
 }

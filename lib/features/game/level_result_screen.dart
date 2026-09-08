@@ -8,6 +8,25 @@ import '../../game_engine/models/level_config.dart';
 import 'game_screen.dart';
 import 'widgets/mascot_widget.dart';
 
+/// עבור תוצאה טובה (2-3 כוכבים) מציגים את הבלש מילולי חוגג עם השחקן/ית -
+/// כדי שגם "מסך ההצלחה" יזכיר את הדמות המובילה של המשחק, כפי שהתבקש.
+class _CelebrationCharacter extends StatelessWidget {
+  final int stars;
+
+  const _CelebrationCharacter({required this.stars});
+
+  @override
+  Widget build(BuildContext context) {
+    if (stars >= 2) {
+      return Image.asset('assets/avatar/detective_celebrate.png', height: 130)
+          .animate(onPlay: (c) => c.repeat(reverse: true))
+          .scaleXY(begin: 1, end: 1.06, duration: 500.ms, curve: Curves.easeInOut);
+    }
+    final mood = stars == 1 ? MascotMood.happy : MascotMood.sad;
+    return MascotWidget(mood: mood, size: 110);
+  }
+}
+
 /// מסך תוצאות שלב: חושף כוכבים אחד-אחד באנימציה, מציג קונפטי אם הושגו
 /// לפחות 2 כוכבים, ומאפשר לשחק שוב או להמשיך לשלב הבא.
 class LevelResultScreen extends StatefulWidget {
@@ -44,9 +63,6 @@ class _LevelResultScreenState extends State<LevelResultScreen> {
   Widget build(BuildContext context) {
     final config = CampaignLevels.byLevelNumber(widget.levelNumber);
     final result = widget.result;
-    final mood = result.stars >= 2
-        ? MascotMood.excited
-        : (result.stars == 1 ? MascotMood.happy : MascotMood.sad);
 
     return Scaffold(
       body: Container(
@@ -90,7 +106,7 @@ class _LevelResultScreenState extends State<LevelResultScreen> {
                       ),
                     ).animate().fadeIn().slideY(begin: -0.2, end: 0),
                     const SizedBox(height: 12),
-                    MascotWidget(mood: mood, size: 110),
+                    _CelebrationCharacter(stars: result.stars),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,

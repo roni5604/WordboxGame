@@ -12,11 +12,20 @@ class _OnboardingPage {
   final String title;
   final String description;
   final WidgetBuilder? demoBuilder;
+  final String? guideImage;
 
-  const _OnboardingPage(this.emoji, this.title, this.description, {this.demoBuilder});
+  const _OnboardingPage(this.emoji, this.title, this.description,
+      {this.demoBuilder, this.guideImage});
 }
 
 final List<_OnboardingPage> _pages = [
+  const _OnboardingPage(
+    '',
+    'שלום, אני הבלש מילולי! 🔍',
+    'אני כאן כדי לעזור לכם לפצח כל לוח אותיות ולמצוא את המילים הנסתרות.\n'
+        'בואו נלמד ביחד איך משחקים - זה קל ומהנה!',
+    guideImage: 'assets/avatar/detective_explain.png',
+  ),
   _OnboardingPage(
     '🔤',
     'חברו אותיות שכנות',
@@ -112,7 +121,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          if (page.demoBuilder != null)
+                          if (page.guideImage != null)
+                            Image.asset(page.guideImage!, height: 200)
+                                .animate(key: ValueKey('guide-$i'))
+                                .scale(duration: 500.ms, curve: Curves.elasticOut)
+                                .then()
+                                .shake(hz: 1.5, curve: Curves.easeInOut)
+                          else if (page.demoBuilder != null)
                             page.demoBuilder!(context).animate(key: ValueKey('demo-$i')).fadeIn()
                           else
                             Text(page.emoji, style: const TextStyle(fontSize: 96))

@@ -41,7 +41,10 @@ class FirebaseProgressRepository implements ProgressRepository {
     final uid = await _ensureUid();
     final snapshot = await _profileDoc(uid).get();
     if (!snapshot.exists) {
-      return const PlayerProfile();
+      // מתנת פתיחה חד-פעמית לפרופיל ענן חדש - 5 רמזי מתנה.
+      const fresh = PlayerProfile(hints: 5);
+      await saveProfile(fresh);
+      return fresh;
     }
     final data = snapshot.data()!;
 
@@ -64,6 +67,10 @@ class FirebaseProgressRepository implements ProgressRepository {
       hapticsOn: data['hapticsOn'] as bool? ?? true,
       onboardingCompleted: data['onboardingCompleted'] as bool? ?? false,
       displayName: data['displayName'] as String? ?? 'שחקן/ית',
+      avatarId: data['avatarId'] as String? ?? 'detective',
+      hints: (data['hints'] as num?)?.toInt() ?? 0,
+      hintStreakDay: (data['hintStreakDay'] as num?)?.toInt() ?? 0,
+      lastHintClaimDate: data['lastHintClaimDate'] as String?,
     );
   }
 
@@ -87,6 +94,10 @@ class FirebaseProgressRepository implements ProgressRepository {
       'hapticsOn': profile.hapticsOn,
       'onboardingCompleted': profile.onboardingCompleted,
       'displayName': profile.displayName,
+      'avatarId': profile.avatarId,
+      'hints': profile.hints,
+      'hintStreakDay': profile.hintStreakDay,
+      'lastHintClaimDate': profile.lastHintClaimDate,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

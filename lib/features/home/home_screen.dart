@@ -4,16 +4,38 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../data/models/player_profile.dart';
 import '../../providers/player_profile_provider.dart';
-import '../game/widgets/mascot_widget.dart';
+import '../profile/widgets/avatar_widget.dart';
+import 'widgets/daily_hint_dialog.dart';
 
 /// תפריט ראשי - שער הכניסה למשחק: התחלת קמפיין, רב-משתתפים, הדרכה
 /// וחוקי המשחק. מפת השלבים עצמה נמצאת ב-/campaign (ראה [CampaignMapScreen]).
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  bool _dailyRewardChecked = false;
+
+  Future<void> _maybeShowDailyReward(PlayerProfile profile) async {
+    if (_dailyRewardChecked) return;
+    _dailyRewardChecked = true;
+    final reward = await ref.read(playerProfileProvider.notifier).claimDailyHintIfAvailable();
+    if (reward != null && mounted) {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => DailyHintDialog(reward: reward),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final profileAsync = ref.watch(playerProfileProvider);
 
     return Scaffold(
@@ -33,6 +55,9 @@ class HomeScreen extends ConsumerWidget {
               child: Text('שגיאה בטעינת הפרופיל: $e', style: const TextStyle(color: Colors.white)),
             ),
             data: (profile) {
+              WidgetsBinding.instance
+                  .addPostFrameCallback((_) => _maybeShowDailyReward(profile));
+
               // גלילה + גובה מינימלי = תוכן ממורכז יפה במסכים גבוהים, אך
               // לעולם לא "נחתך" מחוץ למסך במסכים קצרים/רחבים (למשל דפדפן
               // בחלון נמוך) - זו הייתה תקלה שראינו במסכים קודמים.
@@ -57,25 +82,33 @@ class HomeScreen extends ConsumerWidget {
                                       icon: Icons.paid_rounded,
                                       iconColor: Colors.amberAccent,
                                       label: '${profile.coins}'),
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: () => context.push('/store'),
+                                    child: _Pill(
+                                        icon: Icons.lightbulb_rounded,
+                                        iconColor: AppColors.star,
+                                        label: '${profile.hints}'),
+                                  ),
                                   const Spacer(),
                                   IconButton(
                                     onPressed: () => context.push('/settings'),
                                     icon: const Icon(Icons.settings_rounded, color: Colors.white),
                                   ),
-                                  IconButton(
-                                    onPressed: () => context.push('/profile'),
-                                    icon: const Icon(Icons.person_rounded, color: Colors.white),
+                                  GestureDetector(
+                                    onTap: () => context.push('/profile'),
+                                    child: AvatarWidget(avatarId: profile.avatarId, size: 40),
                                   ),
                                 ],
                               ),
                             ),
                             const Spacer(),
-                            const MascotWidget(mood: MascotMood.happy, size: 110)
+                            AnimatedAvatar(avatarId: profile.avatarId, size: 130)
                                 .animate(onPlay: (c) => c.repeat(reverse: true))
                                 .moveY(begin: -6, end: 6, duration: 1600.ms, curve: Curves.easeInOut),
                             const SizedBox(height: 10),
                             Text(
-                              'מילה־קסם',
+                              'מצא ת׳מילה',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 38,
@@ -87,7 +120,7 @@ class HomeScreen extends ConsumerWidget {
                               ),
                             ).animate().fadeIn().scale(begin: const Offset(0.9, 0.9)),
                             const Text(
-                              'משחק המילים העברי המקורי',
+                              'משחקה של ליאן רודן',
                               style: TextStyle(color: Colors.white70, fontSize: 14),
                             ),
                             const Spacer(),

@@ -16,6 +16,7 @@ import '../../features/profile/profile_screen.dart';
 import '../../features/rules/rules_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/splash/splash_screen.dart';
+import '../../features/store/store_screen.dart';
 
 /// כל הניתוב של האפליקציה מרוכז כאן (go_router), כולל תמיכה בכתובות URL
 /// עבור גרסת ה-Web (למשל /level/12/intro ניתן לשיתוף/רענון ישיר בדפדפן).
@@ -76,5 +77,6 @@ final appRouter = GoRouter(
     ),
     GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
     GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
+    GoRoute(path: '/store', builder: (context, state) => const StoreScreen()),
   ],
 );

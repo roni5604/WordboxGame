@@ -8,9 +8,20 @@ import 'package:wordbox_hebrew/data/repositories/progress_repository.dart';
 import 'package:wordbox_hebrew/features/home/home_screen.dart';
 import 'package:wordbox_hebrew/providers/repository_providers.dart';
 
+String _todayKeyForTest() {
+  final now = DateTime.now();
+  return '${now.year.toString().padLeft(4, '0')}-'
+      '${now.month.toString().padLeft(2, '0')}-'
+      '${now.day.toString().padLeft(2, '0')}';
+}
+
 class _FakeProgressRepository implements ProgressRepository {
   @override
-  Future<PlayerProfile> loadProfile() async => const PlayerProfile();
+  Future<PlayerProfile> loadProfile() async {
+    // מסמנים את בונוס הרמזים היומי כבר-נתבע היום, כדי שפופ-אפ הבונוס
+    // (עם האנימציה שלו) לא ייפתח באמצע הבדיקה הזו - שבודקת רק פריסה.
+    return PlayerProfile(lastHintClaimDate: _todayKeyForTest());
+  }
 
   @override
   Future<void> saveProfile(PlayerProfile profile) async {}

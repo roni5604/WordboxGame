@@ -117,6 +117,31 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     });
   }
 
+  Future<void> _useHint() async {
+    final session = _session;
+    if (session == null || _finished) return;
+
+    final profile = ref.read(playerProfileProvider).valueOrNull;
+    if (profile == null) return;
+
+    final word = session.hintForUnfoundWord();
+    if (word == null) {
+      _showBanner('כבר מצאתם את כל המילים! 🎉');
+      return;
+    }
+
+    if (profile.hints <= 0) {
+      _showBanner('נגמרו הרמזים - אפשר לקנות עוד בחנות', isError: true);
+      return;
+    }
+
+    final used = await ref.read(playerProfileProvider.notifier).useHint();
+    if (!used || !mounted) return;
+
+    _boardKey.currentState?.showHint(word.path);
+    _showBanner('💡 נסו את המילה: ${word.displayWord}');
+  }
+
   void _onPathSubmitted(List<GridPosition> path) {
     final session = _session;
     if (session == null || _finished) return;
@@ -214,6 +239,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         levelNumber: widget.levelNumber,
                         score: session.score,
                         onExit: () => context.go('/campaign'),
+                        onHint: _useHint,
                       ),
                       const SizedBox(height: 8),
                       Padding(
@@ -301,15 +327,23 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 }
 
-class _GameHeader extends StatelessWidget {
+class _GameHeader extends ConsumerWidget {
   final int levelNumber;
   final int score;
   final VoidCallback onExit;
+  final VoidCallback onHint;
 
-  const _GameHeader({required this.levelNumber, required this.score, required this.onExit});
+  const _GameHeader({
+    required this.levelNumber,
+    required this.score,
+    required this.onExit,
+    required this.onHint,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hints = ref.watch(playerProfileProvider).valueOrNull?.hints ?? 0;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -323,6 +357,25 @@ class _GameHeader extends StatelessWidget {
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
           ),
           const Spacer(),
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: onHint,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lightbulb_rounded, color: AppColors.star, size: 18),
+                    const SizedBox(width: 4),
+                    Text('$hints', style: const TextStyle(fontWeight: FontWeight.w800)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(

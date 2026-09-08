@@ -74,10 +74,11 @@ class _RaceResultScreenState extends State<RaceResultScreen> {
                   ).animate().fadeIn().slideY(begin: -0.2, end: 0),
                   const SizedBox(height: 12),
                   Center(
-                    child: MascotWidget(
-                      mood: result.humanWon ? MascotMood.excited : MascotMood.sad,
-                      size: 100,
-                    ),
+                    child: result.humanWon
+                        ? Image.asset('assets/avatar/detective_celebrate.png', height: 120)
+                            .animate(onPlay: (c) => c.repeat(reverse: true))
+                            .scaleXY(begin: 1, end: 1.06, duration: 500.ms, curve: Curves.easeInOut)
+                        : const MascotWidget(mood: MascotMood.sad, size: 100),
                   ),
                   const SizedBox(height: 24),
                   for (int i = 0; i < result.rankedParticipants.length; i++)

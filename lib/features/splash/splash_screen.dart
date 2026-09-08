@@ -97,7 +97,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                       .slideY(begin: 0.3, end: 0),
                   const SizedBox(height: 20),
                   const Text(
-                    'מילה־קסם',
+                    'מצא ת׳מילה',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 34,
@@ -106,7 +106,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.2, end: 0),
                   const SizedBox(height: 8),
                   Text(
-                    'משחק המילים העברי המקורי',
+                    'משחקה של ליאן רודן',
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 16),
                   ).animate().fadeIn(delay: 200.ms, duration: 500.ms),
                   const SizedBox(height: 44),

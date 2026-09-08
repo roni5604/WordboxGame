@@ -22,6 +22,23 @@ class RulesScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
+          Center(
+            child: Column(
+              children: [
+                Image.asset('assets/avatar/detective_explain.png', height: 140)
+                    .animate()
+                    .fadeIn()
+                    .slideY(begin: 0.15, end: 0),
+                const SizedBox(height: 8),
+                const Text(
+                  'הבלש מילולי כאן כדי לעזור לכם להבין את כל החוקים 🔍',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textDark),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           _RuleCard(
             index: 0,
             title: 'חברו אותיות שכנות',
