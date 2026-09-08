@@ -79,6 +79,11 @@ final appRouter = GoRouter(
     GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
     GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
     GoRoute(path: '/store', builder: (context, state) => const StoreScreen()),
-    GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
+    GoRoute(
+      path: '/auth',
+      builder: (context, state) => AuthScreen(
+        isInitial: state.uri.queryParameters['initial'] == 'true',
+      ),
+    ),
   ],
 );

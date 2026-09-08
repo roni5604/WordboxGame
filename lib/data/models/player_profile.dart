@@ -30,6 +30,11 @@ class PlayerProfile extends Equatable {
   /// היומי נתבע לכל היותר פעם ביום קלנדרי אחד.
   final String? lastHintClaimDate;
 
+  /// האם מסך ההתחברות הראשוני (Google/Apple/Facebook/מייל/אורח) כבר
+  /// הוצג ונבחרה בו אפשרות - נבדק בכניסה הראשונה לאפליקציה, לפני ההדרכה.
+  /// לאחר מכן לא מוצג שוב אוטומטית (אפשר עדיין להתחבר דרך הפרופיל).
+  final bool authIntroShown;
+
   const PlayerProfile({
     this.levelProgress = const {},
     this.coins = 0,
@@ -42,6 +47,7 @@ class PlayerProfile extends Equatable {
     this.hints = 0,
     this.hintStreakDay = 0,
     this.lastHintClaimDate,
+    this.authIntroShown = false,
   });
 
   int get totalStars => levelProgress.values.fold(0, (sum, p) => sum + p.stars);
@@ -63,6 +69,7 @@ class PlayerProfile extends Equatable {
     int? hints,
     int? hintStreakDay,
     String? lastHintClaimDate,
+    bool? authIntroShown,
   }) {
     return PlayerProfile(
       levelProgress: levelProgress ?? this.levelProgress,
@@ -76,6 +83,7 @@ class PlayerProfile extends Equatable {
       hints: hints ?? this.hints,
       hintStreakDay: hintStreakDay ?? this.hintStreakDay,
       lastHintClaimDate: lastHintClaimDate ?? this.lastHintClaimDate,
+      authIntroShown: authIntroShown ?? this.authIntroShown,
     );
   }
 
@@ -92,5 +100,6 @@ class PlayerProfile extends Equatable {
         hints,
         hintStreakDay,
         lastHintClaimDate,
+        authIntroShown,
       ];
 }

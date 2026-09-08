@@ -89,6 +89,8 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   Future<void> setDisplayName(String name) => _mutate((c) => c.copyWith(displayName: name));
   Future<void> setAvatarId(String avatarId) =>
       _mutate((c) => c.copyWith(avatarId: avatarId));
+  Future<void> setAuthIntroShown() =>
+      _mutate((c) => c.copyWith(authIntroShown: true));
 
   Future<void> resetProgress() async {
     await _mutate((_) => const PlayerProfile());

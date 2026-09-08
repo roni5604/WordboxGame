@@ -45,7 +45,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     }
 
     if (!mounted) return;
-    if (profile.onboardingCompleted) {
+    // כניסה ראשונית לאפליקציה: קודם מסך התחברות (Google/Apple/Facebook/
+    // מייל/אורח), ורק אחרי שנבחרה אפשרות עוברים להדרכה ואז לתפריט הראשי.
+    if (!profile.authIntroShown) {
+      context.go('/auth?initial=true');
+    } else if (profile.onboardingCompleted) {
       context.go('/home');
     } else {
       context.go('/onboarding');

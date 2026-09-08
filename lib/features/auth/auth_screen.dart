@@ -9,13 +9,19 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/auth_user.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/player_profile_provider.dart';
 
 /// מסך התחברות/הרשמה: Google, Apple, Facebook, מייל+סיסמה, או המשך
 /// כאורח/ת. נגיש דרך מסך הפרופיל. עובד תמיד (גם בלי Firebase מוגדר) -
 /// אם השרת לא הופעל עדיין, לחיצה על ספק אמיתי מציגה הסבר ידידותי במקום
 /// לקרוס, והמשך כאורח/ת עדיין זמין תמיד.
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key});
+  /// true כאשר זהו מסך ההתחברות הראשוני שמוצג בכניסה הראשונה לאפליקציה
+  /// (לפני ההדרכה) - במצב הזה אין כפתור חזרה, וכל בחירה (כולל "אורח/ת")
+  /// ממשיכה אוטומטית להדרכה/לתפריט הראשי במקום לסגור את המסך.
+  final bool isInitial;
+
+  const AuthScreen({super.key, this.isInitial = false});
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
@@ -41,11 +47,24 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     super.dispose();
   }
 
+  /// מסמן שהמסך הראשוני נצפה ונבחרה בו אפשרות, ומעביר להדרכה (אם עוד לא
+  /// עברו אותה) או ישר לתפריט הראשי - זה קורה בדיוק פעם אחת בחיי המשתמש/ת.
+  Future<void> _completeInitialAuth() async {
+    await ref.read(playerProfileProvider.notifier).setAuthIntroShown();
+    if (!mounted) return;
+    final profile = ref.read(playerProfileProvider).valueOrNull;
+    context.go(profile?.onboardingCompleted == true ? '/home' : '/onboarding');
+  }
+
   Future<void> _run(String action, Future<AuthUser> Function() task) async {
     setState(() => _busyAction = action);
     try {
       await task();
       if (!mounted) return;
+      if (widget.isInitial) {
+        await _completeInitialAuth();
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: AppColors.success,
@@ -88,15 +107,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () => context.pop(),
-                    icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
-                  ),
-                  const Spacer(),
-                ],
-              ),
+              if (!widget.isInitial)
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => context.pop(),
+                      icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                    ),
+                    const Spacer(),
+                  ],
+                )
+              else
+                const SizedBox(height: 12),
               const SizedBox(height: 4),
               Center(
                 child: Image.asset('assets/avatar/detective_explain.png', height: 130)
@@ -211,7 +233,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               ],
               Center(
                 child: TextButton(
-                  onPressed: () => context.pop(),
+                  onPressed: _busyAction != null
+                      ? null
+                      : () {
+                          if (widget.isInitial) {
+                            _run('guest', repo.signInAsGuest);
+                          } else {
+                            context.pop();
+                          }
+                        },
                   child: Text(
                     isRealAccount ? 'חזרה' : 'המשך כאורח/ת בלי להתחבר',
                     style: const TextStyle(

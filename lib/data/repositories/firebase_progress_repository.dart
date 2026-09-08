@@ -71,6 +71,7 @@ class FirebaseProgressRepository implements ProgressRepository {
       hints: (data['hints'] as num?)?.toInt() ?? 0,
       hintStreakDay: (data['hintStreakDay'] as num?)?.toInt() ?? 0,
       lastHintClaimDate: data['lastHintClaimDate'] as String?,
+      authIntroShown: data['authIntroShown'] as bool? ?? false,
     );
   }
 
@@ -98,6 +99,7 @@ class FirebaseProgressRepository implements ProgressRepository {
       'hints': profile.hints,
       'hintStreakDay': profile.hintStreakDay,
       'lastHintClaimDate': profile.lastHintClaimDate,
+      'authIntroShown': profile.authIntroShown,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
