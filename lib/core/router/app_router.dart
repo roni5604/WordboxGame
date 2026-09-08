@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/auth_screen.dart';
 import '../../features/game/level_intro_screen.dart';
 import '../../features/game/level_result_screen.dart';
 import '../../features/game/game_screen.dart';
@@ -78,5 +79,6 @@ final appRouter = GoRouter(
     GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
     GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
     GoRoute(path: '/store', builder: (context, state) => const StoreScreen()),
+    GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
   ],
 );

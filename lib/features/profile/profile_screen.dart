@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../data/models/auth_user.dart';
 import '../../data/models/player_profile.dart';
 import '../../game_engine/models/level_config.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import 'widgets/avatar_widget.dart';
 
@@ -85,6 +87,7 @@ class ProfileScreen extends ConsumerWidget {
                   label: const Text('עריכת אוואטאר וכינוי', style: TextStyle(color: Colors.white70)),
                 ),
               ),
+              Center(child: _AccountChip(user: ref.watch(authStateProvider).valueOrNull)),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -327,6 +330,45 @@ class _StatCard extends StatelessWidget {
                   Text(label, style: const TextStyle(color: Colors.black54, fontSize: 13)),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+/// "צ'יפ" קטן שמראה אם השחקן/ית מחובר/ת כאורח/ת או עם חשבון אמיתי, ומוביל
+/// למסך ההתחברות (/auth) בלחיצה - שם אפשר להתחבר עם Google/Apple/Facebook/
+/// מייל, או פשוט לחזור אורח/ת כרגיל.
+class _AccountChip extends StatelessWidget {
+  final AuthUser? user;
+
+  const _AccountChip({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final isGuest = user == null || user!.isAnonymous;
+    return GestureDetector(
+      onTap: () => context.push('/auth'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isGuest ? Icons.person_outline_rounded : Icons.verified_user_rounded,
+              color: isGuest ? Colors.white70 : AppColors.success,
+              size: 16,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              isGuest ? 'משחק/ת כאורח/ת - להתחברות' : 'מחובר/ת - ניהול חשבון',
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
       ),
     );
   }

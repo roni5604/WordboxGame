@@ -67,6 +67,46 @@ flutter build web --release
 firebase deploy --only hosting
 ```
 
+## שלב 6: הפעלת התחברות עם Google / Apple / Facebook / מייל
+
+הקוד לכל שיטות ההתחברות כבר קיים ומוכן ב-
+[`lib/data/repositories/firebase_auth_repository.dart`](../lib/data/repositories/firebase_auth_repository.dart)
+ובמסך [`lib/features/auth/auth_screen.dart`](../lib/features/auth/auth_screen.dart)
+(נגיש מהפרופיל). כל עוד `AppConfig.useFirebaseBackend == false`, לחיצה על
+כל כפתור מלבד "אורח" תציג הודעה ידידותית שההתחברות דורשת הפעלת Firebase -
+זה לא באג, זו התנהגות מכוונת. לאחר שלב 1-3 למעלה, השלימו גם את הצעדים
+הבאים כדי שכל ספק יעבוד בפועל:
+
+### Google
+1. בקונסולת Firebase → Authentication → Sign-in method → הפעילו **Google**.
+2. בווב זה מספיק (המשחק משתמש ב-`signInWithPopup`, בלי הגדרה נוספת בקוד).
+3. באנדרואיד/iOS יש להוסיף SHA-1/SHA-256 (אנדרואיד) ולהריץ שוב
+   `flutterfire configure` כדי שה-Client ID הנכון ייכנס אוטומטית לפרויקט.
+
+### Apple (זמין ב-iOS/macOS/Web)
+1. בחשבון Apple Developer: הוסיפו את היכולת **"Sign In with Apple"** ל-App ID.
+2. בקונסולת Firebase → Authentication → Sign-in method → הפעילו **Apple**.
+3. עבור Web: ייצרו **Services ID** בפורטל Apple Developer עם ה-Redirect URI
+   שמופיע בקונסולת Firebase, והזינו אותו שם.
+
+### Facebook
+1. צרו אפליקציה ב-<https://developers.facebook.com> והפעילו בה **Facebook Login**.
+2. בקונסולת Firebase → Authentication → Sign-in method → הפעילו **Facebook**
+   והזינו את ה-App ID וה-App Secret.
+3. באנדרואיד: הוסיפו `facebook_app_id` ו-`facebook_client_token` ל-
+   `android/app/src/main/res/values/strings.xml` וב-`AndroidManifest.xml`
+   (לפי הוראות חבילת `flutter_facebook_auth`).
+4. ב-iOS: הוסיפו את אותם מפתחות ל-`Info.plist` (`FacebookAppID`,
+   `FacebookClientToken`, `FacebookDisplayName`, וסכימת URL תואמת).
+
+### מייל וסיסמה
+בקונסולת Firebase → Authentication → Sign-in method → הפעילו **Email/Password**.
+זה עובד מיד בכל הפלטפורמות ללא הגדרה נוספת.
+
+> שימו לב: אם שחקן/ית כבר שיחקו כאורח/ת ואז מתחברים עם חשבון אמיתי, הקוד
+> מנסה קודם "לשדרג" (link) את המשתמש האנונימי לחשבון האמיתי כדי לשמר את
+> ההתקדמות שכבר נצברה - וזה עובד אוטומטית, בלי צורך בקוד נוסף.
+
 ## מצב רב-משתתפים (שלב 2)
 
 הקוד ב-`lib/features/multiplayer/services/firestore_multiplayer_repository.dart`
