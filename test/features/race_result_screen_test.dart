@@ -1,9 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:wordbox_hebrew/data/models/player_profile.dart';
+import 'package:wordbox_hebrew/data/repositories/progress_repository.dart';
 import 'package:wordbox_hebrew/features/multiplayer/models/race_result.dart';
 import 'package:wordbox_hebrew/features/multiplayer/race_result_screen.dart';
+import 'package:wordbox_hebrew/providers/repository_providers.dart';
+
+class _FakeProgressRepository implements ProgressRepository {
+  @override
+  Future<PlayerProfile> loadProfile() async => const PlayerProfile();
+
+  @override
+  Future<void> saveProfile(PlayerProfile profile) async {}
+}
 
 void main() {
   testWidgets('RaceResultScreen renders ranking without overflow, human wins', (tester) async {
@@ -26,7 +38,14 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          progressRepositoryProvider.overrideWithValue(_FakeProgressRepository()),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 

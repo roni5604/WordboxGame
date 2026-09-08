@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/player_profile.dart';
 import '../../providers/player_profile_provider.dart';
+import '../../providers/sound_provider.dart';
 import '../profile/widgets/avatar_widget.dart';
 import 'widgets/daily_hint_dialog.dart';
 
@@ -26,6 +27,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _dailyRewardChecked = true;
     final reward = await ref.read(playerProfileProvider.notifier).claimDailyHintIfAvailable();
     if (reward != null && mounted) {
+      ref.read(soundServiceProvider).playDailyReward();
       await showDialog<void>(
         context: context,
         barrierDismissible: false,

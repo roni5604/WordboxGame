@@ -1,31 +1,39 @@
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../providers/sound_provider.dart';
 import '../game/widgets/mascot_widget.dart';
 import 'models/race_result.dart';
 
-class RaceResultScreen extends StatefulWidget {
+class RaceResultScreen extends ConsumerStatefulWidget {
   final RaceResult result;
 
   const RaceResultScreen({super.key, required this.result});
 
   @override
-  State<RaceResultScreen> createState() => _RaceResultScreenState();
+  ConsumerState<RaceResultScreen> createState() => _RaceResultScreenState();
 }
 
-class _RaceResultScreenState extends State<RaceResultScreen> {
+class _RaceResultScreenState extends ConsumerState<RaceResultScreen> {
   late final ConfettiController _confetti;
 
   @override
   void initState() {
     super.initState();
     _confetti = ConfettiController(duration: const Duration(seconds: 2));
-    if (widget.result.humanWon) {
-      Future.delayed(const Duration(milliseconds: 400), () => _confetti.play());
-    }
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      if (widget.result.humanWon) {
+        ref.read(soundServiceProvider).playLevelComplete();
+        _confetti.play();
+      } else {
+        ref.read(soundServiceProvider).playError();
+      }
+    });
   }
 
   @override

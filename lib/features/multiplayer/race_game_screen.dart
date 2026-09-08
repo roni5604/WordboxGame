@@ -14,6 +14,7 @@ import '../../game_engine/models/grid_position.dart';
 import '../../game_engine/models/level_config.dart';
 import '../../providers/dictionary_provider.dart';
 import '../../providers/letter_frequency_provider.dart';
+import '../../providers/sound_provider.dart';
 import '../game/widgets/found_words_panel.dart';
 import '../game/widgets/grid_board.dart';
 import '../game/widgets/mascot_widget.dart';
@@ -124,14 +125,17 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
 
     switch (result.status) {
       case WordSubmitStatus.accepted:
+        ref.read(soundServiceProvider).playSuccess();
         _showBanner('${result.displayWord}  +${result.pointsAwarded}');
         setState(() {});
         break;
       case WordSubmitStatus.duplicate:
+        ref.read(soundServiceProvider).playError();
         _showBanner('כבר מצאת את "${result.displayWord}"', isError: true);
         _boardKey.currentState?.flashError();
         break;
       case WordSubmitStatus.invalidWord:
+        ref.read(soundServiceProvider).playError();
         _showBanner('לא נמצאה מילה כזו', isError: true);
         _boardKey.currentState?.flashError();
         break;

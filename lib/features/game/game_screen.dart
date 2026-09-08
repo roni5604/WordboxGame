@@ -15,6 +15,7 @@ import '../../game_engine/models/level_config.dart';
 import '../../providers/dictionary_provider.dart';
 import '../../providers/letter_frequency_provider.dart';
 import '../../providers/player_profile_provider.dart';
+import '../../providers/sound_provider.dart';
 import 'widgets/found_words_panel.dart';
 import 'widgets/grid_board.dart';
 import 'widgets/mascot_widget.dart';
@@ -66,6 +67,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Timer? _bannerTimer;
 
   bool _finished = false;
+  int? _lastWarningSecond;
 
   @override
   void initState() {
@@ -101,6 +103,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           _remaining = Duration.zero;
           timer.cancel();
           _finishLevel();
+        } else {
+          // "טיק" אזהרה בכל שנייה שלמה בחמש השניות האחרונות בלבד.
+          final secondsLeft = _remaining.inSeconds;
+          if (secondsLeft <= 5 && secondsLeft != _lastWarningSecond) {
+            _lastWarningSecond = secondsLeft;
+            ref.read(soundServiceProvider).playTimerWarning();
+          }
         }
       });
     });
@@ -138,6 +147,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final used = await ref.read(playerProfileProvider.notifier).useHint();
     if (!used || !mounted) return;
 
+    ref.read(soundServiceProvider).playHint();
     _boardKey.currentState?.showHint(word.path);
     _showBanner('💡 נסו את המילה: ${word.displayWord}');
   }
@@ -149,6 +159,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     switch (result.status) {
       case WordSubmitStatus.accepted:
+        ref.read(soundServiceProvider).playSuccess();
         _showBanner('${result.displayWord}  +${result.pointsAwarded}');
         setState(() {});
         if (session.isFullyCompleted) {
@@ -156,10 +167,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         }
         break;
       case WordSubmitStatus.duplicate:
+        ref.read(soundServiceProvider).playError();
         _showBanner('כבר מצאת את "${result.displayWord}"', isError: true);
         _boardKey.currentState?.flashError();
         break;
       case WordSubmitStatus.invalidWord:
+        ref.read(soundServiceProvider).playError();
         _showBanner('לא נמצאה מילה כזו', isError: true);
         _boardKey.currentState?.flashError();
         break;

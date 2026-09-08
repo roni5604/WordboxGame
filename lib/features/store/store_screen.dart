@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../providers/player_profile_provider.dart';
+import '../../providers/sound_provider.dart';
 
 class _HintPack {
   final int hints;
@@ -36,6 +37,7 @@ class StoreScreen extends ConsumerWidget {
         .read(playerProfileProvider.notifier)
         .buyHints(amount: pack.hints, cost: pack.cost);
     if (!context.mounted) return;
+    ok ? ref.read(soundServiceProvider).playCoin() : ref.read(soundServiceProvider).playError();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: ok ? AppColors.success : AppColors.error,

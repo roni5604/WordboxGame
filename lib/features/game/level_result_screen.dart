@@ -1,10 +1,12 @@
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../game_engine/models/level_config.dart';
+import '../../providers/sound_provider.dart';
 import 'game_screen.dart';
 import 'widgets/mascot_widget.dart';
 
@@ -29,28 +31,28 @@ class _CelebrationCharacter extends StatelessWidget {
 
 /// מסך תוצאות שלב: חושף כוכבים אחד-אחד באנימציה, מציג קונפטי אם הושגו
 /// לפחות 2 כוכבים, ומאפשר לשחק שוב או להמשיך לשלב הבא.
-class LevelResultScreen extends StatefulWidget {
+class LevelResultScreen extends ConsumerStatefulWidget {
   final int levelNumber;
   final GameScreenResult result;
 
   const LevelResultScreen({super.key, required this.levelNumber, required this.result});
 
   @override
-  State<LevelResultScreen> createState() => _LevelResultScreenState();
+  ConsumerState<LevelResultScreen> createState() => _LevelResultScreenState();
 }
 
-class _LevelResultScreenState extends State<LevelResultScreen> {
+class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
   late final ConfettiController _confetti;
 
   @override
   void initState() {
     super.initState();
     _confetti = ConfettiController(duration: const Duration(seconds: 2));
-    if (widget.result.stars >= 2) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) _confetti.play();
-      });
-    }
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      ref.read(soundServiceProvider).playLevelComplete();
+      if (widget.result.stars >= 2) _confetti.play();
+    });
   }
 
   @override
