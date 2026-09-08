@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/models/auth_user.dart';
 import '../data/models/level_progress.dart';
 import '../data/models/player_profile.dart';
 import '../data/repositories/progress_repository.dart';
@@ -91,6 +92,18 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
       _mutate((c) => c.copyWith(avatarId: avatarId));
   Future<void> setAuthIntroShown() =>
       _mutate((c) => c.copyWith(authIntroShown: true));
+
+  /// מסנכרן את שם התצוגה מספק ההתחברות (Google/Apple/Facebook/מייל) לתוך
+  /// הפרופיל המקומי - נקרא אוטומטית מיד אחרי כל התחברות מוצלחת לחשבון
+  /// אמיתי (לא אורח/ת), כך שהשם במשחק תמיד ישקף את החשבון המחובר. תמונת
+  /// הפרופיל (photoUrl) לא נשמרת כאן - היא נלקחת "חיה" מ-authStateProvider
+  /// בכל מקום שמציג אוואטאר, כדי שתמיד תהיה עדכנית בלי צורך בסנכרון נוסף.
+  Future<void> syncFromAuthUser(AuthUser user) async {
+    if (user.isAnonymous) return;
+    final name = user.displayName?.trim();
+    if (name == null || name.isEmpty) return;
+    await _mutate((c) => c.displayName == name ? c : c.copyWith(displayName: name));
+  }
 
   Future<void> resetProgress() async {
     await _mutate((_) => const PlayerProfile());

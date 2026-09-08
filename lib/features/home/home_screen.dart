@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/models/player_profile.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
+import '../onboarding/widgets/mini_grid_demo.dart';
 import '../profile/widgets/avatar_widget.dart';
 import 'widgets/daily_hint_dialog.dart';
 
@@ -39,6 +41,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(playerProfileProvider);
+    final authUser = ref.watch(authStateProvider).valueOrNull;
 
     return Scaffold(
       backgroundColor: AppColors.primaryDark,
@@ -99,16 +102,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                   GestureDetector(
                                     onTap: () => context.push('/profile'),
-                                    child: AvatarWidget(avatarId: profile.avatarId, size: 40),
+                                    child: AvatarWidget(
+                                      avatarId: profile.avatarId,
+                                      size: 40,
+                                      photoUrl: authUser?.photoUrl,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                             const Spacer(),
-                            AnimatedAvatar(avatarId: profile.avatarId, size: 130)
+                            AnimatedAvatar(
+                              avatarId: profile.avatarId,
+                              size: 130,
+                              photoUrl: authUser?.photoUrl,
+                            )
                                 .animate(onPlay: (c) => c.repeat(reverse: true))
                                 .moveY(begin: -6, end: 6, duration: 1600.ms, curve: Curves.easeInOut),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 12),
+                            const AnimatedMiniGridDemo(
+                              letters: ['ל', 'ב', 'י', 'ז', 'ת', 'ק'],
+                              columns: 3,
+                              path: [1, 2, 4],
+                            ).animate().fadeIn(delay: 150.ms),
+                            const SizedBox(height: 12),
                             Text(
                               'מצא ת׳מילה',
                               style: TextStyle(

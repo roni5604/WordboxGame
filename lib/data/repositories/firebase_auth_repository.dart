@@ -52,7 +52,12 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Stream<AuthUser?> authStateChanges() =>
-      _auth.authStateChanges().map((u) => u == null ? null : _mapUser(u));
+      // משתמשים ב-userChanges() ולא ב-authStateChanges(): קישור אורח/ת לחשבון
+      // אמיתי (linkWithCredential/linkWithPopup) לא משנה את ה-UID, כך ש-
+      // authStateChanges() לא בהכרח יודיע על השינוי - וה-UI (כפתורי
+      // התחברות מול כרטיס חשבון) עלול "להיתקע" עם המצב הישן. userChanges()
+      // מכסה גם אירועי linking/unlinking/עדכון פרופיל, לא רק sign-in/out.
+      _auth.userChanges().map((u) => u == null ? null : _mapUser(u));
 
   @override
   AuthUser? get currentUser {

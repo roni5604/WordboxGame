@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -12,6 +13,8 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(playerProfileProvider);
     final notifier = ref.read(playerProfileProvider.notifier);
+    final authUser = ref.watch(authStateProvider).valueOrNull;
+    final isRealAccount = authUser != null && !authUser.isAnonymous;
 
     return Scaffold(
       appBar: AppBar(
@@ -46,6 +49,19 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              if (isRealAccount) ...[
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.logout_rounded, color: AppColors.primary),
+                    title: const Text('התנתקות'),
+                    subtitle: Text(
+                      'מחובר/ת עם ${authUser.displayName ?? authUser.email ?? 'חשבון'}',
+                    ),
+                    onTap: () => _confirmSignOut(context, ref),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.restart_alt_rounded, color: AppColors.error),
@@ -67,6 +83,35 @@ class SettingsScreen extends ConsumerWidget {
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _confirmSignOut(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('להתנתק מהחשבון?'),
+        content: const Text(
+          'תישארו מחוברים כאורח/ת ותוכלו לשמור התקדמות מקומית, '
+          'ותמיד אפשר להתחבר בחזרה מאותו חשבון או מחשבון אחר.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => dialogContext.pop(),
+            child: const Text('ביטול'),
+          ),
+          TextButton(
+            onPressed: () async {
+              dialogContext.pop();
+              final repo = ref.read(authRepositoryProvider);
+              await repo.signOut();
+              await repo.signInAsGuest();
+              if (context.mounted) context.go('/home');
+            },
+            child: const Text('התנתקות', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
       ),
     );
   }

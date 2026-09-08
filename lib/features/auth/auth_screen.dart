@@ -59,7 +59,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Future<void> _run(String action, Future<AuthUser> Function() task) async {
     setState(() => _busyAction = action);
     try {
-      await task();
+      final user = await task();
+      if (!mounted) return;
+      // אחרי כל התחברות מוצלחת לחשבון אמיתי (לא אורח/ת), מסנכרנים את השם
+      // מהספק (Google/Apple/Facebook/מייל) לפרופיל - כך שהשם והתמונה
+      // (הנלקחת חיה מ-authStateProvider) יתעדכנו בכל מקום במשחק.
+      await ref.read(playerProfileProvider.notifier).syncFromAuthUser(user);
       if (!mounted) return;
       if (widget.isInitial) {
         await _completeInitialAuth();

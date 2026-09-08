@@ -36,11 +36,23 @@ class AvatarWidget extends StatelessWidget {
   final double size;
   final bool ring;
 
-  const AvatarWidget({super.key, required this.avatarId, this.size = 88, this.ring = true});
+  /// תמונת הפרופיל האמיתית מהספק (Google/Apple/Facebook), אם קיימת - נלקחת
+  /// חיה מ-authStateProvider ע"י מי שמשתמש בווידג'ט. כשקיימת היא מוצגת
+  /// במקום האוואטאר המצויר; אם הטעינה נכשלת (או שאין תמונה) חוזרים לאוואטאר.
+  final String? photoUrl;
+
+  const AvatarWidget({
+    super.key,
+    required this.avatarId,
+    this.size = 88,
+    this.ring = true,
+    this.photoUrl,
+  });
 
   @override
   Widget build(BuildContext context) {
     final option = avatarOptionFor(avatarId);
+    final hasPhoto = photoUrl != null && photoUrl!.isNotEmpty;
     return Container(
       width: size,
       height: size,
@@ -58,7 +70,14 @@ class AvatarWidget extends StatelessWidget {
         border: ring ? Border.all(color: AppColors.star, width: size * 0.03) : null,
       ),
       child: ClipOval(
-        child: Image.asset(option.assetPath, fit: BoxFit.cover),
+        child: hasPhoto
+            ? Image.network(
+                photoUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    Image.asset(option.assetPath, fit: BoxFit.cover),
+              )
+            : Image.asset(option.assetPath, fit: BoxFit.cover),
       ),
     );
   }
@@ -71,15 +90,19 @@ class AnimatedAvatar extends StatelessWidget {
   final double size;
   final MascotMood mood;
 
+  /// תמונת הפרופיל האמיתית מהספק (Google/Apple/Facebook), אם קיימת - ראו
+  /// תיעוד ב-[AvatarWidget.photoUrl].
+  final String? photoUrl;
+
   const AnimatedAvatar({
     super.key,
     required this.avatarId,
     this.size = 110,
     this.mood = MascotMood.happy,
+    this.photoUrl,
   });
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _fallback() {
     if (avatarId == 'mascot') {
       return MascotWidget(mood: mood, size: size);
     }
@@ -91,5 +114,22 @@ class AnimatedAvatar extends StatelessWidget {
       height: size,
       fit: BoxFit.contain,
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto = photoUrl != null && photoUrl!.isNotEmpty;
+    if (hasPhoto) {
+      return ClipOval(
+        child: Image.network(
+          photoUrl!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _fallback(),
+        ),
+      );
+    }
+    return _fallback();
   }
 }

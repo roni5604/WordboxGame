@@ -25,6 +25,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(playerProfileProvider);
+    final authUser = ref.watch(authStateProvider).valueOrNull;
 
     return Scaffold(
       appBar: AppBar(
@@ -48,7 +49,11 @@ class ProfileScreen extends ConsumerWidget {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    AvatarWidget(avatarId: profile.avatarId, size: 110),
+                    AvatarWidget(
+                      avatarId: profile.avatarId,
+                      size: 110,
+                      photoUrl: authUser?.photoUrl,
+                    ),
                     Positioned(
                       bottom: -4,
                       left: -4,
@@ -87,7 +92,7 @@ class ProfileScreen extends ConsumerWidget {
                   label: const Text('עריכת אוואטאר וכינוי', style: TextStyle(color: Colors.white70)),
                 ),
               ),
-              Center(child: _AccountChip(user: ref.watch(authStateProvider).valueOrNull)),
+              Center(child: _AccountChip(user: authUser)),
               const SizedBox(height: 12),
               Row(
                 children: [

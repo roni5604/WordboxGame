@@ -12,7 +12,7 @@ class WordboxApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Wordbox - מילים בעברית',
+      title: 'מצא ת׳מילה',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: appRouter,
