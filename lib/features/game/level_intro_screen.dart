@@ -75,12 +75,19 @@ class LevelIntroScreen extends StatelessWidget {
                           value: '${config.timeLimit.inSeconds} שניות',
                         ),
                         const Divider(height: 24),
+                        _InfoRow(
+                          icon: Icons.flag_rounded,
+                          label: 'מטרה',
+                          value:
+                              '${config.wordsRequired} ${config.wordsRequired == 1 ? "מילה" : "מילים"}',
+                        ),
+                        const Divider(height: 24),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            _StarGoal(stars: 1, score: config.oneStarScore),
-                            _StarGoal(stars: 2, score: config.twoStarScore),
-                            _StarGoal(stars: 3, score: config.threeStarScore),
+                            _StarGoal(stars: 1, words: config.oneStarWords),
+                            _StarGoal(stars: 2, words: config.twoStarWords),
+                            _StarGoal(stars: 3, words: config.threeStarWords),
                           ],
                         ),
                       ],
@@ -128,9 +135,9 @@ class _InfoRow extends StatelessWidget {
 
 class _StarGoal extends StatelessWidget {
   final int stars;
-  final int score;
+  final int words;
 
-  const _StarGoal({required this.stars, required this.score});
+  const _StarGoal({required this.stars, required this.words});
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +150,7 @@ class _StarGoal extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text('$score+', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+        Text('$words+ מ׳', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
       ],
     );
   }

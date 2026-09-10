@@ -42,14 +42,19 @@ extension WorldTierX on WorldTier {
 }
 
 /// הגדרות שלב בודד בקמפיין יחיד-המשתתף.
+///
+/// המטרה של שלב היא **מספר מילים** (לא ניקוד) - [wordsRequired] - כדי
+/// שהיעד יהיה מוחשי, ברור וקל להבנה ("מצאו 3 מילים!"). הכוכבים (ראו
+/// [GameSession.currentStars] ב-lib/game_engine/game_session.dart) נגזרים
+/// מהיחס בין מילים שנמצאו למילים שנדרשו, לא מניקוד.
 class LevelConfig extends Equatable {
   final int levelNumber; // 1-based
   final WorldTier tier;
   final int gridSize;
   final Duration timeLimit;
-  final int oneStarScore;
-  final int twoStarScore;
-  final int threeStarScore;
+
+  /// מספר המילים שצריך למצוא כדי "לעבור" את השלב (כוכב אחד לפחות).
+  final int wordsRequired;
   final int minWordLength;
 
   /// true אם זה שלב "אבן דרך" - השלב הראשון בעולם חדש (גודל לוח שגדל
@@ -62,12 +67,17 @@ class LevelConfig extends Equatable {
     required this.tier,
     required this.gridSize,
     required this.timeLimit,
-    required this.oneStarScore,
-    required this.twoStarScore,
-    required this.threeStarScore,
+    required this.wordsRequired,
     this.minWordLength = 2,
     this.isMilestoneLevel = false,
   });
+
+  /// יעדי המילים לכוכב 1/2/3 - יחסיים ל-[wordsRequired] (ראו
+  /// [GameSession.starsForWordCount]): כוכב אחד = יעד המילים המלא, שני
+  /// כוכבים = יעד וחצי, שלושה כוכבים = כפול היעד.
+  int get oneStarWords => wordsRequired;
+  int get twoStarWords => (wordsRequired * 1.5).ceil();
+  int get threeStarWords => wordsRequired * 2;
 
   @override
   List<Object?> get props => [
@@ -75,9 +85,7 @@ class LevelConfig extends Equatable {
         tier,
         gridSize,
         timeLimit,
-        oneStarScore,
-        twoStarScore,
-        threeStarScore,
+        wordsRequired,
         minWordLength,
         isMilestoneLevel,
       ];
@@ -105,20 +113,19 @@ class CampaignLevels {
     final levels = <LevelConfig>[];
     int levelNumber = 1;
 
-    void addWorld(WorldTier tier, int count, {required int baseTimeSec}) {
+    void addWorld(WorldTier tier, int count) {
       for (int i = 0; i < count; i++) {
-        final difficultyStep = i / (count - 1).clamp(1, 999);
-        final timeSec = (baseTimeSec - (difficultyStep * 20)).round();
-        final base = 20 + levelNumber * 6;
+        final wordsRequired = wordsRequiredForLevel(levelNumber);
         levels.add(
           LevelConfig(
             levelNumber: levelNumber,
             tier: tier,
             gridSize: tier.gridSize,
-            timeLimit: Duration(seconds: timeSec.clamp(45, 180)),
-            oneStarScore: base,
-            twoStarScore: (base * 1.8).round(),
-            threeStarScore: (base * 2.6).round(),
+            timeLimit: timeLimitForLevel(
+              wordsRequired: wordsRequired,
+              gridSize: tier.gridSize,
+            ),
+            wordsRequired: wordsRequired,
             // אבן-דרך = השלב הראשון של העולם, פרט לעולם הראשון עצמו
             // (שם אין "מעבר" קודם לחגוג).
             isMilestoneLevel: i == 0 && levelNumber > 1,
@@ -128,23 +135,24 @@ class CampaignLevels {
       }
     }
 
-    addWorld(WorldTier.seedling, levelsInFirstTier, baseTimeSec: 90);
-    addWorld(WorldTier.sprout, levelsPerTier, baseTimeSec: 110);
-    addWorld(WorldTier.bloom, levelsPerTier, baseTimeSec: 130);
-    addWorld(WorldTier.forest, levelsPerTier, baseTimeSec: 150);
-    // עולם "פסגה" עם 7x7 - מספר בלתי מוגבל, אינסופי (נבנה על פי דרישה).
-    // גודל הלוח כבר לא עולה מכאן והלאה, אז אין עוד אבני-דרך חדשות.
+    addWorld(WorldTier.seedling, levelsInFirstTier);
+    addWorld(WorldTier.sprout, levelsPerTier);
+    addWorld(WorldTier.bloom, levelsPerTier);
+    addWorld(WorldTier.forest, levelsPerTier);
+    // עולם "פסגה" עם 7x7 - 10 שלבים אחרונים; גודל הלוח כבר לא עולה
+    // מכאן והלאה, אז אין עוד אבני-דרך חדשות.
     for (int i = 0; i < 10; i++) {
-      final base = 20 + levelNumber * 6;
+      final wordsRequired = wordsRequiredForLevel(levelNumber);
       levels.add(
         LevelConfig(
           levelNumber: levelNumber,
           tier: WorldTier.summit,
           gridSize: WorldTier.summit.gridSize,
-          timeLimit: const Duration(seconds: 150),
-          oneStarScore: base,
-          twoStarScore: (base * 1.8).round(),
-          threeStarScore: (base * 2.6).round(),
+          timeLimit: timeLimitForLevel(
+            wordsRequired: wordsRequired,
+            gridSize: WorldTier.summit.gridSize,
+          ),
+          wordsRequired: wordsRequired,
           isMilestoneLevel: i == 0,
         ),
       );
@@ -152,6 +160,32 @@ class CampaignLevels {
     }
 
     return levels;
+  }
+
+  /// מספר המילים הנדרש לעבור שלב - עולה בהדרגה כדי שהמטרה תישאר ברורה
+  /// ומוחשית: שלב 1 = 3 מילים, שלב 2 = 4, ומשלב 3 והלאה נשאר לתמיד בטווח
+  /// 5-7 (לא ממשיך לטפס לאינסוף), עם תנודה קלה בטווח הזה לפי מיקום השלב
+  /// בתוך ה"עשירייה" שלו (ראו [positionWithinTier]) - כך שהקושי עדיין
+  /// עולה בהדרגה בתוך כל עולם, בלי להפוך את המטרה לבלתי-מושגת.
+  static int wordsRequiredForLevel(int levelNumber) {
+    if (levelNumber == 1) return 3;
+    if (levelNumber == 2) return 4;
+    if (levelNumber == 3) return 5;
+    if (levelNumber == 4) return 6;
+    if (levelNumber == 5) return 7;
+
+    final position = positionWithinTier(levelNumber);
+    final blockSize = tierBlockSize(levelNumber);
+    final t = blockSize <= 1 ? 0.0 : position / (blockSize - 1);
+    return (5 + t * 2).round().clamp(5, 7);
+  }
+
+  /// זמן השלב - קצר וברור, נגזר ממספר המילים הנדרש ומגודל הלוח (לוח
+  /// גדול יותר דורש קצת יותר זמן חיפוש), תמיד בטווח סביר (30-110 שניות)
+  /// כדי שהטיימר יישאר ברור ולא "יימשך" יותר מהצורך.
+  static Duration timeLimitForLevel({required int wordsRequired, required int gridSize}) {
+    final seconds = 25 + wordsRequired * 7 + (gridSize - 3) * 5;
+    return Duration(seconds: seconds.clamp(30, 110));
   }
 
   static LevelConfig byLevelNumber(int levelNumber) {

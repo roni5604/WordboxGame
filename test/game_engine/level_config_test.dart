@@ -104,20 +104,26 @@ void main() {
       expect(CampaignLevels.positionWithinTier(49), 9);
     });
 
-    test('difficulty (time limit, score thresholds) is non-decreasing within a tier', () {
-      for (final start in [1, 10, 20, 30, 40]) {
-        final blockSize = CampaignLevels.tierBlockSize(start);
-        final end = start + blockSize - 1;
-        LevelConfig? previous;
-        for (int i = start; i <= end; i++) {
-          final config = CampaignLevels.byLevelNumber(i);
-          if (previous != null) {
-            expect(config.timeLimit.inSeconds, lessThanOrEqualTo(previous.timeLimit.inSeconds),
-                reason: 'level $i should not have more time than level ${i - 1}');
-          }
-          previous = config;
-        }
+    test('wordsRequired grows from 3 (level 1) then settles between 5-7', () {
+      expect(CampaignLevels.byLevelNumber(1).wordsRequired, 3);
+      expect(CampaignLevels.byLevelNumber(2).wordsRequired, 4);
+      for (int i = 3; i <= 49; i++) {
+        final words = CampaignLevels.byLevelNumber(i).wordsRequired;
+        expect(words, inInclusiveRange(5, 7), reason: 'level $i');
       }
+    });
+
+    test('timeLimit grows with wordsRequired/gridSize but stays within a sane range', () {
+      for (int i = 1; i <= 49; i++) {
+        final config = CampaignLevels.byLevelNumber(i);
+        expect(config.timeLimit.inSeconds, inInclusiveRange(30, 110), reason: 'level $i');
+      }
+      // רמת זמן עולה עם היעד/גודל הלוח: לוח 3x3 עם יעד 3 מילים (שלב 1)
+      // צריך פחות זמן מלוח 7x7 עם יעד 7 מילים (שלב אחרון).
+      expect(
+        CampaignLevels.byLevelNumber(1).timeLimit,
+        lessThan(CampaignLevels.byLevelNumber(49).timeLimit),
+      );
     });
 
     test('CampaignLevels.all has exactly 49 fixed levels for all users', () {

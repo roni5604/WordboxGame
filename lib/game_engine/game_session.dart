@@ -79,15 +79,25 @@ class GameSession {
     );
   }
 
-  /// מספר הכוכבים (0-3) שהושגו לפי הניקוד הנוכחי.
-  int starsForScore(int score) {
-    if (score >= config.threeStarScore) return 3;
-    if (score >= config.twoStarScore) return 2;
-    if (score >= config.oneStarScore) return 1;
+  /// מספר הכוכבים (0-3) שהושגו לפי היחס בין מילים שנמצאו למילים שנדרשו
+  /// ([LevelConfig.wordsRequired]) - לא לפי ניקוד: כוכב אחד כשמגיעים
+  /// ליעד המילים המלא, שני כוכבים ביעד וחצי, שלושה כוכבים בכפול היעד.
+  static int starsForWordCount(int found, int required) {
+    if (required <= 0) return found > 0 ? 3 : 0;
+    final ratio = found / required;
+    if (ratio >= 2.0) return 3;
+    if (ratio >= 1.5) return 2;
+    if (ratio >= 1.0) return 1;
     return 0;
   }
 
-  int get currentStars => starsForScore(_score);
+  int get currentStars => starsForWordCount(foundWordsCount, config.wordsRequired);
+
+  /// כמה מילים עוד נותרו כדי להגיע ליעד השלב (0 אם היעד כבר הושג).
+  int get wordsRemainingForGoal =>
+      (config.wordsRequired - foundWordsCount).clamp(0, config.wordsRequired);
+
+  bool get hasReachedWordsGoal => foundWordsCount >= config.wordsRequired;
 
   /// בוחר מילה שטרם נמצאה עבור מנגנון הרמזים - מעדיפים את המילים
   /// הקצרות/קלות שנותרו (כדי שהרמז יעזור אך לא "יפתור" את כל השלב),

@@ -25,9 +25,7 @@ void main() {
       tier: WorldTier.seedling,
       gridSize: 2,
       timeLimit: Duration(seconds: 60),
-      oneStarScore: 1,
-      twoStarScore: 3,
-      threeStarScore: 6,
+      wordsRequired: 1,
     );
   });
 
@@ -91,5 +89,44 @@ void main() {
       const GridPosition(1, 1), // ז
     ]);
     expect(result.status, WordSubmitStatus.invalidWord);
+  });
+
+  group('GameSession.starsForWordCount (יעד מילים, לא ניקוד)', () {
+    test('0 כוכבים כל עוד לא הגיעו ליעד המילים', () {
+      expect(GameSession.starsForWordCount(0, 4), 0);
+      expect(GameSession.starsForWordCount(3, 4), 0);
+    });
+
+    test('כוכב 1 בדיוק ביעד המילים', () {
+      expect(GameSession.starsForWordCount(4, 4), 1);
+      expect(GameSession.starsForWordCount(5, 4), 1);
+    });
+
+    test('כוכב 2 ב-1.5 פי היעד', () {
+      expect(GameSession.starsForWordCount(6, 4), 2);
+    });
+
+    test('כוכב 3 בכפול היעד', () {
+      expect(GameSession.starsForWordCount(8, 4), 3);
+      expect(GameSession.starsForWordCount(20, 4), 3);
+    });
+  });
+
+  test('currentStars/wordsRemainingForGoal מתעדכנים לפי מילים שנמצאו לעומת יעד השלב', () {
+    // config בטסט הזה מוגדר עם wordsRequired: 1, כך שמילה אחת = כוכב אחד.
+    final session = buildSession();
+    expect(session.currentStars, 0);
+    expect(session.wordsRemainingForGoal, 1);
+    expect(session.hasReachedWordsGoal, isFalse);
+
+    session.submitPath([
+      const GridPosition(0, 0),
+      const GridPosition(0, 1),
+      const GridPosition(1, 0),
+    ]);
+
+    expect(session.currentStars, 1);
+    expect(session.wordsRemainingForGoal, 0);
+    expect(session.hasReachedWordsGoal, isTrue);
   });
 }
