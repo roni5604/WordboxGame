@@ -42,26 +42,44 @@ extension WorldTierX on WorldTier {
 }
 
 /// הגדרות שלב בודד בקמפיין יחיד-המשתתף.
+///
+/// המטרה של שלב היא **מספר מילים** (לא ניקוד) - [wordsRequired] - כדי
+/// שהיעד יהיה מוחשי, ברור וקל להבנה ("מצאו 3 מילים!"). הכוכבים (ראו
+/// [GameSession.currentStars] ב-lib/game_engine/game_session.dart) נגזרים
+/// מהיחס בין מילים שנמצאו למילים שנדרשו (שליש מהיעד = כוכב), לא מניקוד.
+/// השלב מסתיים באופן מיידי כשמגיעים ליעד המילים המלא, גם אם נשאר זמן.
 class LevelConfig extends Equatable {
   final int levelNumber; // 1-based
   final WorldTier tier;
   final int gridSize;
   final Duration timeLimit;
-  final int oneStarScore;
-  final int twoStarScore;
-  final int threeStarScore;
+
+  /// מספר המילים שצריך למצוא כדי "לעבור" את השלב (כוכב אחד לפחות).
+  final int wordsRequired;
   final int minWordLength;
+
+  /// true אם זה שלב "אבן דרך" - השלב הראשון בעולם חדש (גודל לוח שגדל
+  /// לעומת השלב הקודם), שבו מציגים חגיגת "עולם חדש נפתח!" ופרס נדיב
+  /// (ראו lib/features/game/level_result_screen.dart).
+  final bool isMilestoneLevel;
 
   const LevelConfig({
     required this.levelNumber,
     required this.tier,
     required this.gridSize,
     required this.timeLimit,
-    required this.oneStarScore,
-    required this.twoStarScore,
-    required this.threeStarScore,
+    required this.wordsRequired,
     this.minWordLength = 2,
+    this.isMilestoneLevel = false,
   });
+
+  /// יעדי המילים לכוכב 1/2/3 - מחלקים את [wordsRequired] לשלישים (ראו
+  /// [GameSession.starsForWordCount]): כל שליש מהיעד שנמצא שווה כוכב,
+  /// ושלושה כוכבים (המקסימום) מתקבלים בדיוק כשמגיעים ליעד המילים המלא -
+  /// ואז השלב מסתיים באותו רגע, גם אם נשאר זמן על השעון.
+  int get oneStarWords => (wordsRequired / 3).ceil();
+  int get twoStarWords => (wordsRequired * 2 / 3).ceil();
+  int get threeStarWords => wordsRequired;
 
   @override
   List<Object?> get props => [
@@ -69,22 +87,27 @@ class LevelConfig extends Equatable {
         tier,
         gridSize,
         timeLimit,
-        oneStarScore,
-        twoStarScore,
-        threeStarScore,
+        wordsRequired,
         minWordLength,
+        isMilestoneLevel,
       ];
 }
 
 /// בונה את רשימת השלבים המלאה של הקמפיין באופן דטרמיניסטי (פרוצדורלי),
 /// כך שקל להוסיף עוד שלבים בעתיד רק ע"י שינוי הפרמטרים כאן.
+///
+/// מבנה "אבני דרך" קבוע: כל 10 שלבים גודל הלוח עולה בדרגה אחת ומוצגת
+/// חגיגת "עולם חדש נפתח!" (ראו [LevelConfig.isMilestoneLevel]) -
+/// שלבים 1-9 = 3×3 ("נבטים"), 10-19 = 4×4 ("ניצנים"), 20-29 = 5×5
+/// ("פריחה"), 30-39 = 6×6 ("היער הגדול"), 40 ומעלה = 7×7 ("פסגת המילים",
+/// שם גודל הלוח נשאר קבוע - זו התקרה הגרפית/דיקדוקית הנוכחית של המשחק).
+/// העולם הראשון קצר ב-1 שלב (9 ולא 10) בכוונה, כדי ששלב 10 עצמו - בדיוק
+/// כפי שהתבקש - יהיה שלב האבן-דרך הראשון (המעבר ל-4×4).
 class CampaignLevels {
   CampaignLevels._();
 
-  static const int levelsPerWorldSeedling = 5;
-  static const int levelsPerWorldSprout = 7;
-  static const int levelsPerWorldBloom = 8;
-  static const int levelsPerWorldForest = 10;
+  static const int levelsInFirstTier = 9;
+  static const int levelsPerTier = 10;
 
   static final List<LevelConfig> all = _build();
 
@@ -92,42 +115,47 @@ class CampaignLevels {
     final levels = <LevelConfig>[];
     int levelNumber = 1;
 
-    void addWorld(WorldTier tier, int count, {required int baseTimeSec}) {
+    void addWorld(WorldTier tier, int count) {
       for (int i = 0; i < count; i++) {
-        final difficultyStep = i / (count - 1).clamp(1, 999);
-        final timeSec = (baseTimeSec - (difficultyStep * 20)).round();
-        final base = 20 + levelNumber * 6;
+        final wordsRequired = wordsRequiredForLevel(levelNumber);
         levels.add(
           LevelConfig(
             levelNumber: levelNumber,
             tier: tier,
             gridSize: tier.gridSize,
-            timeLimit: Duration(seconds: timeSec.clamp(45, 180)),
-            oneStarScore: base,
-            twoStarScore: (base * 1.8).round(),
-            threeStarScore: (base * 2.6).round(),
+            timeLimit: timeLimitForLevel(
+              wordsRequired: wordsRequired,
+              gridSize: tier.gridSize,
+            ),
+            wordsRequired: wordsRequired,
+            // אבן-דרך = השלב הראשון של העולם, פרט לעולם הראשון עצמו
+            // (שם אין "מעבר" קודם לחגוג).
+            isMilestoneLevel: i == 0 && levelNumber > 1,
           ),
         );
         levelNumber++;
       }
     }
 
-    addWorld(WorldTier.seedling, levelsPerWorldSeedling, baseTimeSec: 90);
-    addWorld(WorldTier.sprout, levelsPerWorldSprout, baseTimeSec: 110);
-    addWorld(WorldTier.bloom, levelsPerWorldBloom, baseTimeSec: 130);
-    addWorld(WorldTier.forest, levelsPerWorldForest, baseTimeSec: 150);
-    // עולם "פסגה" עם 7x7 - מספר בלתי מוגבל, אינסופי (נבנה על פי דרישה).
+    addWorld(WorldTier.seedling, levelsInFirstTier);
+    addWorld(WorldTier.sprout, levelsPerTier);
+    addWorld(WorldTier.bloom, levelsPerTier);
+    addWorld(WorldTier.forest, levelsPerTier);
+    // עולם "פסגה" עם 7x7 - 10 שלבים אחרונים; גודל הלוח כבר לא עולה
+    // מכאן והלאה, אז אין עוד אבני-דרך חדשות.
     for (int i = 0; i < 10; i++) {
-      final base = 20 + levelNumber * 6;
+      final wordsRequired = wordsRequiredForLevel(levelNumber);
       levels.add(
         LevelConfig(
           levelNumber: levelNumber,
           tier: WorldTier.summit,
           gridSize: WorldTier.summit.gridSize,
-          timeLimit: const Duration(seconds: 150),
-          oneStarScore: base,
-          twoStarScore: (base * 1.8).round(),
-          threeStarScore: (base * 2.6).round(),
+          timeLimit: timeLimitForLevel(
+            wordsRequired: wordsRequired,
+            gridSize: WorldTier.summit.gridSize,
+          ),
+          wordsRequired: wordsRequired,
+          isMilestoneLevel: i == 0,
         ),
       );
       levelNumber++;
@@ -136,10 +164,53 @@ class CampaignLevels {
     return levels;
   }
 
+  /// מספר המילים הנדרש לעבור שלב - עולה בהדרגה כדי שהמטרה תישאר ברורה
+  /// ומוחשית: שלב 1 = 3 מילים, שלב 2 = 4, ומשלב 3 והלאה נשאר לתמיד בטווח
+  /// 5-7 (לא ממשיך לטפס לאינסוף), עם תנודה קלה בטווח הזה לפי מיקום השלב
+  /// בתוך ה"עשירייה" שלו (ראו [positionWithinTier]) - כך שהקושי עדיין
+  /// עולה בהדרגה בתוך כל עולם, בלי להפוך את המטרה לבלתי-מושגת.
+  static int wordsRequiredForLevel(int levelNumber) {
+    if (levelNumber == 1) return 3;
+    if (levelNumber == 2) return 4;
+    if (levelNumber == 3) return 5;
+    if (levelNumber == 4) return 6;
+    if (levelNumber == 5) return 7;
+
+    final position = positionWithinTier(levelNumber);
+    final blockSize = tierBlockSize(levelNumber);
+    final t = blockSize <= 1 ? 0.0 : position / (blockSize - 1);
+    return (5 + t * 2).round().clamp(5, 7);
+  }
+
+  /// זמן השלב - קצר וברור בהרבה מהמצב הקודם (למשל שלב 1: 90->57 שניות),
+  /// אבל עם מרווח נוח - כדי שהיעד (מספר מילים) יישאר בהחלט מושג בלי
+  /// למהר, במיוחד בשלב 1 שצריך להיות הכי קל ונוח מכולם. נגזר ממספר
+  /// המילים הנדרש ומגודל הלוח (לוח גדול יותר דורש קצת יותר זמן חיפוש),
+  /// תמיד בטווח סביר (35-115 שניות).
+  static Duration timeLimitForLevel({required int wordsRequired, required int gridSize}) {
+    final seconds = 30 + wordsRequired * 9 + (gridSize - 3) * 6;
+    return Duration(seconds: seconds.clamp(35, 115));
+  }
+
   static LevelConfig byLevelNumber(int levelNumber) {
     return all.firstWhere(
       (l) => l.levelNumber == levelNumber,
       orElse: () => all.last,
     );
+  }
+
+  /// המיקום (0-מבוסס) של השלב בתוך "עשיריית" העולם הנוכחי שלו - 0 עבור
+  /// השלב הראשון/הכי-קל של העולם, ועד 9 (או 8 בעולם הראשון) עבור השלב
+  /// האחרון/הכי-קשה. משמש לקביעת פרופיל הקושי של בניית הלוח (ראו
+  /// lib/game_engine/level_board_builder.dart).
+  static int positionWithinTier(int levelNumber) {
+    if (levelNumber <= levelsInFirstTier) return levelNumber - 1;
+    return (levelNumber - levelsInFirstTier - 1) % levelsPerTier;
+  }
+
+  /// גודל ה"עשיריה" שהשלב הנתון שייך אליה (9 בעולם הראשון, 10 בכל השאר) -
+  /// משמש לנרמל את [positionWithinTier] לטווח 0..1.
+  static int tierBlockSize(int levelNumber) {
+    return levelNumber <= levelsInFirstTier ? levelsInFirstTier : levelsPerTier;
   }
 }

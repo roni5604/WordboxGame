@@ -152,6 +152,20 @@ def make_timer_warning():
     return note(660, 0.07, volume=0.4, wave_shape="square", fade=0.008)
 
 
+def make_star_gained():
+    """כוכב הושג במהלך השלב (לא סיום שלב) - "שאבב" זוהר וקצר, שמח יותר
+    מ-success_word אך קצר בהרבה מ-level_complete, כדי לחגוג רגע ביניים
+    (הגעה ליעד המילים, או לכוכב הבא) בלי להפריע לקצב המשחק."""
+    seq = []
+    for f in (G5, C6, D5 * 2):
+        seq += note(f, 0.08, volume=0.5, wave_shape="sine")
+    seq += mix(
+        note(C6, 0.22, volume=0.35, wave_shape="sine"),
+        note(G5, 0.22, volume=0.25, wave_shape="triangle"),
+    )
+    return seq
+
+
 RECIPES = {
     "success_word.wav": make_success_word,
     "error_word.wav": make_error_word,
@@ -162,6 +176,7 @@ RECIPES = {
     "daily_reward.wav": make_daily_reward,
     "button_tap.wav": make_button_tap,
     "timer_warning.wav": make_timer_warning,
+    "star_gained.wav": make_star_gained,
 }
 
 

@@ -12,20 +12,154 @@ import 'widgets/mascot_widget.dart';
 
 /// עבור תוצאה טובה (2-3 כוכבים) מציגים את הבלש מילולי חוגג עם השחקן/ית -
 /// כדי שגם "מסך ההצלחה" יזכיר את הדמות המובילה של המשחק, כפי שהתבקש.
+/// באבן-דרך (עולם חדש נפתח) הדמות גדולה יותר ורוקדת בעוצמה גבוהה יותר,
+/// כדי שהרגע יורגש כמיוחד באמת.
 class _CelebrationCharacter extends StatelessWidget {
   final int stars;
+  final bool isMilestone;
 
-  const _CelebrationCharacter({required this.stars});
+  const _CelebrationCharacter({required this.stars, this.isMilestone = false});
 
   @override
   Widget build(BuildContext context) {
-    if (stars >= 2) {
-      return Image.asset('assets/avatar/detective_celebrate.png', height: 130)
+    if (stars >= 2 || isMilestone) {
+      return Image.asset(
+        'assets/avatar/detective_celebrate.png',
+        height: isMilestone ? 170 : 130,
+      )
           .animate(onPlay: (c) => c.repeat(reverse: true))
-          .scaleXY(begin: 1, end: 1.06, duration: 500.ms, curve: Curves.easeInOut);
+          .scaleXY(
+            begin: 1,
+            end: isMilestone ? 1.12 : 1.06,
+            duration: isMilestone ? 380.ms : 500.ms,
+            curve: Curves.easeInOut,
+          );
     }
     final mood = stars == 1 ? MascotMood.happy : MascotMood.sad;
     return MascotWidget(mood: mood, size: 110);
+  }
+}
+
+/// כרטיס "עולם חדש נפתח!" - מוצג רק בשלבי אבן-דרך שהושלמו בהצלחה (ראו
+/// [LevelConfig.isMilestoneLevel] + lib/features/game/game_screen.dart).
+/// מציג את שם העולם החדש, גודל הלוח החדש, ופרס נדיב (מטבעות + רמזים).
+class _MilestoneBanner extends StatelessWidget {
+  final String tierTitle;
+  final int gridSize;
+  final int bonusCoins;
+  final int bonusHints;
+
+  const _MilestoneBanner({
+    required this.tierTitle,
+    required this.gridSize,
+    required this.bonusCoins,
+    required this.bonusHints,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.star, Color(0xFFFF9A56)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 16)],
+      ),
+      child: Column(
+        children: [
+          const Text('🎉 עולם חדש נפתח!', style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+          )),
+          const SizedBox(height: 4),
+          Text(
+            '$tierTitle - לוח $gridSize×$gridSize',
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _PrizeChip(icon: Icons.monetization_on_rounded, label: '+$bonusCoins מטבעות'),
+              const SizedBox(width: 12),
+              _PrizeChip(icon: Icons.lightbulb_rounded, label: '+$bonusHints רמזים'),
+            ],
+          ),
+        ],
+      ),
+    )
+        .animate()
+        .fadeIn(delay: 200.ms)
+        .scale(begin: const Offset(0.85, 0.85), curve: Curves.elasticOut, duration: 700.ms);
+  }
+}
+
+/// תג "סיימת לפני הזמן!" - מוצג כשהשלב הסתיים מיידית עם השגת יעד
+/// המילים לפני שהשעון הגיע לאפס (ראו [GameScreenResult.finishedEarly]),
+/// עם מספר השניות שנשארו כדי שההצלחה תורגש מוחשית וברורה.
+class _EarlyFinishBadge extends StatelessWidget {
+  final int secondsLeft;
+
+  const _EarlyFinishBadge({required this.secondsLeft});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.bolt_rounded, color: AppColors.star, size: 20),
+          const SizedBox(width: 6),
+          Text(
+            'סיימת לפני הזמן עם עוד $secondsLeft שניות בשעון! ⏱️',
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 250.ms).scale(
+          begin: const Offset(0.85, 0.85),
+          curve: Curves.elasticOut,
+          duration: 600.ms,
+        );
+  }
+}
+
+class _PrizeChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _PrizeChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: AppColors.primaryDark),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+        ],
+      ),
+    );
   }
 }
 
@@ -47,11 +181,15 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
   @override
   void initState() {
     super.initState();
-    _confetti = ConfettiController(duration: const Duration(seconds: 2));
+    final isMilestone = widget.result.isMilestoneLevel;
+    _confetti = ConfettiController(duration: Duration(seconds: isMilestone ? 4 : 2));
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted) return;
       ref.read(soundServiceProvider).playLevelComplete();
-      if (widget.result.stars >= 2) _confetti.play();
+      // חוגגים בקונפטי בכל שלב שהושלם בהצלחה (כוכב אחד ומעלה) - לא רק
+      // בהצלחה מרשימה במיוחד - כי המטרה עצמה (מספר מילים מוגדר) כבר
+      // ברורה ומוחשית, וכל השגה שלה ראויה לחגיגה.
+      if (widget.result.stars >= 1 || isMilestone) _confetti.play();
     });
   }
 
@@ -83,7 +221,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                 confettiController: _confetti,
                 blastDirectionality: BlastDirectionality.explosive,
                 shouldLoop: false,
-                numberOfParticles: 24,
+                numberOfParticles: result.isMilestoneLevel ? 60 : 24,
                 gravity: 0.25,
                 colors: const [
                   AppColors.star,
@@ -100,15 +238,30 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                   children: [
                     const Spacer(),
                     Text(
-                      result.stars > 0 ? 'כל הכבוד!' : 'כמעט הצלחת!',
+                      result.finishedEarly
+                          ? 'סיימת לפני הזמן! 🎉'
+                          : (result.stars > 0 ? 'כל הכבוד!' : 'כמעט הצלחת!'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 30,
                         fontWeight: FontWeight.w900,
                       ),
                     ).animate().fadeIn().slideY(begin: -0.2, end: 0),
+                    if (result.finishedEarly) ...[
+                      const SizedBox(height: 10),
+                      _EarlyFinishBadge(secondsLeft: result.secondsLeftWhenFinished),
+                    ],
                     const SizedBox(height: 12),
-                    _CelebrationCharacter(stars: result.stars),
+                    _CelebrationCharacter(stars: result.stars, isMilestone: result.isMilestoneLevel),
+                    if (result.isMilestoneLevel) ...[
+                      const SizedBox(height: 16),
+                      _MilestoneBanner(
+                        tierTitle: result.newTierTitle ?? '',
+                        gridSize: result.newGridSize ?? config.gridSize,
+                        bonusCoins: result.bonusCoins,
+                        bonusHints: result.bonusHints,
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -139,7 +292,12 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                             _StatRow(label: 'ניקוד', value: '${result.score}'),
                             const Divider(height: 20),
                             _StatRow(
-                              label: 'מילים שנמצאו',
+                              label: 'יעד מילים',
+                              value: '${result.foundWordsCount} מתוך ${config.wordsRequired}',
+                            ),
+                            const Divider(height: 20),
+                            _StatRow(
+                              label: 'סה"כ מילים בלוח',
                               value: '${result.foundWordsCount} מתוך ${result.totalPossibleWords}',
                             ),
                             const Divider(height: 20),

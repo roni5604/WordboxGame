@@ -66,9 +66,8 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
       tier: WorldTier.bloom,
       gridSize: widget.config.gridSize,
       timeLimit: widget.config.timeLimit,
-      oneStarScore: 1,
-      twoStarScore: 2,
-      threeStarScore: 3,
+      // תחרות רב-משתתפים לא משתמשת בכוכבים/יעד-מילים - רק בניקוד גולמי.
+      wordsRequired: 1,
     );
 
     final session = GameSession(config: pseudoLevelConfig, board: board, trie: dictionary.trie);

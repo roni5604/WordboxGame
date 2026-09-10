@@ -25,9 +25,7 @@ void main() {
       tier: WorldTier.seedling,
       gridSize: 2,
       timeLimit: Duration(seconds: 60),
-      oneStarScore: 1,
-      twoStarScore: 3,
-      threeStarScore: 6,
+      wordsRequired: 1,
     );
   });
 
@@ -91,5 +89,52 @@ void main() {
       const GridPosition(1, 1), // ז
     ]);
     expect(result.status, WordSubmitStatus.invalidWord);
+  });
+
+  group('GameSession.starsForWordCount (יעד מילים מחולק לשלישים, לא ניקוד)', () {
+    // הדוגמה המפורשת: יעד של 6 מילים -> כל 2 מילים שווה כוכב.
+    test('דוגמת יעד=6: 0/1 מילים -> 0 כוכבים, 2/3 -> כוכב, 4/5 -> 2 כוכבים, 6+ -> 3 כוכבים', () {
+      expect(GameSession.starsForWordCount(0, 6), 0);
+      expect(GameSession.starsForWordCount(1, 6), 0);
+      expect(GameSession.starsForWordCount(2, 6), 1);
+      expect(GameSession.starsForWordCount(3, 6), 1);
+      expect(GameSession.starsForWordCount(4, 6), 2);
+      expect(GameSession.starsForWordCount(5, 6), 2);
+      expect(GameSession.starsForWordCount(6, 6), 3);
+      expect(GameSession.starsForWordCount(10, 6), 3);
+    });
+
+    test('שלב 1 (יעד=3): כל מילה שווה כוכב', () {
+      expect(GameSession.starsForWordCount(0, 3), 0);
+      expect(GameSession.starsForWordCount(1, 3), 1);
+      expect(GameSession.starsForWordCount(2, 3), 2);
+      expect(GameSession.starsForWordCount(3, 3), 3);
+    });
+
+    test('שלב 2 (יעד=4): כל מילה וקצת שווה כוכב', () {
+      expect(GameSession.starsForWordCount(0, 4), 0);
+      expect(GameSession.starsForWordCount(1, 4), 0);
+      expect(GameSession.starsForWordCount(2, 4), 1);
+      expect(GameSession.starsForWordCount(3, 4), 2);
+      expect(GameSession.starsForWordCount(4, 4), 3);
+    });
+  });
+
+  test('currentStars/wordsRemainingForGoal מתעדכנים לפי מילים שנמצאו לעומת יעד השלב', () {
+    // config בטסט הזה מוגדר עם wordsRequired: 1, כך שמילה אחת = היעד המלא (3 כוכבים).
+    final session = buildSession();
+    expect(session.currentStars, 0);
+    expect(session.wordsRemainingForGoal, 1);
+    expect(session.hasReachedWordsGoal, isFalse);
+
+    session.submitPath([
+      const GridPosition(0, 0),
+      const GridPosition(0, 1),
+      const GridPosition(1, 0),
+    ]);
+
+    expect(session.currentStars, 3);
+    expect(session.wordsRemainingForGoal, 0);
+    expect(session.hasReachedWordsGoal, isTrue);
   });
 }

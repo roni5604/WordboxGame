@@ -93,6 +93,15 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   Future<void> setAuthIntroShown() =>
       _mutate((c) => c.copyWith(authIntroShown: true));
 
+  /// מסמן שההדרכה המוטבעת של שלב 1 הוצגה, כדי שלא תוצג שוב במשחקים חוזרים.
+  Future<void> setLevel1TutorialSeen() =>
+      _mutate((c) => c.copyWith(level1TutorialSeen: true));
+
+  /// מזכה מספר רמזי מתנה (למשל בונוס אבן-דרך) - בלי לגרוע ממטבעות, בשונה
+  /// מ-[buyHints] שנועד לקנייה בחנות.
+  Future<void> grantHints(int amount) =>
+      _mutate((c) => c.copyWith(hints: c.hints + amount));
+
   /// מסנכרן את שם התצוגה מספק ההתחברות (Google/Apple/Facebook/מייל) לתוך
   /// הפרופיל המקומי - נקרא אוטומטית מיד אחרי כל התחברות מוצלחת לחשבון
   /// אמיתי (לא אורח/ת), כך שהשם במשחק תמיד ישקף את החשבון המחובר. תמונת

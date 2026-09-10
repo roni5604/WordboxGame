@@ -66,6 +66,7 @@ class LocalProgressRepository implements ProgressRepository {
       hintStreakDay: box.get('hint_streak_day', defaultValue: 0) as int,
       lastHintClaimDate: box.get('last_hint_claim_date') as String?,
       authIntroShown: box.get('auth_intro_shown', defaultValue: false) as bool,
+      level1TutorialSeen: box.get('level1_tutorial_seen', defaultValue: false) as bool,
     );
   }
 
@@ -99,6 +100,7 @@ class LocalProgressRepository implements ProgressRepository {
       'hint_streak_day': profile.hintStreakDay,
       'last_hint_claim_date': profile.lastHintClaimDate,
       'auth_intro_shown': profile.authIntroShown,
+      'level1_tutorial_seen': profile.level1TutorialSeen,
     });
   }
 }

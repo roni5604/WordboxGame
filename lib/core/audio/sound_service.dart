@@ -63,6 +63,9 @@ class SoundService {
   /// אזהרת זמן אוזל (מספר שניות אחרונות בטיימר).
   Future<void> playTimerWarning() => _play('timer_warning.wav', volume: 0.5);
 
+  /// כוכב הושג במהלך השלב (חגיגת-ביניים, בנוסף לחגיגה הגדולה בסיום).
+  Future<void> playStarGained() => _play('star_gained.wav', volume: 0.7);
+
   void dispose() {
     for (final p in _pool) {
       p.dispose();
