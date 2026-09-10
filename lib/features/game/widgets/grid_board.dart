@@ -34,25 +34,32 @@ class GridBoardState extends State<GridBoard> {
 
   int get _size => widget.letters.length;
 
-  GridPosition? _positionFromOffset(Offset localOffset, double cellSize) {
-    final col = (localOffset.dx / cellSize).floor();
-    final row = (localOffset.dy / cellSize).floor();
-    if (row < 0 || row >= _size || col < 0 || col >= _size) return null;
-
-    // תיקון לבאג "האלכסון נתפס": חלוקה מלבנית פשוטה (floor) גורמת לכך
-    // שבגרירה אלכסונית מהירה, נקודת המגע יכולה לחצות רגעית את הגבול של
-    // התא השכן האורתוגונלי (לא זה שבאלכסון) ליד הפינה המשותפת בין 4
-    // תאים - וכך "נתפסת" בטעות בתא הלא-נכון. הפתרון: דורשים שהנקודה
-    // תהיה קרובה מספיק (במרחק אוקלידי) למרכז התא המועמד; ליד הפינות
-    // (המרוחקות ~0.71*cellSize מהמרכז) הנקודה תיפסל ותיחשב "אזור מת",
-    // ואילו ליד אמצע הצלעות (מרוחק לכל היותר 0.5*cellSize) היא תמיד
-    // תתקבל - כך שהתגובתיות הרגילה לא נפגעת, רק פינות אמביגואליות.
+  /// מוצא את התא שמרכזו הכי קרוב לנקודת המגע (Voronoi - "השכן הקרוב
+  /// ביותר"), מבין התא שהחלוקה המלבנית הפשוטה (floor) מציעה ושמונת
+  /// שכניו. בניגוד לגישה קודמת שבדקה רק "האם המרחק מהמרכז המועמד קטן
+  /// מסף קבוע" - וכך השאירה "אזור מת" ליד הפינות המשותפות בין 4 תאים,
+  /// במיוחד לאורך אלכסונים (שבהם המרחק בין מרכזי תאים סמוכים גדול פי
+  /// √2 מהמרחק האורתוגונלי) - הגישה הזו תמיד מחזירה תא כלשהו, בלי
+  /// "לדחות" נקודות: כל נקודה בתוך הלוח שייכת בדיוק לתא אחד (התא שמרכזו
+  /// הקרוב ביותר), כך שהמעבר בין תאים קורה בדיוק בחצי המרחק בין
+  /// מרכזיהם - סימטרי גם לאורתוגונלי וגם לאלכסוני, בלי אזור "דביק".
+  GridPosition _nearestPosition(Offset localOffset, double cellSize) {
+    final col = (localOffset.dx / cellSize).floor().clamp(0, _size - 1);
+    final row = (localOffset.dy / cellSize).floor().clamp(0, _size - 1);
     final candidate = GridPosition(row, col);
-    final center = _centerForPosition(candidate, cellSize);
-    final distance = (localOffset - center).distance;
-    if (distance > cellSize * 0.62) return null;
 
-    return candidate;
+    var best = candidate;
+    var bestDistanceSq = (localOffset - _centerForPosition(candidate, cellSize)).distanceSquared;
+
+    for (final n in candidate.rawNeighbors) {
+      if (n.row < 0 || n.row >= _size || n.col < 0 || n.col >= _size) continue;
+      final distanceSq = (localOffset - _centerForPosition(n, cellSize)).distanceSquared;
+      if (distanceSq < bestDistanceSq) {
+        bestDistanceSq = distanceSq;
+        best = n;
+      }
+    }
+    return best;
   }
 
   Offset _centerForPosition(GridPosition pos, double cellSize) {
@@ -63,8 +70,7 @@ class GridBoardState extends State<GridBoard> {
   }
 
   void _handleStart(Offset localOffset, double cellSize) {
-    final pos = _positionFromOffset(localOffset, cellSize);
-    if (pos == null) return;
+    final pos = _nearestPosition(localOffset, cellSize);
     setState(() {
       _path = [pos];
       _dragPosition = localOffset;
@@ -73,27 +79,48 @@ class GridBoardState extends State<GridBoard> {
     HapticFeedback.selectionClick();
   }
 
-  void _handleUpdate(Offset localOffset, double cellSize) {
-    if (_path.isEmpty) return;
-    setState(() => _dragPosition = localOffset);
-
-    final pos = _positionFromOffset(localOffset, cellSize);
-    if (pos == null) return;
+  /// מעבד נקודת מגע בודדת: מטפל ב"ביטול תא אחרון" (חזרה לאחור), התעלמות
+  /// מתא שכבר בנתיב, והוספת תא שכן חדש. מחזיר true אם הנתיב השתנה.
+  bool _processPoint(Offset point, double cellSize) {
+    final pos = _nearestPosition(point, cellSize);
 
     if (_path.length >= 2 && pos == _path[_path.length - 2]) {
-      // חזרה לאחור - מבטלת את התא האחרון (מאפשר "לתקן" נתיב).
-      setState(() => _path.removeLast());
-      HapticFeedback.selectionClick();
-      return;
+      _path.removeLast();
+      return true;
     }
-
-    if (_path.contains(pos)) return;
+    if (_path.contains(pos)) return false;
 
     final last = _path.last;
     if (pos.isAdjacentTo(last)) {
-      setState(() => _path.add(pos));
-      HapticFeedback.selectionClick();
+      _path.add(pos);
+      return true;
     }
+    return false;
+  }
+
+  void _handleUpdate(Offset localOffset, double cellSize) {
+    if (_path.isEmpty) return;
+    final previous = _dragPosition;
+    var changed = false;
+
+    if (previous != null && previous != localOffset) {
+      // דוגמים נקודות ביניים בין עדכון הגרירה הקודם לנוכחי: בגרירה
+      // מהירה (או FPS נמוך) המרחק בין שתי דגימות עוקבות של onPanUpdate
+      // יכול לגדול מ-cellSize, ואז נקודת המגע "מדלגת" מעל תא שכן נדרש
+      // בלי לעבור בו כלל - מה שבעבר היה משתיק את הגרירה עד סוף המחווה
+      // (כי אין נתיב חוקי לתא הרחוק). הדגימה כאן פותרת את זה.
+      final distance = (localOffset - previous).distance;
+      final steps = (distance / (cellSize * 0.4)).ceil().clamp(1, 12);
+      for (int i = 1; i <= steps; i++) {
+        final point = Offset.lerp(previous, localOffset, i / steps)!;
+        if (_processPoint(point, cellSize)) changed = true;
+      }
+    } else {
+      if (_processPoint(localOffset, cellSize)) changed = true;
+    }
+
+    setState(() => _dragPosition = localOffset);
+    if (changed) HapticFeedback.selectionClick();
   }
 
   void _handleEnd() {
@@ -114,15 +141,25 @@ class GridBoardState extends State<GridBoard> {
     });
   }
 
-  /// מציג רמז: מדגיש זמנית (בזהב זוהר) את הנתיב של מילה שטרם נמצאה, כדי
+  /// מציג רמז: מדגיש (בזהב זוהר) את הנתיב של מילה שטרם נמצאה, כדי
   /// ש"מציג את המילה עוד לפני שהיא נמצאה" - השחקן/ית עדיין צריך/ה לגרור
-  /// בעצמו/ה מעל האותיות המודגשות כדי לזכות בניקוד.
-  void showHint(List<GridPosition> path) {
+  /// בעצמו/ה מעל האותיות המודגשות כדי לזכות בניקוד. כברירת מחדל נעלם
+  /// אוטומטית אחרי [duration]; אפשר להעביר null כדי שיישאר מודגש עד
+  /// קריאה מפורשת ל-[clearHint] (למשל בטוטוריאל המוטבע של שלב 1).
+  void showHint(List<GridPosition> path, {Duration? duration = const Duration(milliseconds: 2600)}) {
     _hintTimer?.cancel();
     setState(() => _hintPath = path);
-    _hintTimer = Timer(const Duration(milliseconds: 2600), () {
-      if (mounted) setState(() => _hintPath = []);
-    });
+    if (duration != null) {
+      _hintTimer = Timer(duration, () {
+        if (mounted) setState(() => _hintPath = []);
+      });
+    }
+  }
+
+  /// מנקה רמז מוצג (בעיקר לרמז "דביק" - persistent - שהוצג עם duration null).
+  void clearHint() {
+    _hintTimer?.cancel();
+    if (mounted) setState(() => _hintPath = []);
   }
 
   @override
@@ -172,7 +209,10 @@ class GridBoardState extends State<GridBoard> {
                       child: Center(
                         child: LetterTile(
                           letter: widget.letters[r][c],
-                          size: cellSize * 0.82,
+                          // אריחים "צמודים" יותר (היו 0.82) - כך שהמרווח
+                          // הוויזואלי בין תאים סמוכים קטן ותנועת האצבע
+                          // בין אריחים (ובמיוחד באלכסון) מרגישה טבעית יותר.
+                          size: cellSize * 0.94,
                           // דפוס פסאודו-אקראי אך יציב לפי מיקום, כדי שהלוח
                           // ייראה כמו פסיפס צבעוני (כמו אייקון האפליקציה)
                           // ולא יתחלף מחדש בכל build.
