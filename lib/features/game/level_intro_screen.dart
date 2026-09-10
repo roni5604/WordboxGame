@@ -141,6 +141,9 @@ class _StarGoal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 3 כוכבים הם היעד המלא בדיוק (השלב מסתיים באותו רגע) - לא "3 ומעלה"
+    // כמו 1-2 כוכבים (יעדי ביניים) - כך שהתווית לא מטעה.
+    final label = stars >= 3 ? '$words מ׳' : '$words+ מ׳';
     return Column(
       children: [
         Row(
@@ -150,7 +153,7 @@ class _StarGoal extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text('$words+ מ׳', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
       ],
     );
   }

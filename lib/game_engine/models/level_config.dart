@@ -46,7 +46,8 @@ extension WorldTierX on WorldTier {
 /// המטרה של שלב היא **מספר מילים** (לא ניקוד) - [wordsRequired] - כדי
 /// שהיעד יהיה מוחשי, ברור וקל להבנה ("מצאו 3 מילים!"). הכוכבים (ראו
 /// [GameSession.currentStars] ב-lib/game_engine/game_session.dart) נגזרים
-/// מהיחס בין מילים שנמצאו למילים שנדרשו, לא מניקוד.
+/// מהיחס בין מילים שנמצאו למילים שנדרשו (שליש מהיעד = כוכב), לא מניקוד.
+/// השלב מסתיים באופן מיידי כשמגיעים ליעד המילים המלא, גם אם נשאר זמן.
 class LevelConfig extends Equatable {
   final int levelNumber; // 1-based
   final WorldTier tier;
@@ -72,12 +73,13 @@ class LevelConfig extends Equatable {
     this.isMilestoneLevel = false,
   });
 
-  /// יעדי המילים לכוכב 1/2/3 - יחסיים ל-[wordsRequired] (ראו
-  /// [GameSession.starsForWordCount]): כוכב אחד = יעד המילים המלא, שני
-  /// כוכבים = יעד וחצי, שלושה כוכבים = כפול היעד.
-  int get oneStarWords => wordsRequired;
-  int get twoStarWords => (wordsRequired * 1.5).ceil();
-  int get threeStarWords => wordsRequired * 2;
+  /// יעדי המילים לכוכב 1/2/3 - מחלקים את [wordsRequired] לשלישים (ראו
+  /// [GameSession.starsForWordCount]): כל שליש מהיעד שנמצא שווה כוכב,
+  /// ושלושה כוכבים (המקסימום) מתקבלים בדיוק כשמגיעים ליעד המילים המלא -
+  /// ואז השלב מסתיים באותו רגע, גם אם נשאר זמן על השעון.
+  int get oneStarWords => (wordsRequired / 3).ceil();
+  int get twoStarWords => (wordsRequired * 2 / 3).ceil();
+  int get threeStarWords => wordsRequired;
 
   @override
   List<Object?> get props => [
@@ -180,12 +182,14 @@ class CampaignLevels {
     return (5 + t * 2).round().clamp(5, 7);
   }
 
-  /// זמן השלב - קצר וברור, נגזר ממספר המילים הנדרש ומגודל הלוח (לוח
-  /// גדול יותר דורש קצת יותר זמן חיפוש), תמיד בטווח סביר (30-110 שניות)
-  /// כדי שהטיימר יישאר ברור ולא "יימשך" יותר מהצורך.
+  /// זמן השלב - קצר וברור בהרבה מהמצב הקודם (למשל שלב 1: 90->57 שניות),
+  /// אבל עם מרווח נוח - כדי שהיעד (מספר מילים) יישאר בהחלט מושג בלי
+  /// למהר, במיוחד בשלב 1 שצריך להיות הכי קל ונוח מכולם. נגזר ממספר
+  /// המילים הנדרש ומגודל הלוח (לוח גדול יותר דורש קצת יותר זמן חיפוש),
+  /// תמיד בטווח סביר (35-115 שניות).
   static Duration timeLimitForLevel({required int wordsRequired, required int gridSize}) {
-    final seconds = 25 + wordsRequired * 7 + (gridSize - 3) * 5;
-    return Duration(seconds: seconds.clamp(30, 110));
+    final seconds = 30 + wordsRequired * 9 + (gridSize - 3) * 6;
+    return Duration(seconds: seconds.clamp(35, 115));
   }
 
   static LevelConfig byLevelNumber(int levelNumber) {

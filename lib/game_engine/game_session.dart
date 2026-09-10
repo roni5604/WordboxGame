@@ -80,15 +80,14 @@ class GameSession {
   }
 
   /// מספר הכוכבים (0-3) שהושגו לפי היחס בין מילים שנמצאו למילים שנדרשו
-  /// ([LevelConfig.wordsRequired]) - לא לפי ניקוד: כוכב אחד כשמגיעים
-  /// ליעד המילים המלא, שני כוכבים ביעד וחצי, שלושה כוכבים בכפול היעד.
+  /// ([LevelConfig.wordsRequired]) - לא לפי ניקוד: מחלקים את היעד לשלישים,
+  /// וכל שליש שהושלם שווה כוכב. למשל אם היעד הוא 6 מילים, כל 2 מילים
+  /// שנמצאו הן כוכב נוסף. שלושה כוכבים (המקסימום) מתקבלים בדיוק כשמגיעים
+  /// ליעד המילים המלא - ואז השלב מסתיים מיידית, גם אם נשאר זמן.
   static int starsForWordCount(int found, int required) {
     if (required <= 0) return found > 0 ? 3 : 0;
-    final ratio = found / required;
-    if (ratio >= 2.0) return 3;
-    if (ratio >= 1.5) return 2;
-    if (ratio >= 1.0) return 1;
-    return 0;
+    final stars = (found * 3 / required).floor();
+    return stars.clamp(0, 3);
   }
 
   int get currentStars => starsForWordCount(foundWordsCount, config.wordsRequired);
