@@ -47,8 +47,15 @@ class LetterTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = size * 0.28;
+    // רדיוס עדין (לא ה-0.28 "סקוורקל" הקודם) - כך שהאריחים, שכעת צמודים
+    // זה לזה בלי רווח כלל (ראו grid_board.dart), עדיין נראים כמו רשת
+    // מאוחדת וברורה במקום פרחים חופפים בזוויות. תפר לבן דק (1px) בכל
+    // תא idle מתווה את גבול הריבוע במדויק - בלי שום רווח בפועל - כדי
+    // שיהיה קל להבין ויזואלית איפה נגמר תא אחד ומתחיל השכן שלו
+    // (במיוחד באלכסון, שם זה היה הכי מבלבל).
+    final radius = size * 0.14;
     final fontSize = size * 0.46;
+    final isIdle = state == TileVisualState.idle;
 
     final tile = AnimatedContainer(
       duration: const Duration(milliseconds: 140),
@@ -58,18 +65,14 @@ class LetterTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: _bgColor,
         borderRadius: BorderRadius.circular(radius),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.tileShadow,
-            blurRadius: state == TileVisualState.idle ? 4 : 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-        border: state == TileVisualState.selected
+        boxShadow: isIdle
+            ? null
+            : const [
+                BoxShadow(color: AppColors.tileShadow, blurRadius: 10, offset: Offset(0, 3)),
+              ],
+        border: state == TileVisualState.selected || state == TileVisualState.hint
             ? Border.all(color: Colors.white, width: 3)
-            : state == TileVisualState.hint
-                ? Border.all(color: Colors.white, width: 3)
-                : null,
+            : Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1),
       ),
       alignment: Alignment.center,
       child: _useRedOutlinedLetter
@@ -85,12 +88,14 @@ class LetterTile extends StatelessWidget {
     );
 
     if (state == TileVisualState.selected) {
-      return tile.animate().scaleXY(begin: 1, end: 1.12, duration: 120.ms, curve: Curves.easeOut);
+      // סקאלה מתונה יותר (הייתה 1.12) - כך שאריח נבחר לא "בולע" משמעותית
+      // משטח השכנים הצמודים אליו (אין רווח שיכול לספוג את ההתרחבות).
+      return tile.animate().scaleXY(begin: 1, end: 1.06, duration: 120.ms, curve: Curves.easeOut);
     }
     if (state == TileVisualState.hint) {
       return tile
           .animate(onPlay: (c) => c.repeat(reverse: true))
-          .scaleXY(begin: 1, end: 1.1, duration: 300.ms, curve: Curves.easeInOut);
+          .scaleXY(begin: 1, end: 1.06, duration: 300.ms, curve: Curves.easeInOut);
     }
     return tile;
   }

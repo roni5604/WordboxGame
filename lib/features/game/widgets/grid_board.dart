@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../game_engine/models/grid_position.dart';
 import 'connector_painter.dart';
 import 'letter_tile.dart';
@@ -41,8 +42,16 @@ class GridBoardState extends State<GridBoard> {
   /// במיוחד לאורך אלכסונים (שבהם המרחק בין מרכזי תאים סמוכים גדול פי
   /// √2 מהמרחק האורתוגונלי) - הגישה הזו תמיד מחזירה תא כלשהו, בלי
   /// "לדחות" נקודות: כל נקודה בתוך הלוח שייכת בדיוק לתא אחד (התא שמרכזו
-  /// הקרוב ביותר), כך שהמעבר בין תאים קורה בדיוק בחצי המרחק בין
-  /// מרכזיהם - סימטרי גם לאורתוגונלי וגם לאלכסוני, בלי אזור "דביק".
+  /// הקרוב ביותר).
+  ///
+  /// בנוסף, לשכנים **אלכסוניים** יש הטיה קלה (_diagonalBias) שמקטינה
+  /// מעט את המרחק האפקטיבי שלהם - כדי לתת לתנועה אלכסונית "יתרון" קטן
+  /// באזור הגבול המשותף בין 4 תאים (המקום שבו משתמשים דיווחו שהמעבר
+  /// לאלכסון עדיין מרגיש פחות נוח מהמעבר האורתוגונלי, כי המרחק הפיזי בין
+  /// מרכזי תאים אלכסוניים גדול יותר) - בלי לפגוע בדיוק ההפרדה בין תאים
+  /// אורתוגונליים (שם אין הטיה כלל).
+  static const double _diagonalBias = 0.82;
+
   GridPosition _nearestPosition(Offset localOffset, double cellSize) {
     final col = (localOffset.dx / cellSize).floor().clamp(0, _size - 1);
     final row = (localOffset.dy / cellSize).floor().clamp(0, _size - 1);
@@ -53,7 +62,9 @@ class GridBoardState extends State<GridBoard> {
 
     for (final n in candidate.rawNeighbors) {
       if (n.row < 0 || n.row >= _size || n.col < 0 || n.col >= _size) continue;
-      final distanceSq = (localOffset - _centerForPosition(n, cellSize)).distanceSquared;
+      final isDiagonal = n.row != candidate.row && n.col != candidate.col;
+      var distanceSq = (localOffset - _centerForPosition(n, cellSize)).distanceSquared;
+      if (isDiagonal) distanceSq *= _diagonalBias * _diagonalBias;
       if (distanceSq < bestDistanceSq) {
         bestDistanceSq = distanceSq;
         best = n;
@@ -184,6 +195,35 @@ class GridBoardState extends State<GridBoard> {
           if (_dragPosition != null) _dragPosition!,
         ];
 
+        TileVisualState stateFor(int r, int c) {
+          final pos = GridPosition(r, c);
+          if (_isError && _path.contains(pos)) return TileVisualState.error;
+          if (_path.contains(pos)) return TileVisualState.selected;
+          if (_hintPath.contains(pos)) return TileVisualState.hint;
+          return TileVisualState.idle;
+        }
+
+        Widget tileAt(int r, int c) {
+          return Positioned(
+            left: c * cellSize,
+            top: r * cellSize,
+            width: cellSize,
+            height: cellSize,
+            child: LetterTile(
+              letter: widget.letters[r][c],
+              // בלי שום רווח בין תאים - התאים צמודים זה לזה בדיוק כמו
+              // אזור המגע (cellSize) עצמו, כדי שהתא שרואים = התא שבו
+              // נוגעים בפועל, ללא "אזור מת" ויזואלי (במיוחד באלכסון).
+              size: cellSize,
+              // דפוס פסאודו-אקראי אך יציב לפי מיקום, כדי שהלוח
+              // ייראה כמו פסיפס צבעוני (כמו אייקון האפליקציה)
+              // ולא יתחלף מחדש בכל build.
+              paletteIndex: (r * 31 + c * 17) % 4,
+              state: stateFor(r, c),
+            ),
+          );
+        }
+
         return SizedBox(
           width: boardSize,
           height: boardSize,
@@ -192,42 +232,33 @@ class GridBoardState extends State<GridBoard> {
             onPanUpdate: (details) => _handleUpdate(details.localPosition, cellSize),
             onPanEnd: (_) => _handleEnd(),
             onPanCancel: _handleEnd,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: ConnectorPainter(points: linePoints, isError: _isError),
-                  ),
-                ),
-                for (int r = 0; r < _size; r++)
-                  for (int c = 0; c < _size; c++)
-                    Positioned(
-                      left: c * cellSize,
-                      top: r * cellSize,
-                      width: cellSize,
-                      height: cellSize,
-                      child: Center(
-                        child: LetterTile(
-                          letter: widget.letters[r][c],
-                          // אריחים "צמודים" יותר (היו 0.82) - כך שהמרווח
-                          // הוויזואלי בין תאים סמוכים קטן ותנועת האצבע
-                          // בין אריחים (ובמיוחד באלכסון) מרגישה טבעית יותר.
-                          size: cellSize * 0.94,
-                          // דפוס פסאודו-אקראי אך יציב לפי מיקום, כדי שהלוח
-                          // ייראה כמו פסיפס צבעוני (כמו אייקון האפליקציה)
-                          // ולא יתחלף מחדש בכל build.
-                          paletteIndex: (r * 31 + c * 17) % 4,
-                          state: _isError && _path.contains(GridPosition(r, c))
-                              ? TileVisualState.error
-                              : _path.contains(GridPosition(r, c))
-                                  ? TileVisualState.selected
-                                  : _hintPath.contains(GridPosition(r, c))
-                                      ? TileVisualState.hint
-                                      : TileVisualState.idle,
-                        ),
+            // ClipRRect חוצה חוץ בלבד (הלוח כמלבן מעוגל אחיד) - התאים
+            // עצמם צמודים/מלבניים בפנים, כדי שהלוח כולו ייראה כ"רשת"
+            // מאוחדת וברורה, ולא כאוסף ריבועים צפים עם רווחים.
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                color: AppColors.boardGrout,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: ConnectorPainter(points: linePoints, isError: _isError),
                       ),
                     ),
-              ],
+                    // שני מעברים: קודם כל התאים ה"רגילים" (idle), ואז
+                    // התאים המודגשים (נבחר/רמז/שגיאה) - כך שתא מודגש (שגדל
+                    // מעט באנימציה) לעולם לא "נבלע" ויזואלית מתחת לשכן
+                    // צמוד שמצטייר אחריו ב-Stack, גם בלי רווח כלל ביניהם.
+                    for (int r = 0; r < _size; r++)
+                      for (int c = 0; c < _size; c++)
+                        if (stateFor(r, c) == TileVisualState.idle) tileAt(r, c),
+                    for (int r = 0; r < _size; r++)
+                      for (int c = 0; c < _size; c++)
+                        if (stateFor(r, c) != TileVisualState.idle) tileAt(r, c),
+                  ],
+                ),
+              ),
             ),
           ),
         );
