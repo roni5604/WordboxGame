@@ -57,6 +57,7 @@ flutter:
   assets:
     - assets/dictionaries/
     - assets/config/
+    - assets/boards/
     - assets/icon/
     - assets/mascot/
     - assets/avatar/
