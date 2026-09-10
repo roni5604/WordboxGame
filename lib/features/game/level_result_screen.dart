@@ -150,7 +150,10 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted) return;
       ref.read(soundServiceProvider).playLevelComplete();
-      if (widget.result.stars >= 2 || isMilestone) _confetti.play();
+      // חוגגים בקונפטי בכל שלב שהושלם בהצלחה (כוכב אחד ומעלה) - לא רק
+      // בהצלחה מרשימה במיוחד - כי המטרה עצמה (מספר מילים מוגדר) כבר
+      // ברורה ומוחשית, וכל השגה שלה ראויה לחגיגה.
+      if (widget.result.stars >= 1 || isMilestone) _confetti.play();
     });
   }
 
@@ -247,7 +250,12 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                             _StatRow(label: 'ניקוד', value: '${result.score}'),
                             const Divider(height: 20),
                             _StatRow(
-                              label: 'מילים שנמצאו',
+                              label: 'יעד מילים',
+                              value: '${result.foundWordsCount} מתוך ${config.wordsRequired}+',
+                            ),
+                            const Divider(height: 20),
+                            _StatRow(
+                              label: 'סה"כ מילים בלוח',
                               value: '${result.foundWordsCount} מתוך ${result.totalPossibleWords}',
                             ),
                             const Divider(height: 20),

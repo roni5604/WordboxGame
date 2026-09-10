@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,6 +26,7 @@ import 'widgets/found_words_panel.dart';
 import 'widgets/grid_board.dart';
 import 'widgets/mascot_widget.dart';
 import 'widgets/timer_bar.dart';
+import 'widgets/words_goal_panel.dart';
 
 /// תוצאת שלב שהושלם - מועברת למסך התוצאה דרך go_router `extra`.
 class GameScreenResult extends Equatable {
@@ -98,6 +100,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   bool _finished = false;
   int? _lastWarningSecond;
+  int _lastCelebratedStars = 0;
 
   String? _tutorialWord;
   List<GridPosition>? _tutorialPath;
@@ -187,9 +190,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           timer.cancel();
           _finishLevel();
         } else {
-          // "טיק" אזהרה בכל שנייה שלמה בחמש השניות האחרונות בלבד.
+          // "טיק" אזהרה בכל שנייה שלמה כשנשארו פחות מ-20% מהזמן (אותו סף
+          // כמו "urgent" בפס הטיימר) - כך שהאפקט מתאים גם לשלבים קצרים.
           final secondsLeft = _remaining.inSeconds;
-          if (secondsLeft <= 5 && secondsLeft != _lastWarningSecond) {
+          final urgent = _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2);
+          if (urgent && secondsLeft != _lastWarningSecond) {
             _lastWarningSecond = secondsLeft;
             ref.read(soundServiceProvider).playTimerWarning();
           }
@@ -206,6 +211,20 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     });
     _bannerTimer = Timer(const Duration(milliseconds: 900), () {
       if (mounted) setState(() => _bannerText = null);
+    });
+  }
+
+  /// חגיגת-ביניים כשעולה למספר כוכבים גבוה יותר במהלך השלב (לא רק
+  /// בסיום) - צליל שמח + רטט + הודעה, כך שברור לשחקן/ית בזמן אמת "כמה
+  /// כוכבים כבר בכיס". מתוזמן קצת אחרי הודעת "מילה נמצאה!" כדי לא
+  /// לדרוס אותה (שתי ההודעות חולקות את אותו banner/timer).
+  void _celebrateStarGained(int stars) {
+    ref.read(soundServiceProvider).playStarGained();
+    HapticFeedback.mediumImpact();
+    final starsText = '⭐' * stars;
+    Future.delayed(const Duration(milliseconds: 950), () {
+      if (!mounted || _finished) return;
+      _showBanner('$starsText ${stars >= 3 ? "מושלם! כל הכבוד!" : "כוכב חדש!"}');
     });
   }
 
@@ -245,6 +264,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         ref.read(soundServiceProvider).playSuccess();
         _showBanner('${result.displayWord}  +${result.pointsAwarded}');
         setState(() {});
+        final newStars = session.currentStars;
+        if (newStars > _lastCelebratedStars) {
+          _lastCelebratedStars = newStars;
+          _celebrateStarGained(newStars);
+        }
         if (session.isFullyCompleted) {
           Future.delayed(const Duration(milliseconds: 500), _finishLevel);
         }
@@ -360,9 +384,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                           progress: _remaining.inMilliseconds /
                               _config.timeLimit.inMilliseconds,
                           urgent: _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2),
+                          secondsLeft: _remaining.inSeconds,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: WordsGoalPanel(
+                          found: session.foundWordsCount,
+                          required: _config.wordsRequired,
+                          stars: session.currentStars,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       Expanded(
                         child: Stack(
                           alignment: Alignment.topCenter,
