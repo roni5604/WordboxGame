@@ -24,7 +24,7 @@ class WordsGoalPanel extends StatelessWidget {
     final remaining = (required - found).clamp(0, required);
     final label = remaining > 0
         ? 'עוד $remaining ${remaining == 1 ? "מילה" : "מילים"} למטרה 🎯'
-        : '🎯 המטרה הושגה! ממשיכים לכוכבים נוספים';
+        : '🎉 המטרה הושגה! השלב מסתיים...';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

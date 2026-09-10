@@ -101,6 +101,42 @@ class _MilestoneBanner extends StatelessWidget {
   }
 }
 
+/// תג "סיימת לפני הזמן!" - מוצג כשהשלב הסתיים מיידית עם השגת יעד
+/// המילים לפני שהשעון הגיע לאפס (ראו [GameScreenResult.finishedEarly]),
+/// עם מספר השניות שנשארו כדי שההצלחה תורגש מוחשית וברורה.
+class _EarlyFinishBadge extends StatelessWidget {
+  final int secondsLeft;
+
+  const _EarlyFinishBadge({required this.secondsLeft});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.bolt_rounded, color: AppColors.star, size: 20),
+          const SizedBox(width: 6),
+          Text(
+            'סיימת לפני הזמן עם עוד $secondsLeft שניות בשעון! ⏱️',
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 250.ms).scale(
+          begin: const Offset(0.85, 0.85),
+          curve: Curves.elasticOut,
+          duration: 600.ms,
+        );
+  }
+}
+
 class _PrizeChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -202,13 +238,19 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                   children: [
                     const Spacer(),
                     Text(
-                      result.stars > 0 ? 'כל הכבוד!' : 'כמעט הצלחת!',
+                      result.finishedEarly
+                          ? 'סיימת לפני הזמן! 🎉'
+                          : (result.stars > 0 ? 'כל הכבוד!' : 'כמעט הצלחת!'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 30,
                         fontWeight: FontWeight.w900,
                       ),
                     ).animate().fadeIn().slideY(begin: -0.2, end: 0),
+                    if (result.finishedEarly) ...[
+                      const SizedBox(height: 10),
+                      _EarlyFinishBadge(secondsLeft: result.secondsLeftWhenFinished),
+                    ],
                     const SizedBox(height: 12),
                     _CelebrationCharacter(stars: result.stars, isMilestone: result.isMilestoneLevel),
                     if (result.isMilestoneLevel) ...[
@@ -251,7 +293,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                             const Divider(height: 20),
                             _StatRow(
                               label: 'יעד מילים',
-                              value: '${result.foundWordsCount} מתוך ${config.wordsRequired}+',
+                              value: '${result.foundWordsCount} מתוך ${config.wordsRequired}',
                             ),
                             const Divider(height: 20),
                             _StatRow(

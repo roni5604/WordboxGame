@@ -47,6 +47,15 @@ class GameScreenResult extends Equatable {
   final String? newTierTitle;
   final int? newGridSize;
 
+  /// true אם השלב הסתיים כי הושג יעד המילים ([LevelConfig.wordsRequired])
+  /// לפני שהזמן נגמר (השלב מסתיים מיידית באותו רגע) - מפעיל חגיגת "סיים
+  /// לפני הזמן!" מיוחדת במסך התוצאה.
+  final bool finishedEarly;
+
+  /// כמה שניות נשארו על השעון בזמן שהשלב הסתיים - רלוונטי רק כשסיים
+  /// לפני הזמן ([finishedEarly]).
+  final int secondsLeftWhenFinished;
+
   const GameScreenResult({
     required this.score,
     required this.stars,
@@ -60,6 +69,8 @@ class GameScreenResult extends Equatable {
     this.bonusHints = 0,
     this.newTierTitle,
     this.newGridSize,
+    this.finishedEarly = false,
+    this.secondsLeftWhenFinished = 0,
   });
 
   @override
@@ -75,6 +86,8 @@ class GameScreenResult extends Equatable {
         bonusHints,
         newTierTitle,
         newGridSize,
+        finishedEarly,
+        secondsLeftWhenFinished,
       ];
 }
 
@@ -269,8 +282,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           _lastCelebratedStars = newStars;
           _celebrateStarGained(newStars);
         }
-        if (session.isFullyCompleted) {
-          Future.delayed(const Duration(milliseconds: 500), _finishLevel);
+        // ברגע שהושג יעד המילים - השלב מסתיים מיידית (3 כוכבים, חגיגת
+        // "סיים לפני הזמן!"), בלי לחכות שהזמן יגמר או שכל מילות הלוח
+        // יימצאו.
+        if (session.hasReachedWordsGoal || session.isFullyCompleted) {
+          Future.delayed(
+            const Duration(milliseconds: 500),
+            () => _finishLevel(earlyFinish: session.hasReachedWordsGoal),
+          );
         }
         break;
       case WordSubmitStatus.duplicate:
@@ -290,7 +309,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     }
   }
 
-  Future<void> _finishLevel() async {
+  Future<void> _finishLevel({bool earlyFinish = false}) async {
     if (_finished) return;
     _finished = true;
     _ticker?.cancel();
@@ -298,6 +317,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     if (session == null) return;
 
     final stars = session.currentStars;
+    final secondsLeftWhenFinished = _remaining.inSeconds;
     // אבן-דרך: השלב הראשון של עולם חדש (גודל לוח שגדל) שהושלם בהצלחה
     // (לפחות כוכב אחד) - מזכה בפרס נדיב ומפעיל חגיגה מורחבת במסך התוצאה.
     final isMilestone = _config.isMilestoneLevel && stars >= 1;
@@ -335,6 +355,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       bonusHints: isMilestone ? milestoneBonusHints : 0,
       newTierTitle: isMilestone ? _config.tier.titleHe : null,
       newGridSize: isMilestone ? _config.gridSize : null,
+      finishedEarly: earlyFinish,
+      secondsLeftWhenFinished: secondsLeftWhenFinished,
     );
 
     context.pushReplacement('/level/${widget.levelNumber}/result', extra: result);
