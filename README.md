@@ -93,9 +93,11 @@ docs/              # מסמכי תכנון, הקמת Firebase, רישוי, הש�
   [`docs/FIREBASE_SETUP.md`](docs/FIREBASE_SETUP.md).
 - 🧪 **רב-משתתפים אונליין**: מודלים + repository מבוססי Firestore קיימים
   כשלד להמשך פיתוח.
-- ⚠️ **מילון**: רשימת מילים מאוצרת (821+ מילים) שנכתבה במיוחד לפרויקט
-  כדי להימנע מבעיות רישוי. ראו
-  [`docs/DICTIONARY_LICENSING.md`](docs/DICTIONARY_LICENSING.md) להרחבה עתידית.
+- ✅ **מילון**: כ-4,445 מילים (שמות עצם + רבים, פעלים בכל הבניינים/
+  הזמנים, תארים עם הטיות, סלנג) - נשאב מהמאגר הפתוח והחופשי
+  [`hebrew-words-db`](https://github.com/roni5604/hebrew-words-db)
+  (רישיון CC0, ללא עלות/ייחוס). פי ~5 מהמילון הקודם, וממשיך לגדול. ראו
+  [`docs/DICTIONARY_LICENSING.md`](docs/DICTIONARY_LICENSING.md).
 
 ## 🔤 רישיון גופנים
 
