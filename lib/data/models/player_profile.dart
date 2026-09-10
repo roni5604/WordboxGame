@@ -35,6 +35,11 @@ class PlayerProfile extends Equatable {
   /// לאחר מכן לא מוצג שוב אוטומטית (אפשר עדיין להתחבר דרך הפרופיל).
   final bool authIntroShown;
 
+  /// האם ההדרכה המוטבעת בתחילת שלב 1 (הדגשת מילה + בועת טקסט מנחה,
+  /// לפני שהטיימר מתחיל) כבר הוצגה ונדחתה - כדי שלא תוצג שוב במשחקים
+  /// חוזרים על שלב 1. ראו lib/features/game/game_screen.dart.
+  final bool level1TutorialSeen;
+
   const PlayerProfile({
     this.levelProgress = const {},
     this.coins = 0,
@@ -48,6 +53,7 @@ class PlayerProfile extends Equatable {
     this.hintStreakDay = 0,
     this.lastHintClaimDate,
     this.authIntroShown = false,
+    this.level1TutorialSeen = false,
   });
 
   int get totalStars => levelProgress.values.fold(0, (sum, p) => sum + p.stars);
@@ -70,6 +76,7 @@ class PlayerProfile extends Equatable {
     int? hintStreakDay,
     String? lastHintClaimDate,
     bool? authIntroShown,
+    bool? level1TutorialSeen,
   }) {
     return PlayerProfile(
       levelProgress: levelProgress ?? this.levelProgress,
@@ -84,6 +91,7 @@ class PlayerProfile extends Equatable {
       hintStreakDay: hintStreakDay ?? this.hintStreakDay,
       lastHintClaimDate: lastHintClaimDate ?? this.lastHintClaimDate,
       authIntroShown: authIntroShown ?? this.authIntroShown,
+      level1TutorialSeen: level1TutorialSeen ?? this.level1TutorialSeen,
     );
   }
 
@@ -101,5 +109,6 @@ class PlayerProfile extends Equatable {
         hintStreakDay,
         lastHintClaimDate,
         authIntroShown,
+        level1TutorialSeen,
       ];
 }

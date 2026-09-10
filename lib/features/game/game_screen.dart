@@ -10,11 +10,15 @@ import '../../core/theme/app_colors.dart';
 import '../../game_engine/board_generator.dart';
 import '../../game_engine/dictionary/hebrew_trie.dart';
 import '../../game_engine/game_session.dart';
+import '../../game_engine/level_board_builder.dart';
 import '../../game_engine/models/grid_position.dart';
 import '../../game_engine/models/level_config.dart';
+import '../../game_engine/word_finder.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/common_word_pool_provider.dart';
 import '../../providers/dictionary_provider.dart';
 import '../../providers/letter_frequency_provider.dart';
+import '../../providers/level_boards_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
 import 'widgets/found_words_panel.dart';
@@ -32,6 +36,15 @@ class GameScreenResult extends Equatable {
   final List<String> foundWordsDisplay;
   final int coinsEarned;
 
+  /// אבן-דרך: true אם השלב הזה הוא שלב "עולם חדש" (ראו
+  /// [LevelConfig.isMilestoneLevel]) שהושלם בהצלחה (לפחות כוכב אחד) -
+  /// מפעיל את מסך החגיגה המורחב ב-level_result_screen.dart.
+  final bool isMilestoneLevel;
+  final int bonusCoins;
+  final int bonusHints;
+  final String? newTierTitle;
+  final int? newGridSize;
+
   const GameScreenResult({
     required this.score,
     required this.stars,
@@ -40,11 +53,27 @@ class GameScreenResult extends Equatable {
     required this.totalPossibleScore,
     required this.foundWordsDisplay,
     required this.coinsEarned,
+    this.isMilestoneLevel = false,
+    this.bonusCoins = 0,
+    this.bonusHints = 0,
+    this.newTierTitle,
+    this.newGridSize,
   });
 
   @override
-  List<Object?> get props =>
-      [score, stars, foundWordsCount, totalPossibleWords, totalPossibleScore, coinsEarned];
+  List<Object?> get props => [
+        score,
+        stars,
+        foundWordsCount,
+        totalPossibleWords,
+        totalPossibleScore,
+        coinsEarned,
+        isMilestoneLevel,
+        bonusCoins,
+        bonusHints,
+        newTierTitle,
+        newGridSize,
+      ];
 }
 
 class GameScreen extends ConsumerStatefulWidget {
@@ -70,6 +99,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   bool _finished = false;
   int? _lastWarningSecond;
 
+  String? _tutorialWord;
+  List<GridPosition>? _tutorialPath;
+  bool _showTutorialOverlay = false;
+
   @override
   void initState() {
     super.initState();
@@ -80,18 +113,67 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   Future<void> _initSession() async {
     final dictionary = await ref.read(dictionaryLoadProvider.future);
-    final weights = await ref.read(letterFrequencyProvider.future);
 
-    final generator = BoardGenerator(trie: dictionary.trie, letterWeights: weights);
-    final board = generator.generate(
-      size: _config.gridSize,
-      minWordsRequired: 5 + _config.gridSize,
-    );
+    // לוחות קבועים וזהים לכל המשתמשים/ות (ראו tool/generate_level_boards.dart
+    // ו-lib/game_engine/level_board_builder.dart) - נבנו מראש סביב מילים
+    // מוכרות/נוחות, בקושי עולה הדרגתי. שלבים שמעבר לטווח שנבנה מראש עדיין
+    // נבנים דטרמיניסטית (לפי מספר השלב), רק לא ממופתחים build-time.
+    final pregenerated = await ref.read(levelBoardsProvider.future);
+    final pre = pregenerated[widget.levelNumber];
 
+    List<List<String>> letters;
+    if (pre != null) {
+      letters = pre.letters;
+      _tutorialWord = pre.tutorialWord;
+      _tutorialPath = pre.tutorialPath;
+    } else {
+      final weights = await ref.read(letterFrequencyProvider.future);
+      final commonWords = await ref.read(commonWordPoolProvider.future);
+      final builder = LevelBoardBuilder(
+        trie: dictionary.trie,
+        letterWeights: weights,
+        commonWords: commonWords,
+      );
+      letters = builder.buildForLevel(_config).board.letters;
+    }
+
+    final possibleWords = WordFinder(dictionary.trie).findAllWords(letters);
+    final board = GeneratedBoard(letters: letters, possibleWords: possibleWords, size: _config.gridSize);
     final session = GameSession(config: _config, board: board, trie: dictionary.trie);
 
     if (!mounted) return;
     setState(() => _session = session);
+    await _maybeShowTutorial();
+  }
+
+  /// בשלב 1 בלבד (ורק בפעם הראשונה): לפני שהטיימר מתחיל לרוץ, מדגישים
+  /// (בזהב, באופן "דביק" - בלי להיעלם אוטומטית) את הנתיב של מילה מוכרת
+  /// שהוצבה בכוונה על הלוח, ומציגים בועת טקסט מנחה עם כפתור התחלה.
+  Future<void> _maybeShowTutorial() async {
+    final word = _tutorialWord;
+    final path = _tutorialPath;
+    if (widget.levelNumber != 1 || word == null || path == null) {
+      _startTimer();
+      return;
+    }
+
+    final profile = await ref.read(playerProfileProvider.notifier).ensureLoaded();
+    if (profile.level1TutorialSeen) {
+      _startTimer();
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _showTutorialOverlay = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _boardKey.currentState?.showHint(path, duration: null);
+    });
+  }
+
+  void _dismissTutorial() {
+    setState(() => _showTutorialOverlay = false);
+    _boardKey.currentState?.clearHint();
+    ref.read(playerProfileProvider.notifier).setLevel1TutorialSeen();
     _startTimer();
   }
 
@@ -192,7 +274,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     if (session == null) return;
 
     final stars = session.currentStars;
-    final coinsEarned = stars * 10 + session.foundWordsCount * 2;
+    // אבן-דרך: השלב הראשון של עולם חדש (גודל לוח שגדל) שהושלם בהצלחה
+    // (לפחות כוכב אחד) - מזכה בפרס נדיב ומפעיל חגיגה מורחבת במסך התוצאה.
+    final isMilestone = _config.isMilestoneLevel && stars >= 1;
+    const milestoneBonusCoins = 75;
+    const milestoneBonusHints = 3;
+
+    final coinsEarned =
+        stars * 10 + session.foundWordsCount * 2 + (isMilestone ? milestoneBonusCoins : 0);
 
     await ref.read(playerProfileProvider.notifier).completeLevel(
           levelNumber: widget.levelNumber,
@@ -200,6 +289,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           score: session.score,
           coinsEarned: coinsEarned,
         );
+
+    if (isMilestone) {
+      await ref.read(playerProfileProvider.notifier).grantHints(milestoneBonusHints);
+    }
 
     if (!mounted) return;
 
@@ -213,6 +306,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           .map((w) => HebrewTrie.toDisplayWord(w))
           .toList(),
       coinsEarned: coinsEarned,
+      isMilestoneLevel: isMilestone,
+      bonusCoins: isMilestone ? milestoneBonusCoins : 0,
+      bonusHints: isMilestone ? milestoneBonusHints : 0,
+      newTierTitle: isMilestone ? _config.tier.titleHe : null,
+      newGridSize: isMilestone ? _config.gridSize : null,
     );
 
     context.pushReplacement('/level/${widget.levelNumber}/result', extra: result);
@@ -319,6 +417,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                   ),
                                 ).animate(key: ValueKey(_bannerText)).fadeIn().moveY(
                                     begin: 10, end: 0, duration: 200.ms),
+                              ),
+                            if (_showTutorialOverlay && _tutorialWord != null)
+                              Positioned(
+                                left: 12,
+                                right: 12,
+                                bottom: 8,
+                                child: _TutorialCard(
+                                  word: HebrewTrie.toDisplayWord(_tutorialWord!),
+                                  onStart: _dismissTutorial,
+                                ),
                               ),
                           ],
                         ),
@@ -433,6 +541,53 @@ class _GameHeader extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// בועת ההדרכה המוטבעת בתחילת שלב 1: מסבירה שיש להדגיש/לגרור בין
+/// האותיות המודגשות בזהב (ראו [GridBoardState.showHint]) ליצירת המילה
+/// המוצגת, וכפתור להתחלת הטיימר בפועל.
+class _TutorialCard extends StatelessWidget {
+  final String word;
+  final VoidCallback onStart;
+
+  const _TutorialCard({required this.word, required this.onStart});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 12)],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.lightbulb_rounded, color: AppColors.star),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'גררו אצבע בין האותיות המסומנות בזהב ליצירת המילה "$word"',
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: onStart,
+              child: const Text('הבנתי, בואו נתחיל!'),
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.3, end: 0);
   }
 }
 
