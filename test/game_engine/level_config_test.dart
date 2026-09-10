@@ -116,7 +116,7 @@ void main() {
     test('timeLimit grows with wordsRequired/gridSize but stays within a sane range', () {
       for (int i = 1; i <= 49; i++) {
         final config = CampaignLevels.byLevelNumber(i);
-        expect(config.timeLimit.inSeconds, inInclusiveRange(30, 110), reason: 'level $i');
+        expect(config.timeLimit.inSeconds, inInclusiveRange(35, 115), reason: 'level $i');
       }
       // רמת זמן עולה עם היעד/גודל הלוח: לוח 3x3 עם יעד 3 מילים (שלב 1)
       // צריך פחות זמן מלוח 7x7 עם יעד 7 מילים (שלב אחרון).
@@ -124,6 +124,13 @@ void main() {
         CampaignLevels.byLevelNumber(1).timeLimit,
         lessThan(CampaignLevels.byLevelNumber(49).timeLimit),
       );
+    });
+
+    test('level 1 has a comfortable margin (>=50s) but is still much shorter than before (90s)',
+        () {
+      final seconds = CampaignLevels.byLevelNumber(1).timeLimit.inSeconds;
+      expect(seconds, greaterThanOrEqualTo(50));
+      expect(seconds, lessThan(70));
     });
 
     test('CampaignLevels.all has exactly 49 fixed levels for all users', () {
