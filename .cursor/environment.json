@@ -1,6 +1,9 @@
 {
   "name": "WordBox Hebrew (Flutter)",
   "user": "ubuntu",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "install": "flutter pub get",
   "terminals": [
     {
