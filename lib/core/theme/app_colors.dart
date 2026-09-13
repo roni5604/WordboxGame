@@ -62,4 +62,18 @@ class AppColors {
   static IconData iconForWorldIndex(int index) {
     return worldIcons[index % worldIcons.length];
   }
+
+  /// צבע קו-המסלול במפת השלבים - גרסה בהירה יותר של גרדיאנט העולם,
+  /// כדי שהמסלול יישאר קריא מעל רקע העולם ועדיין יצבע את האזור.
+  static Color pathColorForWorldIndex(int index) {
+    final colors = gradientForWorldIndex(index);
+    return Color.lerp(colors.first, Colors.white, 0.45)!;
+  }
+
+  static const Color masterAmber = Color(0xFFFFA000);
+  static const Color masterDeep = Color(0xFFFF6D00);
+  static const Color finaleViolet = Color(0xFF7C4DFF);
+  static const Color finaleGold = Color(0xFFFFD54F);
+  static const Color luckyTeal = Color(0xFF00BCD4);
+  static const Color luckyGold = Color(0xFFFFC107);
 }

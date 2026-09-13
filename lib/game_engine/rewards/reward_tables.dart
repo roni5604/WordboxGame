@@ -60,6 +60,9 @@ class RewardTables {
   /// lib/features/game/game_screen.dart.
   static const int luckyBoxLevelInterval = 7;
 
+  static bool isLuckyBoxLevel(int levelNumber) =>
+      levelNumber > 0 && levelNumber % luckyBoxLevelInterval == 0;
+
   /// מגריל פרס לתיבת מזל: מטבעות קטנים-בינוניים, ולעיתים גם רמז אחד.
   /// [worldIndex] (0-מבוסס) מגדיל מעט את טווח המטבעות בעולמות מתקדמים.
   static LuckyBoxReward rollLuckyBox({required int worldIndex, Random? random}) {
