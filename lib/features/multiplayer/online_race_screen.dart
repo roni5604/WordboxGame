@@ -309,6 +309,7 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
           isMe: player.uid == _myUid,
           avatarId: player.uid == _myUid ? (profile?.avatarId ?? 'detective') : null,
           photoUrl: player.uid == _myUid ? authUser?.photoUrl : null,
+          wins: room.isSeries ? (room.wins[player.uid] ?? 0) : null,
         ),
     ]..sort((a, b) => b.score.compareTo(a.score));
     return entries;
@@ -373,15 +374,30 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
                                 color: Colors.white,
                               ),
                             ),
-                            const Text(
-                              'משחק מול חברים',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 18,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'משחק מול חברים',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  if (_room != null && _room!.isSeries)
+                                    Text(
+                                      _room!.roundLabel,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
-                            const Spacer(),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,

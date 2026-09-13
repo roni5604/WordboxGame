@@ -40,6 +40,50 @@ void main() {
       expect(room.players.single.isHost, isTrue);
       expect(room.players.single.displayName, 'דנה');
       expect(room.isJoinWindowOpen, isTrue);
+      expect(room.totalRounds, 1);
+      expect(room.currentRound, 1);
+      expect(room.entryFee, 5);
+      expect(room.pot, 5);
+      expect(room.paidUids['host-uid'], isTrue);
+    });
+
+    test('יוצר חדר עם מספר משחקונים ודמי כניסה שנבחרו', () async {
+      final host = repoFor('host-uid', name: 'דנה');
+      final room = await host.createRoom(
+        hostDisplayName: 'דנה',
+        gridSize: 5,
+        roundSeconds: 90,
+        targetScore: 0,
+        maxPlayers: 8,
+        joinWindow: const Duration(minutes: 10),
+        totalRounds: 4,
+        entryFee: 20,
+      );
+
+      expect(room.totalRounds, 4);
+      expect(room.entryFee, 20);
+      expect(room.pot, 20);
+    });
+  });
+
+  group('fetchRoom', () {
+    test('מחזיר חדר קיים בלי להצטרף', () async {
+      final host = repoFor('host-uid');
+      final room = await host.createRoom(
+        hostDisplayName: 'מנהל',
+        gridSize: 4,
+        roundSeconds: 60,
+        targetScore: 0,
+        maxPlayers: 4,
+        joinWindow: const Duration(minutes: 10),
+        entryFee: 10,
+      );
+
+      final guest = repoFor('guest-uid');
+      final peeked = await guest.fetchRoom(room.roomCode);
+      expect(peeked.entryFee, 10);
+      expect(peeked.pot, 10);
+      expect(peeked.players, hasLength(1));
     });
   });
 
@@ -61,6 +105,8 @@ void main() {
       expect(updated.players, hasLength(2));
       expect(updated.players.map((p) => p.displayName), containsAll(['מנהל', 'עומר']));
       expect(updated.players.firstWhere((p) => p.uid == 'guest-uid').isHost, isFalse);
+      expect(updated.pot, 10);
+      expect(updated.paidUids['guest-uid'], isTrue);
     });
 
     test('זורק שגיאה כשהחדר לא קיים', () async {
@@ -316,6 +362,42 @@ void main() {
       final updated = await host.watchRoom(room.roomCode).first;
       expect(updated.players, hasLength(1));
       expect(updated.players.single.uid, 'host-uid');
+      expect(updated.pot, 5);
+      expect(updated.paidUids.containsKey('guest-uid'), isFalse);
+    });
+  });
+
+  group('startNextRound', () {
+    test('המנהל/ת מעלה סבב ומתחיל משחק בלי לגעת בקופה', () async {
+      final host = repoFor('host-uid');
+      final room = await host.createRoom(
+        hostDisplayName: 'מנהל',
+        gridSize: 4,
+        roundSeconds: 60,
+        targetScore: 0,
+        maxPlayers: 4,
+        joinWindow: const Duration(minutes: 10),
+        totalRounds: 3,
+        entryFee: 10,
+      );
+      final guest = repoFor('guest-uid');
+      await guest.joinRoom(roomCode: room.roomCode, displayName: 'עומר');
+      await host.startGame(room.roomCode);
+      await host.finishRoom(room.roomCode, winnerUid: 'host-uid');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(() => guest.startNextRound(room.roomCode), throwsA(isA<StateError>()));
+
+      await host.startNextRound(room.roomCode);
+      final updated = await host.watchRoom(room.roomCode).first;
+      expect(updated.status, RoomStatus.inProgress);
+      expect(updated.currentRound, 2);
+      expect(updated.pot, 20);
+      expect(updated.entryFee, 10);
+      expect(updated.wins['host-uid'], 1);
+      for (final player in updated.players) {
+        expect(player.score, 0);
+      }
     });
   });
 

@@ -17,7 +17,15 @@ service cloud.firestore {
         && next.boardSeed == prev.boardSeed
         && next.roundSeconds == prev.roundSeconds
         && next.targetScore == prev.targetScore
-        && next.maxPlayers == prev.maxPlayers;
+        && next.maxPlayers == prev.maxPlayers
+        && next.totalRounds == prev.totalRounds
+        && next.currentRound == prev.currentRound
+        && next.entryFee == prev.entryFee;
+    }
+
+    function _potLocked(next, prev) {
+      return next.pot == prev.pot
+        && next.paidUids == prev.paidUids;
     }
 
     match /players/{uid} {
@@ -36,10 +44,17 @@ service cloud.firestore {
         && request.resource.data.boardSeed is int
         && request.resource.data.roundSeconds is int
         && request.resource.data.targetScore is int
-        && request.resource.data.maxPlayers is int;
+        && request.resource.data.maxPlayers is int
+        && request.resource.data.totalRounds is int
+        && request.resource.data.totalRounds >= 1
+        && request.resource.data.totalRounds <= 10
+        && request.resource.data.currentRound == 1
+        && request.resource.data.entryFee in [5, 10, 20, 50]
+        && request.resource.data.pot == request.resource.data.entryFee
+        && request.resource.data.potAwarded == false;
 
-      // עדכון: שלושה מעברי סטטוס חוקיים בלבד, וכל שדות ההגדרה נעולים
-      // (חוץ מ-boardSeed ב"משחק חוזר", ראו למטה).
+      // עדכון: מעברי סטטוס חוקיים, עדכוני קופה בהצטרפות/יציאה מלובי,
+      // וכל שדות ההגדרה נעולים (חוץ מ-boardSeed/currentRound בסבב הבא).
       allow update: if request.auth != null && (
         // המנהל/ת מתחיל/ה את המשחק.
         (
@@ -47,15 +62,17 @@ service cloud.firestore {
           && request.resource.data.status == 'inProgress'
           && request.auth.uid == resource.data.hostUid
           && _roomConfigUnchanged(request.resource.data, resource.data)
+          && _potLocked(request.resource.data, resource.data)
         )
         ||
         // כל חבר/ת בחדר יכול/ה לסמן שהסבב הסתיים (זמן נגמר / ניקוד יעד
-        // הושג) - מונה הניצחונות (wins) חופשי להשתנות כאן, לא נעול.
+        // הושג) - מונה הניצחונות (wins) ו-potAwarded חופשיים להשתנות כאן.
         (
           resource.data.status == 'inProgress'
           && request.resource.data.status == 'finished'
           && exists(/databases/$(database)/documents/rooms/$(roomCode)/players/$(request.auth.uid))
           && _roomConfigUnchanged(request.resource.data, resource.data)
+          && _potLocked(request.resource.data, resource.data)
         )
         ||
         // "משחק חוזר": רק המנהל/ת, ורק מסבב שהסתיים - לוח חדש (boardSeed
@@ -69,8 +86,48 @@ service cloud.firestore {
           && request.resource.data.roundSeconds == resource.data.roundSeconds
           && request.resource.data.targetScore == resource.data.targetScore
           && request.resource.data.maxPlayers == resource.data.maxPlayers
+          && request.resource.data.totalRounds == resource.data.totalRounds
+          && request.resource.data.currentRound == resource.data.currentRound
+          && request.resource.data.entryFee == resource.data.entryFee
           && request.resource.data.boardSeed is int
           && request.resource.data.startedAt == null
+        )
+        ||
+        // הסבב הבא בסדרה: finished → inProgress, currentRound + 1, לוח חדש.
+        (
+          resource.data.status == 'finished'
+          && request.resource.data.status == 'inProgress'
+          && request.auth.uid == resource.data.hostUid
+          && request.resource.data.hostUid == resource.data.hostUid
+          && request.resource.data.gridSize == resource.data.gridSize
+          && request.resource.data.roundSeconds == resource.data.roundSeconds
+          && request.resource.data.targetScore == resource.data.targetScore
+          && request.resource.data.maxPlayers == resource.data.maxPlayers
+          && request.resource.data.totalRounds == resource.data.totalRounds
+          && request.resource.data.entryFee == resource.data.entryFee
+          && request.resource.data.pot == resource.data.pot
+          && request.resource.data.currentRound == resource.data.currentRound + 1
+          && request.resource.data.currentRound <= resource.data.totalRounds
+          && request.resource.data.boardSeed is int
+          && request.resource.data.startedAt != null
+        )
+        ||
+        // הצטרפות: הגדלת הקופה בדיוק בדמי הכניסה והוספת המשלם/ת.
+        (
+          resource.data.status == 'waiting'
+          && request.resource.data.status == 'waiting'
+          && _roomConfigUnchanged(request.resource.data, resource.data)
+          && request.resource.data.pot == resource.data.pot + resource.data.entryFee
+          && request.resource.data.paidUids[request.auth.uid] == true
+        )
+        ||
+        // יציאה מהלובי לפני התחלה: הקטנת הקופה והסרת המשלם/ת.
+        (
+          resource.data.status == 'waiting'
+          && request.resource.data.status == 'waiting'
+          && _roomConfigUnchanged(request.resource.data, resource.data)
+          && resource.data.paidUids[request.auth.uid] == true
+          && request.resource.data.pot == resource.data.pot - resource.data.entryFee
         )
       );
 
@@ -79,8 +136,7 @@ service cloud.firestore {
         allow create: if request.auth != null && request.auth.uid == uid;
         // עדכון: או בעל/ת המסמך מעדכנ/ת ניקוד עצמי בלבד (מונוטוני, בלי
         // לשנות שם/תפקיד), או מנהל/ת החדר מאפס/ת ניקוד לכולם בעת "משחק
-        // חוזר" (ראו rooms/{roomCode} allow update למעלה - שני העדכונים
-        // קורים במקביל מהלקוח).
+        // חוזר" / סבב הבא (ראו rooms/{roomCode} allow update למעלה).
         allow update: if request.auth != null && (
           (
             request.auth.uid == uid

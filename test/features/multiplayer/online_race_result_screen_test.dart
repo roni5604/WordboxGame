@@ -16,7 +16,8 @@ import 'fake_multiplayer_repository.dart';
 
 class _FakeProgressRepository implements ProgressRepository {
   @override
-  Future<PlayerProfile> loadProfile() async => const PlayerProfile(displayName: 'דנה');
+  Future<PlayerProfile> loadProfile() async =>
+      const PlayerProfile(displayName: 'דנה', coins: 40);
 
   @override
   Future<void> saveProfile(PlayerProfile profile) async {}
@@ -31,7 +32,14 @@ class _ImmediateProfileNotifier extends PlayerProfileNotifier {
   }
 }
 
-GameRoom _finishedRoom({required List<PlayerInRoom> players, Map<String, int> wins = const {}}) {
+GameRoom _finishedRoom({
+  required List<PlayerInRoom> players,
+  Map<String, int> wins = const {},
+  int totalRounds = 1,
+  int currentRound = 1,
+  int pot = 10,
+  int entryFee = 5,
+}) {
   return GameRoom(
     roomCode: '12345',
     status: RoomStatus.finished,
@@ -40,7 +48,12 @@ GameRoom _finishedRoom({required List<PlayerInRoom> players, Map<String, int> wi
     boardSeed: 42,
     roundSeconds: 90,
     targetScore: 0,
-    maxPlayers: 6,
+    maxPlayers: 8,
+    totalRounds: totalRounds,
+    currentRound: currentRound,
+    entryFee: entryFee,
+    pot: pot,
+    potAwarded: currentRound >= totalRounds,
     players: players,
     wins: wins,
   );
@@ -73,6 +86,10 @@ void main() {
           path: '/multiplayer/online/room/:roomCode',
           builder: (context, state) => const SizedBox(),
         ),
+        GoRoute(
+          path: '/multiplayer/online/race/:roomCode',
+          builder: (context, state) => const SizedBox(),
+        ),
         GoRoute(path: '/home', builder: (context, state) => const SizedBox()),
       ],
     );
@@ -84,7 +101,7 @@ void main() {
           playerProfileProvider.overrideWith(
             (ref) => _ImmediateProfileNotifier(
               _FakeProgressRepository(),
-              const PlayerProfile(displayName: 'דנה'),
+              const PlayerProfile(displayName: 'דנה', coins: 40),
             ),
           ),
           multiplayerRepositoryProvider.overrideWithValue(fakeRepo),
@@ -101,7 +118,7 @@ void main() {
     return router;
   }
 
-  testWidgets('המנהל/ת רואה כפתור "משחק חוזר" ומפעיל אותו', (tester) async {
+  testWidgets('סיום משחקון יחיד מציג יציאה בלי משחק חוזר', (tester) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -117,17 +134,42 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('משחק חוזר 🔁'), findsOneWidget);
+    expect(find.text('משחק חוזר 🔁'), findsNothing);
+    expect(find.text('יציאה לתפריט הראשי'), findsOneWidget);
+    expect(find.textContaining('מטבעות'), findsWidgets);
+  });
 
-    await tester.tap(find.text('משחק חוזר 🔁'));
+  testWidgets('סבב ביניים מציג "הסבב הבא" למנהל/ת', (tester) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    addTearDown(() => tester.pumpWidget(const SizedBox()));
+
+    final fakeRepo = FakeMultiplayerRepository();
+    await pumpResultScreen(tester, fakeRepo: fakeRepo, myUid: 'host-uid');
+
+    fakeRepo.pushRoomUpdate(_finishedRoom(
+      totalRounds: 3,
+      currentRound: 1,
+      players: [
+        const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
+        const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
+      ],
+    ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(fakeRepo.restartRoomCalls, contains('12345'));
-    expect(tester.takeException(), isNull);
+    expect(find.text('הסבב הבא 🚀'), findsOneWidget);
+    expect(find.text('טבלת האלופים'), findsNothing);
+
+    await tester.tap(find.text('הסבב הבא 🚀'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(fakeRepo.startNextRoundCalls, contains('12345'));
   });
 
-  testWidgets('לא-מנהל/ת רואה הודעת המתנה, לא כפתור "משחק חוזר"', (tester) async {
+  testWidgets('אורח/ת בסבב ביניים ממתין/ה לסבב הבא', (tester) async {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -136,15 +178,19 @@ void main() {
     final fakeRepo = FakeMultiplayerRepository();
     await pumpResultScreen(tester, fakeRepo: fakeRepo, myUid: 'guest-uid');
 
-    fakeRepo.pushRoomUpdate(_finishedRoom(players: [
-      const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
-      const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
-    ]));
+    fakeRepo.pushRoomUpdate(_finishedRoom(
+      totalRounds: 3,
+      currentRound: 1,
+      players: [
+        const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
+        const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
+      ],
+    ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('ממתינים שמנהל/ת החדר ילחץ/תלחץ על "משחק חוזר"...'), findsOneWidget);
-    expect(find.text('משחק חוזר 🔁'), findsNothing);
+    expect(find.text('ממתינים לסבב הבא...'), findsOneWidget);
+    expect(find.text('הסבב הבא 🚀'), findsNothing);
   });
 
   testWidgets('מציג יחס ניצחונות X : Y כשקיים מונה wins בחדר', (tester) async {
@@ -167,6 +213,32 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('1 : 2'), findsOneWidget);
+  });
+
+  testWidgets('סיום סדרה מציג טבלת אלופים בלי הסבב הבא', (tester) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    addTearDown(() => tester.pumpWidget(const SizedBox()));
+
+    final fakeRepo = FakeMultiplayerRepository();
+    await pumpResultScreen(tester, fakeRepo: fakeRepo, myUid: 'host-uid');
+
+    fakeRepo.pushRoomUpdate(_finishedRoom(
+      totalRounds: 3,
+      currentRound: 3,
+      wins: {'host-uid': 2, 'guest-uid': 1},
+      players: [
+        const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
+        const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
+      ],
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('טבלת האלופים'), findsOneWidget);
+    expect(find.text('הסבב הבא 🚀'), findsNothing);
+    expect(find.textContaining('ניצחונות'), findsWidgets);
   });
 
   testWidgets('כשה"משחק חוזר" מופעל (סטטוס waiting), מנווטים אוטומטית ללובי', (tester) async {
@@ -193,7 +265,7 @@ void main() {
       boardSeed: 99,
       roundSeconds: 90,
       targetScore: 0,
-      maxPlayers: 6,
+      maxPlayers: 8,
       players: finishedRoom.players,
     ));
     await tester.pump();

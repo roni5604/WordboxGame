@@ -7,21 +7,33 @@ import 'package:wordbox_hebrew/data/models/player_profile.dart';
 import 'package:wordbox_hebrew/data/repositories/progress_repository.dart';
 import 'package:wordbox_hebrew/features/multiplayer/join_room_screen.dart';
 import 'package:wordbox_hebrew/providers/multiplayer_repository_provider.dart';
+import 'package:wordbox_hebrew/providers/player_profile_provider.dart';
 import 'package:wordbox_hebrew/providers/repository_providers.dart';
 
 import 'fake_multiplayer_repository.dart';
 
 class _FakeProgressRepository implements ProgressRepository {
+  final PlayerProfile profile;
+
+  _FakeProgressRepository([this.profile = const PlayerProfile(displayName: 'עומר', coins: 100)]);
+
   @override
-  Future<PlayerProfile> loadProfile() async => const PlayerProfile(displayName: 'עומר');
+  Future<PlayerProfile> loadProfile() async => profile;
 
   @override
   Future<void> saveProfile(PlayerProfile profile) async {}
 }
 
+class _ImmediateProfileNotifier extends PlayerProfileNotifier {
+  _ImmediateProfileNotifier(super.repository, PlayerProfile profile) {
+    state = AsyncValue.data(profile);
+  }
+}
+
 Future<void> _pumpJoinScreen(
   WidgetTester tester, {
   required FakeMultiplayerRepository fakeRepo,
+  PlayerProfile profile = const PlayerProfile(displayName: 'עומר', coins: 100),
 }) async {
   final router = GoRouter(
     initialLocation: '/join',
@@ -37,7 +49,10 @@ Future<void> _pumpJoinScreen(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        progressRepositoryProvider.overrideWithValue(_FakeProgressRepository()),
+        progressRepositoryProvider.overrideWithValue(_FakeProgressRepository(profile)),
+        playerProfileProvider.overrideWith(
+          (ref) => _ImmediateProfileNotifier(_FakeProgressRepository(profile), profile),
+        ),
         multiplayerRepositoryProvider.overrideWithValue(fakeRepo),
       ],
       child: MaterialApp.router(
@@ -90,6 +105,10 @@ void main() {
     await tester.enterText(find.byType(TextField).last, 'a1b2c3d4e5');
     final codeField = tester.widget<TextField>(find.byType(TextField).last);
     expect(codeField.controller?.text, '12345');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('דמי כניסה לחדר'), findsOneWidget);
 
     await tester.tap(find.text('הצטרפות לחדר 🚪'));
     await tester.pump();
@@ -108,10 +127,32 @@ void main() {
     await _pumpJoinScreen(tester, fakeRepo: fakeRepo);
 
     await tester.enterText(find.byType(TextField).last, '99999');
-    await tester.tap(find.text('הצטרפות לחדר 🚪'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('חדר עם הקוד 99999 לא נמצא.'), findsOneWidget);
+  });
+
+  testWidgets('JoinRoomScreen blocks join when the player cannot afford the fee', (tester) async {
+    tester.view.physicalSize = const Size(400, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    addTearDown(() => disposeTree(tester));
+
+    final fakeRepo = FakeMultiplayerRepository();
+    await _pumpJoinScreen(
+      tester,
+      fakeRepo: fakeRepo,
+      profile: const PlayerProfile(displayName: 'עומר', coins: 2),
+    );
+
+    await tester.enterText(find.byType(TextField).last, '12345');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('דמי כניסה לחדר'), findsOneWidget);
+    expect(find.textContaining('אין מספיק מטבעות'), findsWidgets);
+    final button = tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'הצטרפות לחדר 🚪'));
+    expect(button.onPressed, isNull);
   });
 }

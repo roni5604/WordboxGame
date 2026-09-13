@@ -37,6 +37,15 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
     return List.generate(5, (_) => rand.nextInt(10)).join();
   }
 
+  void _validateCreateSettings({required int totalRounds, required int entryFee}) {
+    if (totalRounds < 1 || totalRounds > 10) {
+      throw StateError('מספר משחקונים חייב להיות בין 1 ל-10.');
+    }
+    if (!GameRoom.allowedEntryFees.contains(entryFee)) {
+      throw StateError('דמי כניסה לא חוקיים.');
+    }
+  }
+
   @override
   Future<String> ensureSignedIn() => _ensureUid();
 
@@ -55,7 +64,10 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
     required int targetScore,
     required int maxPlayers,
     required Duration joinWindow,
+    int totalRounds = 1,
+    int entryFee = 5,
   }) async {
+    _validateCreateSettings(totalRounds: totalRounds, entryFee: entryFee);
     final uid = await _ensureUid();
 
     // מנסים כמה קודים במקרה הנדיר של התנגשות עם חדר קיים שעדיין פעיל.
@@ -76,6 +88,12 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
         'roundSeconds': roundSeconds,
         'targetScore': targetScore,
         'maxPlayers': maxPlayers,
+        'totalRounds': totalRounds,
+        'currentRound': 1,
+        'entryFee': entryFee,
+        'pot': entryFee,
+        'paidUids': {uid: true},
+        'potAwarded': false,
         'joinDeadline': Timestamp.fromDate(joinDeadline),
         'startedAt': null,
         'createdAt': FieldValue.serverTimestamp(),
@@ -98,6 +116,11 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
         roundSeconds: roundSeconds,
         targetScore: targetScore,
         maxPlayers: maxPlayers,
+        totalRounds: totalRounds,
+        currentRound: 1,
+        entryFee: entryFee,
+        pot: entryFee,
+        paidUids: {uid: true},
         joinDeadline: joinDeadline,
         players: [
           PlayerInRoom(uid: uid, displayName: hostDisplayName, isHost: true),
@@ -106,6 +129,16 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
     }
 
     throw StateError('לא הצלחנו ליצור חדר כרגע - נסו שוב.');
+  }
+
+  @override
+  Future<GameRoom> fetchRoom(String roomCode) async {
+    final code = roomCode.trim();
+    final roomSnap = await _rooms.doc(code).get();
+    if (!roomSnap.exists || roomSnap.data() == null) {
+      throw StateError('חדר עם הקוד $code לא נמצא.');
+    }
+    return _readRoom(code);
   }
 
   @override
@@ -133,12 +166,31 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
         throw StateError('החדר מלא (מקסימום ${room.maxPlayers} שחקנים).');
       }
 
-      await roomRef.collection('players').doc(uid).set({
-        'displayName': displayName,
-        'score': 0,
-        'wordsFound': 0,
-        'isHost': false,
-        'joinedAt': FieldValue.serverTimestamp(),
+      final alreadyPaid = room.paidUids[uid] == true;
+      await _firestore.runTransaction((tx) async {
+        final snap = await tx.get(roomRef);
+        final data = snap.data();
+        if (data == null) throw StateError('חדר עם הקוד $code לא נמצא.');
+
+        tx.set(roomRef.collection('players').doc(uid), {
+          'displayName': displayName,
+          'score': 0,
+          'wordsFound': 0,
+          'isHost': false,
+          'joinedAt': FieldValue.serverTimestamp(),
+        });
+
+        if (!alreadyPaid) {
+          final paid = Map<String, dynamic>.from(data['paidUids'] as Map? ?? {});
+          if (paid[uid] != true) {
+            paid[uid] = true;
+            final entryFee = (data['entryFee'] as num?)?.toInt() ?? room.entryFee;
+            tx.update(roomRef, {
+              'paidUids': paid,
+              'pot': ((data['pot'] as num?)?.toInt() ?? 0) + entryFee,
+            });
+          }
+        }
       });
     }
 
@@ -167,7 +219,16 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
       boardSeed: (data['boardSeed'] as num?)?.toInt() ?? 0,
       roundSeconds: (data['roundSeconds'] as num?)?.toInt() ?? 90,
       targetScore: (data['targetScore'] as num?)?.toInt() ?? 0,
-      maxPlayers: (data['maxPlayers'] as num?)?.toInt() ?? 6,
+      maxPlayers: (data['maxPlayers'] as num?)?.toInt() ?? GameRoom.defaultMaxPlayers,
+      totalRounds: (data['totalRounds'] as num?)?.toInt() ?? 1,
+      currentRound: (data['currentRound'] as num?)?.toInt() ?? 1,
+      entryFee: (data['entryFee'] as num?)?.toInt() ?? 5,
+      pot: (data['pot'] as num?)?.toInt() ?? 0,
+      paidUids: (data['paidUids'] as Map<String, dynamic>?)?.map(
+            (uid, paid) => MapEntry(uid, paid == true),
+          ) ??
+          const {},
+      potAwarded: data['potAwarded'] as bool? ?? false,
       joinDeadline: (data['joinDeadline'] as Timestamp?)?.toDate(),
       startedAt: (data['startedAt'] as Timestamp?)?.toDate(),
       wins: (data['wins'] as Map<String, dynamic>?)?.map(
@@ -275,6 +336,8 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
         if (data == null) return;
         if (data['status'] == RoomStatus.finished.name) return;
 
+        final currentRound = (data['currentRound'] as num?)?.toInt() ?? 1;
+        final totalRounds = (data['totalRounds'] as num?)?.toInt() ?? 1;
         final update = <String, dynamic>{'status': RoomStatus.finished.name};
         // מונה הניצחונות מתקדם רק כאן (בתוך אותה טרנזקציה שמסמנת finished
         // בפעם הראשונה) - כך "מי שראשון קובע" ממנע ספירה כפולה גם אם כמה
@@ -283,6 +346,9 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
           final wins = Map<String, dynamic>.from(data['wins'] as Map? ?? {});
           wins[winnerUid] = ((wins[winnerUid] as num?)?.toInt() ?? 0) + 1;
           update['wins'] = wins;
+        }
+        if (currentRound >= totalRounds) {
+          update['potAwarded'] = true;
         }
         tx.update(roomRef, update);
       });
@@ -319,8 +385,57 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   }
 
   @override
+  Future<void> startNextRound(String roomCode) async {
+    final uid = await _ensureUid();
+    final roomRef = _rooms.doc(roomCode);
+    final snap = await roomRef.get();
+    final data = snap.data();
+    if (data == null) throw StateError('החדר לא נמצא.');
+    if (data['hostUid'] != uid) {
+      throw StateError('רק מנהל/ת החדר יכול/ה להתחיל את הסבב הבא.');
+    }
+    if (data['status'] != RoomStatus.finished.name) {
+      throw StateError('אפשר להתחיל סבב הבא רק אחרי שהסבב הנוכחי הסתיים.');
+    }
+    final currentRound = (data['currentRound'] as num?)?.toInt() ?? 1;
+    final totalRounds = (data['totalRounds'] as num?)?.toInt() ?? 1;
+    if (currentRound >= totalRounds) {
+      throw StateError('אין סבב נוסף בסדרה הזו.');
+    }
+
+    final playersSnap = await roomRef.collection('players').get();
+    final batch = _firestore.batch();
+    batch.update(roomRef, {
+      'status': RoomStatus.inProgress.name,
+      'boardSeed': Random().nextInt(1 << 31),
+      'startedAt': FieldValue.serverTimestamp(),
+      'currentRound': currentRound + 1,
+    });
+    for (final doc in playersSnap.docs) {
+      batch.update(doc.reference, {'score': 0, 'wordsFound': 0});
+    }
+    await batch.commit();
+  }
+
+  @override
   Future<void> leaveRoom(String roomCode) async {
     final uid = await _ensureUid();
-    await _rooms.doc(roomCode).collection('players').doc(uid).delete();
+    final roomRef = _rooms.doc(roomCode);
+    final snap = await roomRef.get();
+    final data = snap.data();
+    final batch = _firestore.batch();
+    batch.delete(roomRef.collection('players').doc(uid));
+    if (data != null && data['status'] == RoomStatus.waiting.name) {
+      final paid = Map<String, dynamic>.from(data['paidUids'] as Map? ?? {});
+      if (paid[uid] == true) {
+        final entryFee = (data['entryFee'] as num?)?.toInt() ?? 0;
+        final nextPot = ((data['pot'] as num?)?.toInt() ?? 0) - entryFee;
+        batch.update(roomRef, {
+          'paidUids.$uid': FieldValue.delete(),
+          'pot': nextPot < 0 ? 0 : nextPot,
+        });
+      }
+    }
+    await batch.commit();
   }
 }

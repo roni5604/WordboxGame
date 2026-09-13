@@ -11,6 +11,8 @@ class CreateRoomCall {
   final int targetScore;
   final int maxPlayers;
   final Duration joinWindow;
+  final int totalRounds;
+  final int entryFee;
 
   CreateRoomCall({
     required this.hostDisplayName,
@@ -19,6 +21,8 @@ class CreateRoomCall {
     required this.targetScore,
     required this.maxPlayers,
     required this.joinWindow,
+    required this.totalRounds,
+    required this.entryFee,
   });
 }
 
@@ -31,14 +35,19 @@ class FakeMultiplayerRepository implements MultiplayerRepository {
   final List<String> leaveRoomCalls = [];
   final List<({String roomCode, String? winnerUid})> finishRoomCalls = [];
   final List<String> restartRoomCalls = [];
+  final List<String> startNextRoundCalls = [];
+  final List<String> fetchRoomCalls = [];
   final List<({String roomCode, int score, int wordsFound})> updateScoreCalls = [];
   Object? restartRoomError;
+  Object? startNextRoundError;
+  Object? fetchRoomError;
 
   String myUid = 'me-uid';
   GameRoom? lastCreatedRoom;
   Object? createRoomError;
   Object? joinRoomError;
   GameRoom Function(String roomCode, String displayName)? joinRoomResultBuilder;
+  GameRoom Function(String roomCode)? fetchRoomResultBuilder;
 
   final Map<String, StreamController<GameRoom>> _controllers = {};
 
@@ -62,6 +71,8 @@ class FakeMultiplayerRepository implements MultiplayerRepository {
     required int targetScore,
     required int maxPlayers,
     required Duration joinWindow,
+    int totalRounds = 1,
+    int entryFee = 5,
   }) async {
     createRoomCalls.add(CreateRoomCall(
       hostDisplayName: hostDisplayName,
@@ -70,6 +81,8 @@ class FakeMultiplayerRepository implements MultiplayerRepository {
       targetScore: targetScore,
       maxPlayers: maxPlayers,
       joinWindow: joinWindow,
+      totalRounds: totalRounds,
+      entryFee: entryFee,
     ));
     if (createRoomError != null) throw createRoomError!;
 
@@ -82,11 +95,40 @@ class FakeMultiplayerRepository implements MultiplayerRepository {
       roundSeconds: roundSeconds,
       targetScore: targetScore,
       maxPlayers: maxPlayers,
+      totalRounds: totalRounds,
+      currentRound: 1,
+      entryFee: entryFee,
+      pot: entryFee,
+      paidUids: {myUid: true},
       joinDeadline: DateTime.now().add(joinWindow),
       players: [PlayerInRoom(uid: myUid, displayName: hostDisplayName, isHost: true)],
     );
     lastCreatedRoom = room;
     return room;
+  }
+
+  @override
+  Future<GameRoom> fetchRoom(String roomCode) async {
+    fetchRoomCalls.add(roomCode);
+    if (fetchRoomError != null) throw fetchRoomError!;
+    if (joinRoomError != null) throw joinRoomError!;
+    if (fetchRoomResultBuilder != null) return fetchRoomResultBuilder!(roomCode);
+
+    return lastCreatedRoom ??
+        GameRoom(
+          roomCode: roomCode,
+          status: RoomStatus.waiting,
+          hostUid: 'someone-else',
+          gridSize: 5,
+          boardSeed: 1,
+          roundSeconds: 90,
+          targetScore: 0,
+          maxPlayers: GameRoom.defaultMaxPlayers,
+          entryFee: 5,
+          pot: 5,
+          paidUids: const {'someone-else': true},
+          players: const [PlayerInRoom(uid: 'someone-else', displayName: 'מנהל', isHost: true)],
+        );
   }
 
   @override
@@ -102,7 +144,10 @@ class FakeMultiplayerRepository implements MultiplayerRepository {
       boardSeed: 1,
       roundSeconds: 90,
       targetScore: 0,
-      maxPlayers: 6,
+      maxPlayers: GameRoom.defaultMaxPlayers,
+      entryFee: 5,
+      pot: 10,
+      paidUids: {myUid: true, 'someone-else': true},
       players: [
         const PlayerInRoom(uid: 'someone-else', displayName: 'מנהל', isHost: true),
         PlayerInRoom(uid: myUid, displayName: displayName),
@@ -132,6 +177,12 @@ class FakeMultiplayerRepository implements MultiplayerRepository {
   Future<void> restartRoom(String roomCode) async {
     restartRoomCalls.add(roomCode);
     if (restartRoomError != null) throw restartRoomError!;
+  }
+
+  @override
+  Future<void> startNextRound(String roomCode) async {
+    startNextRoundCalls.add(roomCode);
+    if (startNextRoundError != null) throw startNextRoundError!;
   }
 
   @override

@@ -8,9 +8,11 @@ import '../../core/theme/app_colors.dart';
 import '../../providers/multiplayer_repository_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../game/widgets/mascot_widget.dart';
+import 'models/room_models.dart';
 
 /// מסך "הצטרפות לחדר" - הזנת שם/כינוי וקוד חדר בן 5 ספרות שהתקבל
-/// ממנהל/ת החדר (ראו create_room_screen.dart).
+/// ממנהל/ת החדר (ראו create_room_screen.dart). אחרי הזנת הקוד מוצגים
+/// דמי הכניסה והקופה, ומי שאין לו/ה מספיק מטבעות לא יכול/ה להיכנס.
 class JoinRoomScreen extends ConsumerStatefulWidget {
   const JoinRoomScreen({super.key});
 
@@ -22,7 +24,10 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
   late final TextEditingController _nameController;
   final _codeController = TextEditingController();
   bool _isJoining = false;
+  bool _isFetching = false;
   String? _error;
+  String? _previewedCode;
+  GameRoom? _preview;
 
   @override
   void initState() {
@@ -32,13 +37,56 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
         ? profile.displayName.trim()
         : 'את/ה';
     _nameController = TextEditingController(text: defaultName);
+    _codeController.addListener(_onCodeChanged);
   }
 
   @override
   void dispose() {
+    _codeController.removeListener(_onCodeChanged);
     _nameController.dispose();
     _codeController.dispose();
     super.dispose();
+  }
+
+  int get _myCoins => ref.read(playerProfileProvider).valueOrNull?.coins ?? 0;
+
+  void _onCodeChanged() {
+    final code = _codeController.text.trim();
+    if (code.length != 5) {
+      if (_preview != null || _previewedCode != null) {
+        setState(() {
+          _preview = null;
+          _previewedCode = null;
+          _error = null;
+        });
+      }
+      return;
+    }
+    if (code == _previewedCode || _isFetching) return;
+    _fetchPreview(code);
+  }
+
+  Future<void> _fetchPreview(String code) async {
+    setState(() {
+      _isFetching = true;
+      _previewedCode = code;
+      _error = null;
+    });
+    try {
+      final room = await ref.read(multiplayerRepositoryProvider).fetchRoom(code);
+      if (!mounted || _codeController.text.trim() != code) return;
+      setState(() {
+        _preview = room;
+        _isFetching = false;
+      });
+    } catch (e) {
+      if (!mounted || _codeController.text.trim() != code) return;
+      setState(() {
+        _preview = null;
+        _isFetching = false;
+        _error = _friendlyError(e);
+      });
+    }
   }
 
   Future<void> _join() async {
@@ -54,17 +102,57 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
       return;
     }
 
+    var room = _preview;
+    if (room == null || room.roomCode != code) {
+      setState(() {
+        _isJoining = true;
+        _error = null;
+      });
+      try {
+        room = await ref.read(multiplayerRepositoryProvider).fetchRoom(code);
+        if (!mounted) return;
+        setState(() => _preview = room);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _isJoining = false;
+          _error = _friendlyError(e);
+        });
+        return;
+      }
+    }
+
+    final fee = room.entryFee;
+    if (_myCoins < fee) {
+      setState(() {
+        _isJoining = false;
+        _error = 'אין מספיק מטבעות (צריך $fee, יש $_myCoins).';
+      });
+      return;
+    }
+
     setState(() {
       _isJoining = true;
       _error = null;
     });
 
+    final spent = await ref.read(playerProfileProvider.notifier).spendCoins(fee);
+    if (!spent) {
+      if (!mounted) return;
+      setState(() {
+        _isJoining = false;
+        _error = 'אין מספיק מטבעות (צריך $fee).';
+      });
+      return;
+    }
+
     try {
       final repo = ref.read(multiplayerRepositoryProvider);
-      final room = await repo.joinRoom(roomCode: code, displayName: name);
+      final joined = await repo.joinRoom(roomCode: code, displayName: name);
       if (!mounted) return;
-      context.pushReplacement('/multiplayer/online/room/${room.roomCode}');
+      context.pushReplacement('/multiplayer/online/room/${joined.roomCode}');
     } catch (e) {
+      await ref.read(playerProfileProvider.notifier).addCoins(fee);
       if (!mounted) return;
       setState(() {
         _isJoining = false;
@@ -82,6 +170,14 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final coins = ref.watch(playerProfileProvider).valueOrNull?.coins ?? 0;
+    final preview = _preview;
+    final canJoin = !_isJoining &&
+        !_isFetching &&
+        _codeController.text.trim().length == 5 &&
+        preview != null &&
+        coins >= preview.entryFee;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('הצטרפות לחדר'),
@@ -158,6 +254,14 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
               ),
             ),
           ),
+          if (_isFetching) ...[
+            const SizedBox(height: 16),
+            const Center(child: CircularProgressIndicator(color: Colors.white)),
+          ],
+          if (preview != null) ...[
+            const SizedBox(height: 16),
+            _EntryFeePreview(room: preview, myCoins: coins),
+          ],
           const SizedBox(height: 32),
           if (_error != null)
             Padding(
@@ -169,7 +273,7 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
               ),
             ),
           ElevatedButton(
-            onPressed: _isJoining ? null : _join,
+            onPressed: canJoin ? _join : (_isJoining ? null : (_preview == null ? _join : null)),
             child: _isJoining
                 ? const SizedBox(
                     width: 22,
@@ -180,6 +284,73 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
           ).animate().fadeIn(delay: 200.ms),
         ],
       ),
+    );
+  }
+}
+
+class _EntryFeePreview extends StatelessWidget {
+  final GameRoom room;
+  final int myCoins;
+
+  const _EntryFeePreview({required this.room, required this.myCoins});
+
+  @override
+  Widget build(BuildContext context) {
+    final enough = myCoins >= room.entryFee;
+    return Card(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            const Text('דמי כניסה לחדר', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _CoinStat(label: 'כניסה', value: '${room.entryFee}'),
+                _CoinStat(label: 'קופה כרגע', value: '${room.pot}'),
+                _CoinStat(label: 'יתרה שלך', value: '$myCoins', warn: !enough),
+              ],
+            ),
+            if (!enough) ...[
+              const SizedBox(height: 12),
+              Text(
+                'אין מספיק מטבעות להיכנס (צריך ${room.entryFee})',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoinStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool warn;
+
+  const _CoinStat({required this.label, required this.value, this.warn = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(Icons.monetization_on_rounded, color: warn ? AppColors.error : AppColors.star, size: 22),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 18,
+            color: warn ? AppColors.error : AppColors.textDark,
+          ),
+        ),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+      ],
     );
   }
 }

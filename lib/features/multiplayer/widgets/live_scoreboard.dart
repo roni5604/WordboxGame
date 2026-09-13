@@ -24,6 +24,10 @@ class ScoreboardEntry {
   /// במקום האוואטאר המצויר. ראו lib/features/profile/widgets/avatar_widget.dart.
   final String? photoUrl;
 
+  /// ניצחונות מצטברים בסדרת משחקונים - מוצג רק כשקיים (חדר פרטי עם יותר
+  /// ממשחקון אחד). לא בשימוש במצב מול המחשב.
+  final int? wins;
+
   const ScoreboardEntry({
     required this.name,
     required this.score,
@@ -31,6 +35,7 @@ class ScoreboardEntry {
     this.isMe = false,
     this.avatarId,
     this.photoUrl,
+    this.wins,
   });
 }
 
@@ -98,7 +103,9 @@ class LiveScoreboard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${entry.score} נק׳',
+                      entry.wins == null
+                          ? '${entry.score} נק׳'
+                          : '${entry.score} נק׳ · ${entry.wins}נ׳',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: entry.isMe ? 16 : 13,

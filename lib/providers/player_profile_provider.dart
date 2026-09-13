@@ -193,6 +193,21 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
     await _mutate((c) => c.copyWith(coins: c.coins - cost, hints: c.hints + amount));
     return true;
   }
+
+  /// גורע מטבעות (דמי כניסה לחדר פרטי). מחזיר false אם אין מספיק.
+  Future<bool> spendCoins(int amount) async {
+    if (amount <= 0) return true;
+    final current = state.valueOrNull;
+    if (current == null || current.coins < amount) return false;
+    await _mutate((c) => c.copyWith(coins: c.coins - amount));
+    return true;
+  }
+
+  /// מזכה מטבעות (החזר מיציאת לובי, או קופה לזוכה בסיום סדרה).
+  Future<void> addCoins(int amount) async {
+    if (amount <= 0) return;
+    await _mutate((c) => c.copyWith(coins: c.coins + amount));
+  }
 }
 
 final playerProfileProvider =

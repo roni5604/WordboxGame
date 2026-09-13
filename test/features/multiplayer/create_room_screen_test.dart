@@ -14,7 +14,8 @@ import 'fake_multiplayer_repository.dart';
 
 class _FakeProgressRepository implements ProgressRepository {
   @override
-  Future<PlayerProfile> loadProfile() async => const PlayerProfile(displayName: 'דנה');
+  Future<PlayerProfile> loadProfile() async =>
+      const PlayerProfile(displayName: 'דנה', coins: 100);
 
   @override
   Future<void> saveProfile(PlayerProfile profile) async {}
@@ -32,7 +33,7 @@ class _ImmediateProfileNotifier extends PlayerProfileNotifier {
 
 void main() {
   testWidgets('CreateRoomScreen renders all settings and creates a room on submit', (tester) async {
-    tester.view.physicalSize = const Size(400, 900);
+    tester.view.physicalSize = const Size(400, 1600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -63,7 +64,7 @@ void main() {
           playerProfileProvider.overrideWith(
             (ref) => _ImmediateProfileNotifier(
               _FakeProgressRepository(),
-              const PlayerProfile(displayName: 'דנה'),
+              const PlayerProfile(displayName: 'דנה', coins: 100),
             ),
           ),
           multiplayerRepositoryProvider.overrideWithValue(fakeRepo),
@@ -82,6 +83,9 @@ void main() {
     expect(find.text('גודל לוח'), findsOneWidget);
     expect(find.text('כמה זמן לכל תור (סבב)?'), findsOneWidget);
     expect(find.text('עד כמה נקודות המשחק? (ניקוד יעד לניצחון מוקדם)'), findsOneWidget);
+    expect(find.text('כמה משחקונים בסדרה?'), findsOneWidget);
+    expect(find.text('דמי כניסה (נגבים מכל מי שנכנס, כולל אותך)'), findsOneWidget);
+    expect(find.text('כמה שחקנים מקסימום?'), findsNothing);
 
     // בחירת גודל לוח 6×6, ואז יצירת החדר (גוללים כדי לחשוף את הכפתור,
     // כי ה-ListView לא בונה תוכן מעבר לגובה המסך הנראה).
@@ -103,6 +107,9 @@ void main() {
     expect(fakeRepo.createRoomCalls, hasLength(1));
     expect(fakeRepo.createRoomCalls.single.gridSize, 6);
     expect(fakeRepo.createRoomCalls.single.hostDisplayName, 'דנה');
+    expect(fakeRepo.createRoomCalls.single.maxPlayers, 8);
+    expect(fakeRepo.createRoomCalls.single.totalRounds, 1);
+    expect(fakeRepo.createRoomCalls.single.entryFee, 5);
     expect(navigatedRoomCode, fakeRepo.lastCreatedRoom?.roomCode);
     expect(tester.takeException(), isNull);
   });
@@ -125,6 +132,12 @@ void main() {
       ProviderScope(
         overrides: [
           progressRepositoryProvider.overrideWithValue(_FakeProgressRepository()),
+          playerProfileProvider.overrideWith(
+            (ref) => _ImmediateProfileNotifier(
+              _FakeProgressRepository(),
+              const PlayerProfile(displayName: 'דנה', coins: 100),
+            ),
+          ),
           multiplayerRepositoryProvider.overrideWithValue(fakeRepo),
         ],
         child: MaterialApp.router(

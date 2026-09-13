@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../providers/multiplayer_repository_provider.dart';
+import '../../providers/player_profile_provider.dart';
 import 'models/room_models.dart';
 import 'services/multiplayer_repository.dart';
 import '../game/widgets/mascot_widget.dart';
@@ -34,6 +35,7 @@ class _RoomLobbyScreenState extends ConsumerState<RoomLobbyScreen> {
   bool _isLeaving = false;
   String? _actionError;
   Timer? _clockTicker;
+  GameRoom? _latestRoom;
 
   @override
   void initState() {
@@ -57,8 +59,16 @@ class _RoomLobbyScreenState extends ConsumerState<RoomLobbyScreen> {
 
   Future<void> _leave() async {
     setState(() => _isLeaving = true);
+    final room = _latestRoom;
+    final shouldRefund = room != null &&
+        room.status == RoomStatus.waiting &&
+        room.entryFee > 0 &&
+        (_myUid == null || room.paidUids[_myUid] == true);
     try {
       await _repo.leaveRoom(widget.roomCode);
+      if (shouldRefund) {
+        await ref.read(playerProfileProvider.notifier).addCoins(room.entryFee);
+      }
     } catch (_) {
       // עזיבה טובה-מאמץ - לא חוסמים את היציאה מהמסך גם אם נכשלה.
     }
@@ -116,6 +126,7 @@ class _RoomLobbyScreenState extends ConsumerState<RoomLobbyScreen> {
           if (room == null) {
             return const Center(child: CircularProgressIndicator(color: Colors.white));
           }
+          _latestRoom = room;
 
           // המנהל/ת עדיין לא נעלם/ת מרשימת השחקנים כל עוד לא עזב/ה בעצמו/ה -
           // אם אין אף שחקן/ית עם isHost==true, המנהל/ת עזב/ה לפני שהמשחק התחיל.
@@ -164,7 +175,7 @@ class _RoomLobbyScreenState extends ConsumerState<RoomLobbyScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('שחקנים בחדר (${room.players.length}/${room.maxPlayers})',
+                      Text('שחקנים בחדר (${room.players.length})',
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                       const SizedBox(height: 12),
                       for (final player in room.players)
@@ -283,7 +294,9 @@ class _SettingsSummary extends StatelessWidget {
       '${room.gridSize}×${room.gridSize}',
       '${room.roundSeconds} שנ׳ לסבב',
       room.hasTargetScore ? 'יעד: ${room.targetScore} נק׳' : 'ללא יעד ניקוד',
-      'עד ${room.maxPlayers} שחקנים',
+      room.totalRounds == 1 ? 'משחקון אחד' : '${room.totalRounds} משחקונים',
+      'דמי כניסה: ${room.entryFee}',
+      'קופה: ${room.pot}',
     ];
     if (room.status == RoomStatus.waiting) chips.add(_joinWindowLabel);
 

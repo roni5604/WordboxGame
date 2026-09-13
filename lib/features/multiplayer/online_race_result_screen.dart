@@ -8,17 +8,15 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../providers/multiplayer_repository_provider.dart';
+import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
 import '../game/widgets/mascot_widget.dart';
 import 'models/race_result.dart';
 import 'models/room_models.dart';
 import 'services/multiplayer_repository.dart';
 
-/// מסך תוצאות ל"משחק מול חברים" - דומה חזותית ל-[RaceResultScreen] (הקיים
-/// למשחק מול המחשב, לא נוגעים בו) אך עם שלושה דברים שרלוונטיים רק כשיש
-/// שחקנים אמיתיים בחדר: יחס ניצחונות/הפסדים מצטבר בין חברי החדר, כפתור
-/// "משחק חוזר" (רק למנהל/ת), וניווט אוטומטי חזרה ללובי לכל השחקנים כשה-
-/// "משחק חוזר" מופעל (סטטוס החדר חוזר ל-waiting).
+/// מסך תוצאות ל"משחק מול חברים": סבב ביניים (הסבב הבא) או חגיגת סיום
+/// עם טבלת אלופים ומסירת הקופה לזוכה.
 class OnlineRaceResultScreen extends ConsumerStatefulWidget {
   final String roomCode;
   final RaceResult result;
@@ -36,10 +34,12 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
 
   String? _myUid;
   GameRoom? _room;
-  bool _isRestarting = false;
+  bool _isAdvancing = false;
   bool _isLeaving = false;
-  bool _navigatedToLobby = false;
+  bool _navigatedAway = false;
+  bool _potCredited = false;
   String? _actionError;
+  String? _potBanner;
 
   @override
   void initState() {
@@ -47,7 +47,10 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
     _repo = ref.read(multiplayerRepositoryProvider);
     _confetti = ConfettiController(duration: const Duration(seconds: 2));
     _repo.ensureSignedIn().then((uid) {
-      if (mounted) setState(() => _myUid = uid);
+      if (!mounted) return;
+      setState(() => _myUid = uid);
+      final room = _room;
+      if (room != null) _maybeAwardPot(room);
     });
     _roomSub = _repo.watchRoom(widget.roomCode).listen(_onRoomUpdate, onError: (_) {});
 
@@ -64,30 +67,90 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
 
   void _onRoomUpdate(GameRoom room) {
     setState(() => _room = room);
+    _maybeAwardPot(room);
 
-    // ה"משחק חוזר" הופעל (ע"י מנהל/ת החדר, אצל כל שחקן/ית) - סטטוס החדר
-    // חוזר ל-waiting, וכל הלקוחות (כולל המנהל/ת עצמו/ה) מנווטים חזרה
-    // ללובי כדי ללחוץ שוב "התחל משחק" על הלוח החדש.
-    if (room.status == RoomStatus.waiting && !_navigatedToLobby) {
-      _navigatedToLobby = true;
+    if (_navigatedAway) return;
+
+    if (room.status == RoomStatus.inProgress) {
+      _navigatedAway = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.pushReplacement('/multiplayer/online/race/${widget.roomCode}');
+      });
+      return;
+    }
+
+    if (room.status == RoomStatus.waiting) {
+      _navigatedAway = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) context.pushReplacement('/multiplayer/online/room/${widget.roomCode}');
       });
     }
   }
 
-  Future<void> _playAgain() async {
+  List<_Standing> _standingsFor(GameRoom room) {
+    final byName = {
+      for (final p in widget.result.rankedParticipants) p.name: p,
+    };
+    return [
+      for (final player in room.players)
+        _Standing(
+          player: player,
+          wins: room.wins[player.uid] ?? 0,
+          lastScore: byName[player.displayName]?.score ?? player.score,
+        ),
+    ]..sort((a, b) {
+        final winCompare = b.wins.compareTo(a.wins);
+        if (winCompare != 0) return winCompare;
+        return b.lastScore.compareTo(a.lastScore);
+      });
+  }
+
+  void _maybeAwardPot(GameRoom room) {
+    if (_potCredited || !room.isLastRound || room.pot <= 0 || _myUid == null) return;
+    if (room.players.isEmpty) return;
+
+    final standings = _standingsFor(room);
+    if (standings.isEmpty) return;
+    final first = standings.first;
+    final tied = standings
+        .where((s) => s.wins == first.wins && s.lastScore == first.lastScore)
+        .toList();
+    if (!tied.any((s) => s.player.uid == _myUid)) {
+      _potCredited = true;
+      if (tied.length == 1) {
+        _potBanner = '${tied.single.player.displayName} מקבל/ת ${room.pot} מטבעות!';
+      } else {
+        final share = room.pot ~/ tied.length;
+        _potBanner = 'תיקו — $share מטבעות לכל אחד';
+      }
+      return;
+    }
+
+    _potCredited = true;
+    final share = room.pot ~/ tied.length;
+    if (share > 0) {
+      ref.read(playerProfileProvider.notifier).addCoins(share);
+    }
     setState(() {
-      _isRestarting = true;
+      _potBanner = tied.length == 1
+          ? 'הזוכה מקבל/ת ${room.pot} מטבעות!'
+          : 'תיקו — $share מטבעות לכל אחד';
+    });
+    _confetti.play();
+  }
+
+  Future<void> _nextRound() async {
+    setState(() {
+      _isAdvancing = true;
       _actionError = null;
     });
     try {
-      await _repo.restartRoom(widget.roomCode);
+      await _repo.startNextRound(widget.roomCode);
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isRestarting = false;
-        _actionError = 'לא הצלחנו להתחיל משחק חוזר: $e';
+        _isAdvancing = false;
+        _actionError = 'לא הצלחנו להתחיל את הסבב הבא: $e';
       });
     }
   }
@@ -114,6 +177,8 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
     final result = widget.result;
     final room = _room;
     final isHost = room != null && _myUid != null && _myUid == room.hostUid;
+    final isFinale = room == null || room.isLastRound;
+    final isSeriesFinale = room != null && room.isSeries && room.isLastRound;
 
     return Scaffold(
       body: Container(
@@ -141,30 +206,45 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
                 padding: const EdgeInsets.all(24),
                 children: [
                   Text(
-                    result.humanWon ? '🏆 ניצחת בסבב!' : 'הסבב הסתיים',
+                    _titleFor(result, room),
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900),
                   ).animate().fadeIn().slideY(begin: -0.2, end: 0),
+                  if (room != null && room.isSeries) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      room.roundLabel,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Center(
-                    child: result.humanWon
+                    child: result.humanWon || isSeriesFinale
                         ? Image.asset('assets/avatar/detective_celebrate.png', height: 120)
                             .animate(onPlay: (c) => c.repeat(reverse: true))
                             .scaleXY(begin: 1, end: 1.06, duration: 500.ms, curve: Curves.easeInOut)
                         : const MascotWidget(mood: MascotMood.sad, size: 100),
                   ),
                   const SizedBox(height: 24),
-                  for (int i = 0; i < result.rankedParticipants.length; i++)
-                    _RankRow(rank: i + 1, participant: result.rankedParticipants[i])
-                        .animate(delay: (150 * i).ms)
-                        .fadeIn()
-                        .slideX(begin: 0.2, end: 0),
-                  if (room != null && room.wins.isNotEmpty && room.players.length >= 2) ...[
+                  if (isSeriesFinale && room != null)
+                    ..._championsTable(room)
+                  else
+                    for (int i = 0; i < result.rankedParticipants.length; i++)
+                      _RankRow(rank: i + 1, participant: result.rankedParticipants[i])
+                          .animate(delay: (150 * i).ms)
+                          .fadeIn()
+                          .slideX(begin: 0.2, end: 0),
+                  if (room != null && room.wins.isNotEmpty && room.players.length >= 2 && !isSeriesFinale) ...[
                     const SizedBox(height: 20),
                     _HeadToHeadCard(room: room, myUid: _myUid)
                         .animate(delay: 300.ms)
                         .fadeIn()
                         .slideY(begin: 0.1, end: 0),
+                  ],
+                  if (_potBanner != null) ...[
+                    const SizedBox(height: 16),
+                    _PotBanner(text: _potBanner!),
                   ],
                   const SizedBox(height: 32),
                   if (_actionError != null)
@@ -176,23 +256,23 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                       ),
                     ),
-                  if (isHost)
+                  if (!isFinale && isHost)
                     ElevatedButton(
-                      onPressed: _isRestarting ? null : _playAgain,
+                      onPressed: _isAdvancing ? null : _nextRound,
                       style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                      child: _isRestarting
+                      child: _isAdvancing
                           ? const SizedBox(
                               width: 22,
                               height: 22,
                               child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
                             )
-                          : const Text('משחק חוזר 🔁'),
+                          : const Text('הסבב הבא 🚀'),
                     ).animate().fadeIn(delay: 200.ms)
-                  else if (room != null)
+                  else if (!isFinale && room != null)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Text(
-                        'ממתינים שמנהל/ת החדר ילחץ/תלחץ על "משחק חוזר"...',
+                        'ממתינים לסבב הבא...',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.white70),
                       ),
@@ -216,6 +296,31 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
       ),
     );
   }
+
+  String _titleFor(RaceResult result, GameRoom? room) {
+    if (room != null && room.isSeries && room.isLastRound) return 'טבלת האלופים';
+    if (room != null && room.isSeries) return 'הסבב הסתיים';
+    return result.humanWon ? '🏆 ניצחת בסבב!' : 'הסבב הסתיים';
+  }
+
+  List<Widget> _championsTable(GameRoom room) {
+    final standings = _standingsFor(room);
+    return [
+      for (int i = 0; i < standings.length; i++)
+        _ChampionRow(rank: i + 1, standing: standings[i], isMe: standings[i].player.uid == _myUid)
+            .animate(delay: (150 * i).ms)
+            .fadeIn()
+            .slideX(begin: 0.2, end: 0),
+    ];
+  }
+}
+
+class _Standing {
+  final PlayerInRoom player;
+  final int wins;
+  final int lastScore;
+
+  const _Standing({required this.player, required this.wins, required this.lastScore});
 }
 
 class _RankRow extends StatelessWidget {
@@ -278,8 +383,100 @@ class _RankRow extends StatelessWidget {
   }
 }
 
-/// כרטיס "יחס ניצחונות/הפסדים" בין חברי החדר על פני כמה סבבי "משחק
-/// חוזר" - למשל "1 : 2" כשיש בדיוק שני שחקנים בחדר.
+class _ChampionRow extends StatelessWidget {
+  final int rank;
+  final _Standing standing;
+  final bool isMe;
+
+  const _ChampionRow({required this.rank, required this.standing, required this.isMe});
+
+  Color get _medalColor {
+    switch (rank) {
+      case 1:
+        return AppColors.star;
+      case 2:
+        return const Color(0xFFC0C0C0);
+      case 3:
+        return const Color(0xFFCD7F32);
+      default:
+        return Colors.grey.shade300;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = isMe ? '${standing.player.displayName} (את/ה)' : standing.player.displayName;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      color: isMe ? Colors.white : Colors.white.withValues(alpha: 0.88),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: _medalColor,
+              child: Text('$rank', style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                name,
+                style: TextStyle(
+                  fontWeight: isMe ? FontWeight.w900 : FontWeight.w700,
+                  fontSize: 16,
+                  color: isMe ? AppColors.accent : Colors.black87,
+                ),
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${standing.wins} ניצחונות',
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                ),
+                Text(
+                  '${standing.lastScore} נק׳ בסבב',
+                  style: const TextStyle(color: Colors.black45, fontSize: 11),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PotBanner extends StatelessWidget {
+  final String text;
+
+  const _PotBanner({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: AppColors.star,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            const Icon(Icons.monetization_on_rounded, color: AppColors.textDark, size: 28),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: AppColors.textDark),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ).animate().fadeIn().scale(begin: const Offset(0.94, 0.94));
+  }
+}
+
+/// כרטיס ניצחונות מצטבר בין חברי החדר על פני סבבי הסדרה.
 class _HeadToHeadCard extends StatelessWidget {
   final GameRoom room;
   final String? myUid;
@@ -302,7 +499,7 @@ class _HeadToHeadCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const Text('יחס ניצחונות בחדר הזה', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            const Text('ניצחונות עד כה', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
             const SizedBox(height: 10),
             if (rows.length == 2)
               Text(

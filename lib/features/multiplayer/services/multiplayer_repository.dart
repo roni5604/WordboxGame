@@ -15,7 +15,12 @@ abstract class MultiplayerRepository {
     required int targetScore,
     required int maxPlayers,
     required Duration joinWindow,
+    int totalRounds = 1,
+    int entryFee = 5,
   });
+
+  /// קריאת חדר בלי להצטרף - לתצוגת דמי כניסה/קופה במסך ההצטרפות.
+  Future<GameRoom> fetchRoom(String roomCode);
 
   Future<GameRoom> joinRoom({required String roomCode, required String displayName});
 
@@ -32,7 +37,7 @@ abstract class MultiplayerRepository {
   /// מסמן שהסבב הסתיים (זמן נגמר / מישהו הגיע לניקוד היעד) - "מי שראשון
   /// קובע", בטוח לקריאה כפולה מכמה לקוחות בו-זמנית. אם מועבר [winnerUid]
   /// (ורק כשאין שוויון בניקוד המוביל), מונה הניצחונות המצטבר של אותו/ה
-  /// שחקן/ית ב-[GameRoom.wins] מתקדם באחד.
+  /// שחקן/ית ב-[GameRoom.wins] מתקדם באחד. בסבב האחרון מסמן גם `potAwarded`.
   Future<void> finishRoom(String roomCode, {String? winnerUid});
 
   /// "משחק חוזר" - רק מנהל/ת החדר, ורק כשהסבב הקודם הסתיים (`finished`):
@@ -41,6 +46,11 @@ abstract class MultiplayerRepository {
   /// מונה הניצחונות המצטבר ([GameRoom.wins]) והגדרות המשחק (גודל לוח,
   /// משך סבב וכו') לא משתנים.
   Future<void> restartRoom(String roomCode);
+
+  /// הסבב הבא בסדרה - רק מנהל/ת, ורק אחרי `finished` וכשיש עוד משחקונים:
+  /// לוח חדש, איפוס ניקוד, `currentRound + 1`, ומעבר ישר ל-`inProgress`
+  /// (בלי חזרה ללובי). הקופה ודמי הכניסה לא משתנים.
+  Future<void> startNextRound(String roomCode);
 
   Future<void> leaveRoom(String roomCode);
 }
@@ -61,8 +71,13 @@ class UnimplementedMultiplayerRepository implements MultiplayerRepository {
     required int targetScore,
     required int maxPlayers,
     required Duration joinWindow,
+    int totalRounds = 1,
+    int entryFee = 5,
   }) =>
       _unavailable();
+
+  @override
+  Future<GameRoom> fetchRoom(String roomCode) => _unavailable();
 
   @override
   Future<GameRoom> joinRoom({required String roomCode, required String displayName}) =>
@@ -83,6 +98,9 @@ class UnimplementedMultiplayerRepository implements MultiplayerRepository {
 
   @override
   Future<void> restartRoom(String roomCode) => _unavailable();
+
+  @override
+  Future<void> startNextRound(String roomCode) => _unavailable();
 
   @override
   Future<void> leaveRoom(String roomCode) => _unavailable();
