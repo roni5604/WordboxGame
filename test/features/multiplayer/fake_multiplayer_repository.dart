@@ -29,8 +29,10 @@ class FakeMultiplayerRepository implements MultiplayerRepository {
   final List<CreateRoomCall> createRoomCalls = [];
   final List<String> startGameCalls = [];
   final List<String> leaveRoomCalls = [];
-  final List<String> finishRoomCalls = [];
+  final List<({String roomCode, String? winnerUid})> finishRoomCalls = [];
+  final List<String> restartRoomCalls = [];
   final List<({String roomCode, int score, int wordsFound})> updateScoreCalls = [];
+  Object? restartRoomError;
 
   String myUid = 'me-uid';
   GameRoom? lastCreatedRoom;
@@ -122,8 +124,14 @@ class FakeMultiplayerRepository implements MultiplayerRepository {
   }
 
   @override
-  Future<void> finishRoom(String roomCode) async {
-    finishRoomCalls.add(roomCode);
+  Future<void> finishRoom(String roomCode, {String? winnerUid}) async {
+    finishRoomCalls.add((roomCode: roomCode, winnerUid: winnerUid));
+  }
+
+  @override
+  Future<void> restartRoom(String roomCode) async {
+    restartRoomCalls.add(roomCode);
+    if (restartRoomError != null) throw restartRoomError!;
   }
 
   @override

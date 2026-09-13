@@ -30,8 +30,17 @@ abstract class MultiplayerRepository {
   Future<void> updateMyScore(String roomCode, {required int score, required int wordsFound});
 
   /// מסמן שהסבב הסתיים (זמן נגמר / מישהו הגיע לניקוד היעד) - "מי שראשון
-  /// קובע", בטוח לקריאה כפולה מכמה לקוחות בו-זמנית.
-  Future<void> finishRoom(String roomCode);
+  /// קובע", בטוח לקריאה כפולה מכמה לקוחות בו-זמנית. אם מועבר [winnerUid]
+  /// (ורק כשאין שוויון בניקוד המוביל), מונה הניצחונות המצטבר של אותו/ה
+  /// שחקן/ית ב-[GameRoom.wins] מתקדם באחד.
+  Future<void> finishRoom(String roomCode, {String? winnerUid});
+
+  /// "משחק חוזר" - רק מנהל/ת החדר, ורק כשהסבב הקודם הסתיים (`finished`):
+  /// מייצר לוח חדש (boardSeed אחר), מאפס ניקוד/מילים של כל השחקנים/ות,
+  /// ומחזיר את החדר למצב `waiting` כדי שאפשר יהיה ללחוץ "התחל משחק" שוב.
+  /// מונה הניצחונות המצטבר ([GameRoom.wins]) והגדרות המשחק (גודל לוח,
+  /// משך סבב וכו') לא משתנים.
+  Future<void> restartRoom(String roomCode);
 
   Future<void> leaveRoom(String roomCode);
 }
@@ -70,7 +79,10 @@ class UnimplementedMultiplayerRepository implements MultiplayerRepository {
       _unavailable();
 
   @override
-  Future<void> finishRoom(String roomCode) => _unavailable();
+  Future<void> finishRoom(String roomCode, {String? winnerUid}) => _unavailable();
+
+  @override
+  Future<void> restartRoom(String roomCode) => _unavailable();
 
   @override
   Future<void> leaveRoom(String roomCode) => _unavailable();

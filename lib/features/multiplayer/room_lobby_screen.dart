@@ -153,6 +153,10 @@ class _RoomLobbyScreenState extends ConsumerState<RoomLobbyScreen> {
                 ).animate().fadeIn(),
               const SizedBox(height: 8),
               _SettingsSummary(room: room),
+              if (room.wins.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _WinsSummary(room: room, myUid: _myUid),
+              ],
               const SizedBox(height: 16),
               Card(
                 child: Padding(
@@ -300,6 +304,35 @@ class _SettingsSummary extends StatelessWidget {
             ),
           )
           .toList(),
+    );
+  }
+}
+
+/// תזכורת קטנה ליחס הניצחונות המצטבר בחדר, מוצגת בלובי בין סבבי "משחק
+/// חוזר" (ראו online_race_result_screen.dart לתצוגה המלאה בסוף כל סבב).
+class _WinsSummary extends StatelessWidget {
+  final GameRoom room;
+  final String? myUid;
+
+  const _WinsSummary({required this.room, required this.myUid});
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = [
+      for (final player in room.players)
+        '${player.uid == myUid ? '${player.displayName} (את/ה)' : player.displayName}: ${room.wins[player.uid] ?? 0}',
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white24,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        'ניצחונות עד כה - ${labels.join(' | ')}',
+        textAlign: TextAlign.center,
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+      ),
     );
   }
 }

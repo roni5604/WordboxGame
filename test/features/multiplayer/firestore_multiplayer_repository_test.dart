@@ -126,7 +126,7 @@ void main() {
       expect(second.players, hasLength(2));
     });
 
-    test('קוד חדר לא תלוי רישיות (מומר לאותיות גדולות)', () async {
+    test('הקוד מורכב מספרות בלבד (בלי אותיות מבלבלות)', () async {
       final host = repoFor('host-uid');
       final room = await host.createRoom(
         hostDisplayName: 'מנהל',
@@ -137,12 +137,7 @@ void main() {
         joinWindow: const Duration(minutes: 10),
       );
 
-      final guest = repoFor('guest-uid');
-      final updated = await guest.joinRoom(
-        roomCode: room.roomCode.toLowerCase(),
-        displayName: 'עומר',
-      );
-      expect(updated.roomCode, room.roomCode);
+      expect(RegExp(r'^[0-9]{5}$').hasMatch(room.roomCode), isTrue);
     });
   });
 
@@ -213,6 +208,92 @@ void main() {
 
       final updated = await host.watchRoom(room.roomCode).first;
       expect(updated.status, RoomStatus.finished);
+    });
+
+    test('עם winnerUid מקדם את מונה הניצחונות שלו/ה באחד', () async {
+      final host = repoFor('host-uid');
+      final room = await host.createRoom(
+        hostDisplayName: 'מנהל',
+        gridSize: 4,
+        roundSeconds: 60,
+        targetScore: 0,
+        maxPlayers: 4,
+        joinWindow: const Duration(minutes: 10),
+      );
+      final guest = repoFor('guest-uid');
+      await guest.joinRoom(roomCode: room.roomCode, displayName: 'עומר');
+      await host.startGame(room.roomCode);
+
+      await host.finishRoom(room.roomCode, winnerUid: 'guest-uid');
+      // מאפשר לזרם ה-snapshots הפנימי של fake_cloud_firestore לפלוט את
+      // העדכון שכתבנו בטרנזקציה לפני שנפתח מאזין watchRoom חדש (ראו
+      // גם את בדיקת watchRoom למטה שמשתמשת באותה טכניקה).
+      await Future<void>.delayed(Duration.zero);
+
+      final updated = await host.watchRoom(room.roomCode).first;
+      expect(updated.wins['guest-uid'], 1);
+      expect(updated.wins['host-uid'], isNull);
+    });
+
+    test('קריאה כפולה עם winnerUid לא מכפילה את הספירה ("מי שראשון קובע")', () async {
+      final host = repoFor('host-uid');
+      final room = await host.createRoom(
+        hostDisplayName: 'מנהל',
+        gridSize: 4,
+        roundSeconds: 60,
+        targetScore: 0,
+        maxPlayers: 4,
+        joinWindow: const Duration(minutes: 10),
+      );
+      await host.startGame(room.roomCode);
+
+      await host.finishRoom(room.roomCode, winnerUid: 'host-uid');
+      await host.finishRoom(room.roomCode, winnerUid: 'host-uid');
+      await Future<void>.delayed(Duration.zero);
+
+      final updated = await host.watchRoom(room.roomCode).first;
+      expect(updated.wins['host-uid'], 1);
+    });
+  });
+
+  group('restartRoom', () {
+    test('רק המנהל/ת יכול/ה להתחיל משחק חוזר, ורק אחרי שהסבב הסתיים', () async {
+      final host = repoFor('host-uid');
+      final room = await host.createRoom(
+        hostDisplayName: 'מנהל',
+        gridSize: 4,
+        roundSeconds: 60,
+        targetScore: 0,
+        maxPlayers: 4,
+        joinWindow: const Duration(minutes: 10),
+      );
+      final guest = repoFor('guest-uid');
+      await guest.joinRoom(roomCode: room.roomCode, displayName: 'עומר');
+      await host.startGame(room.roomCode);
+
+      expect(() => host.restartRoom(room.roomCode), throwsA(isA<StateError>()));
+      expect(() => guest.restartRoom(room.roomCode), throwsA(isA<StateError>()));
+
+      await host.finishRoom(room.roomCode, winnerUid: 'host-uid');
+      await guest.updateMyScore(room.roomCode, score: 30, wordsFound: 4);
+
+      expect(() => guest.restartRoom(room.roomCode), throwsA(isA<StateError>()));
+
+      final oldSeed = room.boardSeed;
+      await host.restartRoom(room.roomCode);
+
+      final updated = await host.watchRoom(room.roomCode).first;
+      expect(updated.status, RoomStatus.waiting);
+      expect(updated.startedAt, isNull);
+      expect(updated.boardSeed, isNot(oldSeed));
+      // הגדרות המשחק ומונה הניצחונות המצטבר נשמרים.
+      expect(updated.gridSize, 4);
+      expect(updated.wins['host-uid'], 1);
+      // הניקוד של כל השחקנים/ות מתאפס לסבב הבא.
+      for (final player in updated.players) {
+        expect(player.score, 0);
+        expect(player.wordsFound, 0);
+      }
     });
   });
 
