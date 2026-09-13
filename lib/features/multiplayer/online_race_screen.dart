@@ -59,6 +59,11 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
   bool _bannerIsError = false;
   Timer? _bannerTimer;
 
+  // מעקב אחר הניקוד האחרון שנצפה לכל יריב/ה, כדי לזהות "עלייה" בניקוד
+  // ולהציג עליה התראה חיה - בלי לחשוף איזו מילה בדיוק נמצאה (ראו
+  // _notifyOpponentScoreChanges).
+  final Map<String, int> _lastSeenOpponentScores = {};
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +75,7 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
   }
 
   void _onRoomUpdate(GameRoom room) {
+    _notifyOpponentScoreChanges(room);
     setState(() => _room = room);
 
     if (_session == null && !_initializingGame && room.startedAt != null) {
@@ -79,6 +85,29 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
 
     if (room.status == RoomStatus.finished && !_finished) {
       _finish();
+    }
+  }
+
+  /// מציג הודעה קצרה בכל פעם שליריב/ה חדשות נקודות - "כמה" בלבד, בלי
+  /// לחשוף איזו מילה נמצאה (כדי לא "לתת רמז" למילים שעדיין לא נמצאו).
+  void _notifyOpponentScoreChanges(GameRoom room) {
+    for (final player in room.players) {
+      if (player.uid == _myUid) continue;
+      final previousScore = _lastSeenOpponentScores[player.uid];
+      _lastSeenOpponentScores[player.uid] = player.score;
+      if (previousScore == null) continue; // תפיסה ראשונית - לא "עלייה" אמיתית.
+
+      final delta = player.score - previousScore;
+      if (delta > 0 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🎯 ${player.displayName} הרוויח/ה +$delta נק׳!'),
+            duration: const Duration(milliseconds: 1400),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.primaryDark,
+          ),
+        );
+      }
     }
   }
 
@@ -225,6 +254,7 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
           name: player.uid == _myUid ? '${player.displayName} (את/ה)' : player.displayName,
           score: player.uid == _myUid ? session.score : player.score,
           isHuman: player.uid == _myUid,
+          isMe: player.uid == _myUid,
         ),
     ]..sort((a, b) => b.score.compareTo(a.score));
     return entries;
@@ -287,13 +317,18 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
                             ),
                             const Spacer(),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppColors.accent, width: 2),
+                                boxShadow: [
+                                  BoxShadow(color: AppColors.accent.withValues(alpha: 0.35), blurRadius: 10),
+                                ],
                               ),
                               child: Text('${session.score} נק׳',
-                                  style: const TextStyle(fontWeight: FontWeight.w800)),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.accent)),
                             ),
                           ],
                         ),
