@@ -13,6 +13,20 @@ import 'widgets/path_painter.dart';
 const double _nodeSpacingY = 128;
 const double _amplitude = 90;
 
+/// רווח נוסף (בנוסף ל-[_nodeSpacingY] הרגיל) לפני השלב הראשון של עולם
+/// חדש - כדי שיהיה מקום לבאנר "מעבר עולם" (ראו [_WorldBanner]) בלי
+/// לדחוס אותו על הצומת עצמו.
+const double _worldBannerGap = 130;
+
+/// מידע על באנר מעבר-עולם בודד שיש לצייר מעל מיקום מסוים במפה.
+class _WorldBannerData {
+  final WorldTier tier;
+  final int worldIndex;
+  final double centerY;
+
+  const _WorldBannerData({required this.tier, required this.worldIndex, required this.centerY});
+}
+
 /// מפת השלבים (הקמפיין) - מגיעים לכאן בלחיצה על "שחקו!" בתפריט הראשי.
 class CampaignMapScreen extends ConsumerWidget {
   const CampaignMapScreen({super.key});
@@ -30,13 +44,32 @@ class CampaignMapScreen extends ConsumerWidget {
           final width = MediaQuery.of(context).size.width;
           final centerX = width / 2;
 
-          final positions = List.generate(levels.length, (i) {
+          // מיקום כל צומת - מסלול סינוסי רציף אחד (כמו קודם), אבל עם
+          // רווח נוסף (_worldBannerGap) בכל פעם שעוברים לעולם חדש, כדי
+          // שיהיה מקום לבאנר "מעבר עולם" (ראו _WorldBanner) בלי לפגוע
+          // בחיבור המסלול המקווקו עצמו (PathPainter עדיין מחבר את כל
+          // הצמתים ברצף, גם על פני הרווח המורחב).
+          final positions = <Offset>[];
+          final worldBanners = <_WorldBannerData>[];
+          double y = 140.0;
+          for (int i = 0; i < levels.length; i++) {
+            final isNewWorldStart = i > 0 && levels[i].tier != levels[i - 1].tier;
+            if (isNewWorldStart) {
+              worldBanners.add(
+                _WorldBannerData(
+                  tier: levels[i].tier,
+                  worldIndex: levels[i].tier.index,
+                  centerY: y + _worldBannerGap / 2,
+                ),
+              );
+              y += _worldBannerGap;
+            }
             final x = centerX + _amplitude * math.sin(i * 0.9);
-            final y = 140.0 + i * _nodeSpacingY;
-            return Offset(x, y);
-          });
+            positions.add(Offset(x, y));
+            y += _nodeSpacingY;
+          }
 
-          final totalHeight = 140.0 + levels.length * _nodeSpacingY + 160;
+          final totalHeight = y + 160;
           final worldIndex = profile.highestUnlockedLevel > 0
               ? levels
                   .firstWhere(
@@ -69,6 +102,7 @@ class CampaignMapScreen extends ConsumerWidget {
                     coins: profile.coins,
                     totalStars: profile.totalStars,
                     worldLabel: currentTier.titleHe,
+                    worldIndex: currentTier.index,
                   ),
                   Expanded(
                     child: Stack(
@@ -83,6 +117,16 @@ class CampaignMapScreen extends ConsumerWidget {
                                   size: Size(width, totalHeight),
                                   painter: PathPainter(points: positions),
                                 ),
+                                for (final banner in worldBanners)
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    top: banner.centerY - 34,
+                                    child: _WorldBanner(
+                                      tier: banner.tier,
+                                      worldIndex: banner.worldIndex,
+                                    ),
+                                  ),
                                 for (int i = 0; i < levels.length; i++)
                                   Positioned(
                                     left: positions[i].dx - 32,
@@ -118,8 +162,14 @@ class _TopBar extends StatelessWidget {
   final int coins;
   final int totalStars;
   final String worldLabel;
+  final int worldIndex;
 
-  const _TopBar({required this.coins, required this.totalStars, required this.worldLabel});
+  const _TopBar({
+    required this.coins,
+    required this.totalStars,
+    required this.worldLabel,
+    required this.worldIndex,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -138,9 +188,15 @@ class _TopBar extends StatelessWidget {
                 'מפת השלבים',
                 style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
               ),
-              Text(
-                worldLabel,
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              Row(
+                children: [
+                  Icon(AppColors.iconForWorldIndex(worldIndex), color: Colors.white70, size: 13),
+                  const SizedBox(width: 4),
+                  Text(
+                    worldLabel,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
               ),
             ],
           ),
@@ -149,6 +205,43 @@ class _TopBar extends StatelessWidget {
           const SizedBox(width: 8),
           _Pill(icon: Icons.paid_rounded, iconColor: Colors.amberAccent, label: '$coins'),
         ],
+      ),
+    );
+  }
+}
+
+/// באנר "מעבר עולם" - מוצג במפת השלבים ממש לפני הצומת הראשון של כל
+/// עולם חדש (ראו החישוב ב-[CampaignMapScreen.build]), עם אייקון+שם+צבע
+/// ייחודיים לעולם (ראו [AppColors.worldGradients]/[AppColors.worldIcons]) -
+/// זהות ויזואלית ברורה בלי צורך בנכסי אמנות חדשים.
+class _WorldBanner extends StatelessWidget {
+  final WorldTier tier;
+  final int worldIndex;
+
+  const _WorldBanner({required this.tier, required this.worldIndex});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: AppColors.gradientForWorldIndex(worldIndex)),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 12)],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppColors.iconForWorldIndex(worldIndex), color: Colors.white, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              '${tier.titleHe} - לוח ${tier.gridSize}×${tier.gridSize}',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,12 +1,17 @@
 import 'package:equatable/equatable.dart';
 
 /// "עולם" תמטי בקמפיין - קבוצת שלבים המשתפת גודל לוח, פלטת צבעים וקושי.
+///
+/// שלב א' של המשחק (ראו [CampaignLevels]) משתמש רק ב-4 העולמות הראשונים
+/// (נבטים..היער הגדול, 100 שלבים). "פסגת המילים" (7×7) שמור בכוונה
+/// לעולם החמישי העתידי - הוספתו תדרוש רק שורת `WorldTier.summit` נוספת
+/// ברשימת [CampaignLevels.worldOrder], בלי שינוי מבני נוסף.
 enum WorldTier {
   seedling, // 3x3
   sprout, // 4x4
   bloom, // 5x5
   forest, // 6x6
-  summit, // 7x7 ומעלה
+  summit, // 7x7 ומעלה - עולם עתידי, לא בשימוש עדיין ב-CampaignLevels.all
 }
 
 extension WorldTierX on WorldTier {
@@ -41,6 +46,17 @@ extension WorldTierX on WorldTier {
   }
 }
 
+/// סוג שלב בתוך העולם שלו - קובע קושי-על, ניסוח חגיגה ותגמול:
+///
+/// - [normal]: שלב רגיל.
+/// - [master]: "שלב מאסטר" - מופיע כמה פעמים בכל עולם (ראו
+///   [CampaignLevels.masterCadence]), עם לוח קשה יותר וזמן קצר יותר
+///   מהבייסליין השוטף של אותו רגע במשחק, ותגמול מטבעות כפול.
+/// - [worldFinale]: השלב האחרון של העולם - הקשה ביותר בעולם, פותח את
+///   העולם הבא, ומפעיל גם חגיגת "עולם חדש נפתח!" וגם סיבוב גלגל מזל
+///   (ראו lib/features/game/level_result_screen.dart).
+enum LevelKind { normal, master, worldFinale }
+
 /// הגדרות שלב בודד בקמפיין יחיד-המשתתף.
 ///
 /// המטרה של שלב היא **מספר מילים** (לא ניקוד) - [wordsRequired] - כדי
@@ -58,10 +74,8 @@ class LevelConfig extends Equatable {
   final int wordsRequired;
   final int minWordLength;
 
-  /// true אם זה שלב "אבן דרך" - השלב הראשון בעולם חדש (גודל לוח שגדל
-  /// לעומת השלב הקודם), שבו מציגים חגיגת "עולם חדש נפתח!" ופרס נדיב
-  /// (ראו lib/features/game/level_result_screen.dart).
-  final bool isMilestoneLevel;
+  /// סוג השלב - רגיל / מאסטר / פינאלה של עולם (ראו [LevelKind]).
+  final LevelKind kind;
 
   const LevelConfig({
     required this.levelNumber,
@@ -70,8 +84,15 @@ class LevelConfig extends Equatable {
     required this.timeLimit,
     required this.wordsRequired,
     this.minWordLength = 2,
-    this.isMilestoneLevel = false,
+    this.kind = LevelKind.normal,
   });
+
+  bool get isMasterLevel => kind == LevelKind.master;
+
+  /// true אם זה שלב "פינאלה" - השלב האחרון בעולם, שבו מציגים חגיגת
+  /// "עולם חדש נפתח!" + סיבוב גלגל מזל, ומעניקים פרס נדיב (ראו
+  /// lib/features/game/level_result_screen.dart).
+  bool get isWorldFinale => kind == LevelKind.worldFinale;
 
   /// יעדי המילים לכוכב 1/2/3 - מחלקים את [wordsRequired] לשלישים (ראו
   /// [GameSession.starsForWordCount]): כל שליש מהיעד שנמצא שווה כוכב,
@@ -89,35 +110,56 @@ class LevelConfig extends Equatable {
         timeLimit,
         wordsRequired,
         minWordLength,
-        isMilestoneLevel,
+        kind,
       ];
 }
 
 /// בונה את רשימת השלבים המלאה של הקמפיין באופן דטרמיניסטי (פרוצדורלי),
-/// כך שקל להוסיף עוד שלבים בעתיד רק ע"י שינוי הפרמטרים כאן.
+/// כך שקל להוסיף עוד שלבים/עולמות בעתיד רק ע"י הרחבת [worldOrder].
 ///
-/// מבנה "אבני דרך" קבוע: כל 10 שלבים גודל הלוח עולה בדרגה אחת ומוצגת
-/// חגיגת "עולם חדש נפתח!" (ראו [LevelConfig.isMilestoneLevel]) -
-/// שלבים 1-9 = 3×3 ("נבטים"), 10-19 = 4×4 ("ניצנים"), 20-29 = 5×5
-/// ("פריחה"), 30-39 = 6×6 ("היער הגדול"), 40 ומעלה = 7×7 ("פסגת המילים",
-/// שם גודל הלוח נשאר קבוע - זו התקרה הגרפית/דיקדוקית הנוכחית של המשחק).
-/// העולם הראשון קצר ב-1 שלב (9 ולא 10) בכוונה, כדי ששלב 10 עצמו - בדיוק
-/// כפי שהתבקש - יהיה שלב האבן-דרך הראשון (המעבר ל-4×4).
+/// מבנה קבוע: כל עולם מכיל בדיוק [levelsPerWorld] שלבים. בתוך כל עולם,
+/// כל [masterCadence]-י שלב הוא "שלב מאסטר" (קשה יותר מהבייסליין השוטף,
+/// תגמול כפול), והשלב האחרון של העולם הוא "פינאלה" (הקשה ביותר, פותח את
+/// העולם הבא + גלגל מזל). ראו [LevelKind].
+///
+/// שלב א' נוכחי: 4 עולמות × 25 שלבים = 100 שלבים (נבטים 3×3, ניצנים 4×4,
+/// פריחה 5×5, היער הגדול 6×6). הקושי (ראו [wordsRequiredForLevel] ו-
+/// [BoardDifficultyProfile.forLevel] ב-lib/game_engine/level_board_builder.dart)
+/// עולה **בהדרגה על פני כל המשחק** (לא מתאפס בתחילת כל עולם) כדי שההתקדמות
+/// תישאר משמעותית ולא תרגיש כמו "איפוס" בכל עולם חדש.
 class CampaignLevels {
   CampaignLevels._();
 
-  static const int levelsInFirstTier = 9;
-  static const int levelsPerTier = 10;
+  /// מספר קבוע של שלבים בכל עולם - גם לצורך קביעת קושי (ראו
+  /// [globalProgress]) וגם לצורך תדירות שלבי מאסטר/פינאלה.
+  static const int levelsPerWorld = 25;
+
+  /// כל [masterCadence] שלבים בתוך עולם (1-מבוסס) הוא שלב מאסטר, פרט
+  /// לשלב האחרון של העולם עצמו (שהוא פינאלה, לא מאסטר). בעולם בן 25
+  /// שלבים זה נותן 4 שלבי מאסטר (6, 12, 18, 24) + פינאלה אחת (25).
+  static const int masterCadence = 6;
+
+  /// סדר העולמות הפעילים כרגע. הוספת עולם נוסף בעתיד (למשל
+  /// [WorldTier.summit], 7×7) היא שינוי של שורה אחת כאן בלבד.
+  static const List<WorldTier> worldOrder = [
+    WorldTier.seedling,
+    WorldTier.sprout,
+    WorldTier.bloom,
+    WorldTier.forest,
+  ];
 
   static final List<LevelConfig> all = _build();
+
+  static int get totalLevels => worldOrder.length * levelsPerWorld;
 
   static List<LevelConfig> _build() {
     final levels = <LevelConfig>[];
     int levelNumber = 1;
 
-    void addWorld(WorldTier tier, int count) {
-      for (int i = 0; i < count; i++) {
-        final wordsRequired = wordsRequiredForLevel(levelNumber);
+    for (final tier in worldOrder) {
+      for (int position = 1; position <= levelsPerWorld; position++) {
+        final kind = _kindForPosition(position);
+        final wordsRequired = wordsRequiredForLevel(levelNumber, kind: kind);
         levels.add(
           LevelConfig(
             levelNumber: levelNumber,
@@ -126,71 +168,77 @@ class CampaignLevels {
             timeLimit: timeLimitForLevel(
               wordsRequired: wordsRequired,
               gridSize: tier.gridSize,
+              kind: kind,
             ),
             wordsRequired: wordsRequired,
-            // אבן-דרך = השלב הראשון של העולם, פרט לעולם הראשון עצמו
-            // (שם אין "מעבר" קודם לחגוג).
-            isMilestoneLevel: i == 0 && levelNumber > 1,
+            kind: kind,
           ),
         );
         levelNumber++;
       }
     }
 
-    addWorld(WorldTier.seedling, levelsInFirstTier);
-    addWorld(WorldTier.sprout, levelsPerTier);
-    addWorld(WorldTier.bloom, levelsPerTier);
-    addWorld(WorldTier.forest, levelsPerTier);
-    // עולם "פסגה" עם 7x7 - 10 שלבים אחרונים; גודל הלוח כבר לא עולה
-    // מכאן והלאה, אז אין עוד אבני-דרך חדשות.
-    for (int i = 0; i < 10; i++) {
-      final wordsRequired = wordsRequiredForLevel(levelNumber);
-      levels.add(
-        LevelConfig(
-          levelNumber: levelNumber,
-          tier: WorldTier.summit,
-          gridSize: WorldTier.summit.gridSize,
-          timeLimit: timeLimitForLevel(
-            wordsRequired: wordsRequired,
-            gridSize: WorldTier.summit.gridSize,
-          ),
-          wordsRequired: wordsRequired,
-          isMilestoneLevel: i == 0,
-        ),
-      );
-      levelNumber++;
-    }
-
     return levels;
   }
 
+  static LevelKind _kindForPosition(int position) {
+    if (position == levelsPerWorld) return LevelKind.worldFinale;
+    if (position % masterCadence == 0) return LevelKind.master;
+    return LevelKind.normal;
+  }
+
+  /// התקדמות גלובלית מנורמלת (0..1) על פני **כל** שלבי הקמפיין - 0 עבור
+  /// השלב הראשון, 1.0 עבור השלב האחרון. זה הבסיס לעקומת הקושי הרציפה
+  /// (מילים נדרשות, זמן, פרופיל קושי הלוח) שלא מתאפסת בתחילת כל עולם.
+  static double globalProgress(int levelNumber) {
+    final total = totalLevels;
+    if (total <= 1) return 0;
+    return ((levelNumber - 1) / (total - 1)).clamp(0.0, 1.0);
+  }
+
+  /// המיקום (1-מבוסס) של השלב בתוך העולם שלו - 1 עבור השלב הראשון/הקל
+  /// ביותר של העולם, ועד [levelsPerWorld] (הפינאלה) עבור השלב האחרון.
+  static int positionWithinWorld(int levelNumber) {
+    return ((levelNumber - 1) % levelsPerWorld) + 1;
+  }
+
   /// מספר המילים הנדרש לעבור שלב - עולה בהדרגה כדי שהמטרה תישאר ברורה
-  /// ומוחשית: שלב 1 = 3 מילים, שלב 2 = 4, ומשלב 3 והלאה נשאר לתמיד בטווח
-  /// 5-7 (לא ממשיך לטפס לאינסוף), עם תנודה קלה בטווח הזה לפי מיקום השלב
-  /// בתוך ה"עשירייה" שלו (ראו [positionWithinTier]) - כך שהקושי עדיין
-  /// עולה בהדרגה בתוך כל עולם, בלי להפוך את המטרה לבלתי-מושגת.
-  static int wordsRequiredForLevel(int levelNumber) {
+  /// ומוחשית: שלב 1 = 3 מילים, שלב 2 = 4, שלב 3 = 5, שלב 4 = 6, שלב 5 = 7,
+  /// ומשם ממשיך לעלות **לאט מאוד ולאורך כל המשחק** (לא נשאר שטוח לנצח),
+  /// עם תוספת קלה לשלבי מאסטר/פינאלה כדי שהם יורגשו קשים יותר מרגע
+  /// הופעתם, לא רק בגלל הלוח.
+  static int wordsRequiredForLevel(int levelNumber, {LevelKind kind = LevelKind.normal}) {
     if (levelNumber == 1) return 3;
     if (levelNumber == 2) return 4;
     if (levelNumber == 3) return 5;
     if (levelNumber == 4) return 6;
     if (levelNumber == 5) return 7;
 
-    final position = positionWithinTier(levelNumber);
-    final blockSize = tierBlockSize(levelNumber);
-    final t = blockSize <= 1 ? 0.0 : position / (blockSize - 1);
-    return (5 + t * 2).round().clamp(5, 7);
+    final g = globalProgress(levelNumber);
+    int base = (5 + g * 3).round().clamp(5, 8);
+    if (kind == LevelKind.master) base += 1;
+    if (kind == LevelKind.worldFinale) base += 2;
+    return base.clamp(5, 11);
   }
 
   /// זמן השלב - קצר וברור, עם מרווח נוח כדי שהיעד (מספר מילים) יישאר
-  /// בהחלט מושג בלי למהר, במיוחד בשלב 1 שצריך להיות הכי קל ונוח מכולם.
-  /// נגזר ממספר המילים הנדרש ומגודל הלוח (לוח גדול יותר דורש קצת יותר
-  /// זמן חיפוש), ומעוגל לעשרות שניות קרובות (30, 40, 50...) כדי שהזמן
-  /// המוצג לשחקן/ית יהיה תמיד מספר "עגול" ונעים, בטווח 30-120 שניות.
-  static Duration timeLimitForLevel({required int wordsRequired, required int gridSize}) {
+  /// בהחלט מושג בלי למהר. נגזר ממספר המילים הנדרש ומגודל הלוח (לוח גדול
+  /// יותר דורש קצת יותר זמן חיפוש), ומעוגל לעשרות שניות קרובות (30, 40,
+  /// 50...) כדי שהזמן המוצג יהיה תמיד מספר "עגול" ונעים. שלבי מאסטר
+  /// ופינאלה מקבלים פחות זמן יחסית לבייסליין (15%-20% פחות) - כך שהם
+  /// מורגשים דחוקים ומאתגרים יותר, לא רק "עוד מילה אחת".
+  static Duration timeLimitForLevel({
+    required int wordsRequired,
+    required int gridSize,
+    LevelKind kind = LevelKind.normal,
+  }) {
     final rawSeconds = 30 + wordsRequired * 9 + (gridSize - 3) * 6;
-    final rounded = ((rawSeconds / 10).round() * 10);
-    return Duration(seconds: rounded.clamp(30, 120));
+    double multiplier = 1.0;
+    if (kind == LevelKind.master) multiplier = 0.85;
+    if (kind == LevelKind.worldFinale) multiplier = 0.8;
+    final adjustedSeconds = rawSeconds * multiplier;
+    final rounded = ((adjustedSeconds / 10).round() * 10);
+    return Duration(seconds: rounded.clamp(30, 150));
   }
 
   static LevelConfig byLevelNumber(int levelNumber) {
@@ -198,20 +246,5 @@ class CampaignLevels {
       (l) => l.levelNumber == levelNumber,
       orElse: () => all.last,
     );
-  }
-
-  /// המיקום (0-מבוסס) של השלב בתוך "עשיריית" העולם הנוכחי שלו - 0 עבור
-  /// השלב הראשון/הכי-קל של העולם, ועד 9 (או 8 בעולם הראשון) עבור השלב
-  /// האחרון/הכי-קשה. משמש לקביעת פרופיל הקושי של בניית הלוח (ראו
-  /// lib/game_engine/level_board_builder.dart).
-  static int positionWithinTier(int levelNumber) {
-    if (levelNumber <= levelsInFirstTier) return levelNumber - 1;
-    return (levelNumber - levelsInFirstTier - 1) % levelsPerTier;
-  }
-
-  /// גודל ה"עשיריה" שהשלב הנתון שייך אליה (9 בעולם הראשון, 10 בכל השאר) -
-  /// משמש לנרמל את [positionWithinTier] לטווח 0..1.
-  static int tierBlockSize(int levelNumber) {
-    return levelNumber <= levelsInFirstTier ? levelsInFirstTier : levelsPerTier;
   }
 }

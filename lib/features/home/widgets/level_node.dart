@@ -28,6 +28,14 @@ class LevelNode extends StatelessWidget {
     final size = 64.0;
 
     final isCompleted = progress.stars > 0;
+    final isMaster = config.isMasterLevel;
+    final isFinale = config.isWorldFinale;
+
+    // שלבי מאסטר/פינאלה מקבלים טבעת צבע ייחודית משלהם (כשפתוחים), כדי
+    // שיבלטו על המפה עוד לפני שנלחצים - ענבר למאסטר, סגול-כתר לפינאלה.
+    final specialRingColor = isFinale
+        ? const Color(0xFF7C4DFF)
+        : (isMaster ? const Color(0xFFFFA000) : null);
 
     Widget node = Container(
       width: size,
@@ -50,10 +58,21 @@ class LevelNode extends StatelessWidget {
             blurRadius: 10,
             offset: const Offset(0, 6),
           ),
+          if (isUnlocked && specialRingColor != null)
+            BoxShadow(
+              color: specialRingColor.withValues(alpha: 0.6),
+              blurRadius: 14,
+              spreadRadius: 1,
+            ),
         ],
         border: isNextToPlay
             ? Border.all(color: Colors.white, width: 3)
-            : Border.all(color: Colors.white, width: 2),
+            : Border.all(
+                color: isUnlocked && specialRingColor != null
+                    ? specialRingColor
+                    : Colors.white,
+                width: isUnlocked && specialRingColor != null ? 3 : 2,
+              ),
       ),
       child: Center(
         child: isUnlocked
@@ -68,6 +87,33 @@ class LevelNode extends StatelessWidget {
             : const Icon(Icons.lock, color: Colors.white, size: 26),
       ),
     );
+
+    if (isUnlocked && (isMaster || isFinale)) {
+      node = Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          node,
+          Positioned(
+            top: -6,
+            right: -6,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: specialRingColor,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: Icon(
+                isFinale ? Icons.emoji_events_rounded : Icons.bolt_rounded,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     if (isNextToPlay) {
       node = Stack(

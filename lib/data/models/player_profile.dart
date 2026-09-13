@@ -40,6 +40,12 @@ class PlayerProfile extends Equatable {
   /// חוזרים על שלב 1. ראו lib/features/game/game_screen.dart.
   final bool level1TutorialSeen;
 
+  /// כמה מהשלבים הבאים שיושלמו יזכו במטבעות כפולות - בונוס זמני
+  /// שאפשר לזכות בו בגלגל המזל (ראו lib/game_engine/rewards/reward_tables.dart
+  /// ו-[PlayerProfileNotifier.completeLevel]). יורד ב-1 בכל שלב שמושלם,
+  /// עד שמגיע ל-0.
+  final int doubleCoinsLevelsRemaining;
+
   const PlayerProfile({
     this.levelProgress = const {},
     this.coins = 0,
@@ -54,6 +60,7 @@ class PlayerProfile extends Equatable {
     this.lastHintClaimDate,
     this.authIntroShown = false,
     this.level1TutorialSeen = false,
+    this.doubleCoinsLevelsRemaining = 0,
   });
 
   int get totalStars => levelProgress.values.fold(0, (sum, p) => sum + p.stars);
@@ -77,6 +84,7 @@ class PlayerProfile extends Equatable {
     String? lastHintClaimDate,
     bool? authIntroShown,
     bool? level1TutorialSeen,
+    int? doubleCoinsLevelsRemaining,
   }) {
     return PlayerProfile(
       levelProgress: levelProgress ?? this.levelProgress,
@@ -92,6 +100,8 @@ class PlayerProfile extends Equatable {
       lastHintClaimDate: lastHintClaimDate ?? this.lastHintClaimDate,
       authIntroShown: authIntroShown ?? this.authIntroShown,
       level1TutorialSeen: level1TutorialSeen ?? this.level1TutorialSeen,
+      doubleCoinsLevelsRemaining:
+          doubleCoinsLevelsRemaining ?? this.doubleCoinsLevelsRemaining,
     );
   }
 
@@ -110,5 +120,6 @@ class PlayerProfile extends Equatable {
         lastHintClaimDate,
         authIntroShown,
         level1TutorialSeen,
+        doubleCoinsLevelsRemaining,
       ];
 }

@@ -57,6 +57,10 @@ class LevelIntroScreen extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ).animate().fadeIn().scale(begin: const Offset(0.8, 0.8)),
+                if (config.isMasterLevel || config.isWorldFinale) ...[
+                  const SizedBox(height: 8),
+                  _LevelKindBadge(isFinale: config.isWorldFinale),
+                ],
                 const SizedBox(height: 28),
                 Card(
                   child: Padding(
@@ -109,6 +113,42 @@ class LevelIntroScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// תג "שלב מאסטר"/"שלב פינאלה" - מוצג רק על שלבים מיוחדים (ראו
+/// [LevelConfig.isMasterLevel]/[LevelConfig.isWorldFinale]), כדי שהשחקן/ית
+/// ידע/תדע מראש שהשלב הבא קשה יותר מהרגיל ומזכה בתגמול נדיב יותר.
+class _LevelKindBadge extends StatelessWidget {
+  final bool isFinale;
+
+  const _LevelKindBadge({required this.isFinale});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: isFinale ? const Color(0xFF7C4DFF) : const Color(0xFFFFA000),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isFinale ? Icons.emoji_events_rounded : Icons.bolt_rounded,
+            color: Colors.white,
+            size: 16,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isFinale ? 'שלב פינאלה - גלגל מזל בסיום!' : 'שלב מאסטר - מטבעות כפולות!',
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 150.ms).scale(begin: const Offset(0.85, 0.85));
   }
 }
 

@@ -14,6 +14,7 @@ import '../../game_engine/game_session.dart';
 import '../../game_engine/level_board_builder.dart';
 import '../../game_engine/models/grid_position.dart';
 import '../../game_engine/models/level_config.dart';
+import '../../game_engine/rewards/reward_tables.dart';
 import '../../game_engine/word_finder.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/common_word_pool_provider.dart';
@@ -39,14 +40,32 @@ class GameScreenResult extends Equatable {
   final List<String> foundWordsDisplay;
   final int coinsEarned;
 
-  /// אבן-דרך: true אם השלב הזה הוא שלב "עולם חדש" (ראו
-  /// [LevelConfig.isMilestoneLevel]) שהושלם בהצלחה (לפחות כוכב אחד) -
-  /// מפעיל את מסך החגיגה המורחב ב-level_result_screen.dart.
-  final bool isMilestoneLevel;
+  /// סוג השלב שהושלם (רגיל/מאסטר/פינאלה) - ראו [LevelKind]. קובע אילו
+  /// באנרים/חגיגות מוצגים במסך התוצאה (level_result_screen.dart).
+  final LevelKind levelKind;
+
+  /// true אם זה שלב "פינאלה" (ראו [LevelConfig.isWorldFinale]) שהושלם
+  /// בהצלחה (לפחות כוכב אחד) - מפעיל את מסך "עולם חדש נפתח!" המורחב.
+  bool get isWorldFinale => levelKind == LevelKind.worldFinale;
+  bool get isMasterLevel => levelKind == LevelKind.master;
+
   final int bonusCoins;
   final int bonusHints;
   final String? newTierTitle;
   final int? newGridSize;
+
+  /// פרס תיבת מזל שנפתחה בסיום השלב הזה (כל 7 שלבים, פעם ראשונה בלבד) -
+  /// null אם לא רלוונטי לשלב הזה.
+  final LuckyBoxReward? luckyBoxReward;
+
+  /// פרס גלגל מזל שהוגרל בסיום שלב פינאלה (פעם ראשונה בלבד) - null אם
+  /// לא רלוונטי לשלב הזה.
+  final FortuneWheelPrize? wheelPrize;
+
+  /// האינדקס של [wheelPrize] בתוך [RewardTables.wheelPrizes] - נדרש כדי
+  /// שאנימציית סיבוב הגלגל (fortune_wheel_dialog.dart) תעצור בדיוק על
+  /// המקטע הנכון.
+  final int wheelPrizeIndex;
 
   /// true אם השלב הסתיים כי הושג יעד המילים ([LevelConfig.wordsRequired])
   /// לפני שהזמן נגמר (השלב מסתיים מיידית באותו רגע) - מפעיל חגיגת "סיים
@@ -65,11 +84,14 @@ class GameScreenResult extends Equatable {
     required this.totalPossibleScore,
     required this.foundWordsDisplay,
     required this.coinsEarned,
-    this.isMilestoneLevel = false,
+    this.levelKind = LevelKind.normal,
     this.bonusCoins = 0,
     this.bonusHints = 0,
     this.newTierTitle,
     this.newGridSize,
+    this.luckyBoxReward,
+    this.wheelPrize,
+    this.wheelPrizeIndex = 0,
     this.finishedEarly = false,
     this.secondsLeftWhenFinished = 0,
   });
@@ -82,11 +104,14 @@ class GameScreenResult extends Equatable {
     totalPossibleWords,
     totalPossibleScore,
     coinsEarned,
-    isMilestoneLevel,
+    levelKind,
     bonusCoins,
     bonusHints,
     newTierTitle,
     newGridSize,
+    luckyBoxReward,
+    wheelPrize,
+    wheelPrizeIndex,
     finishedEarly,
     secondsLeftWhenFinished,
   ];
@@ -341,30 +366,56 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     final stars = session.currentStars;
     final secondsLeftWhenFinished = _remaining.inSeconds;
-    // אבן-דרך: השלב הראשון של עולם חדש (גודל לוח שגדל) שהושלם בהצלחה
-    // (לפחות כוכב אחד) - מזכה בפרס נדיב ומפעיל חגיגה מורחבת במסך התוצאה.
-    final isMilestone = _config.isMilestoneLevel && stars >= 1;
-    const milestoneBonusCoins = 75;
-    const milestoneBonusHints = 3;
+    final worldIndex = _config.tier.index;
 
-    final coinsEarned =
-        stars * 10 +
-        session.foundWordsCount * 2 +
-        (isMilestone ? milestoneBonusCoins : 0);
+    // תגמול חד-פעמי (תיבת מזל / גלגל מזל) יוענק רק בפעם הראשונה שהשלב
+    // הזה מושלם בפועל - לא בכל שיחזור שלו (ראו
+    // PlayerProfileNotifier.isFirstCompletion).
+    final notifier = ref.read(playerProfileProvider.notifier);
+    final isFirstCompletion = notifier.isFirstCompletion(widget.levelNumber);
+    final earnedAnyStars = stars >= 1;
 
-    await ref
-        .read(playerProfileProvider.notifier)
-        .completeLevel(
-          levelNumber: widget.levelNumber,
-          stars: stars,
-          score: session.score,
-          coinsEarned: coinsEarned,
-        );
+    // שלב פינאלה (האחרון בעולם) שהושלם בהצלחה - פותח את העולם הבא,
+    // מזכה בבונוס נדיב, ומפעיל חגיגה מורחבת + גלגל מזל במסך התוצאה.
+    final isWorldFinale = _config.isWorldFinale && earnedAnyStars;
+    final isMaster = _config.isMasterLevel && earnedAnyStars;
+    const finaleBonusCoins = 75;
+    const finaleBonusHints = 3;
 
-    if (isMilestone) {
-      await ref
-          .read(playerProfileProvider.notifier)
-          .grantHints(milestoneBonusHints);
+    final baseCoins = stars * 10 + session.foundWordsCount * 2;
+    final coinsEarned = isWorldFinale
+        ? baseCoins + finaleBonusCoins
+        : (isMaster ? baseCoins * 2 : baseCoins);
+
+    final actualCoinsEarned = await notifier.completeLevel(
+      levelNumber: widget.levelNumber,
+      stars: stars,
+      score: session.score,
+      coinsEarned: coinsEarned,
+    );
+
+    if (isWorldFinale) {
+      await notifier.grantHints(finaleBonusHints);
+    }
+
+    // תיבת מזל: כל 7 שלבים גלובליים, פעם ראשונה בלבד ובתנאי שהושג לפחות
+    // כוכב אחד (כמו כל תגמול אחר בשלב).
+    LuckyBoxReward? luckyBoxReward;
+    if (isFirstCompletion &&
+        earnedAnyStars &&
+        widget.levelNumber % RewardTables.luckyBoxLevelInterval == 0) {
+      luckyBoxReward = RewardTables.rollLuckyBox(worldIndex: worldIndex);
+      await notifier.grantLuckyBoxReward(luckyBoxReward);
+    }
+
+    // גלגל מזל: רק בסיום שלב פינאלה, פעם ראשונה בלבד.
+    FortuneWheelPrize? wheelPrize;
+    int wheelPrizeIndex = 0;
+    if (isFirstCompletion && isWorldFinale) {
+      final (index, prize) = RewardTables.rollWheelPrize(worldIndex: worldIndex);
+      wheelPrize = prize;
+      wheelPrizeIndex = index;
+      await notifier.grantWheelPrize(prize);
     }
 
     if (!mounted) return;
@@ -378,12 +429,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       foundWordsDisplay: session.foundNormalizedWords
           .map((w) => HebrewTrie.toDisplayWord(w))
           .toList(),
-      coinsEarned: coinsEarned,
-      isMilestoneLevel: isMilestone,
-      bonusCoins: isMilestone ? milestoneBonusCoins : 0,
-      bonusHints: isMilestone ? milestoneBonusHints : 0,
-      newTierTitle: isMilestone ? _config.tier.titleHe : null,
-      newGridSize: isMilestone ? _config.gridSize : null,
+      coinsEarned: actualCoinsEarned,
+      levelKind: _config.kind,
+      bonusCoins: isWorldFinale ? finaleBonusCoins : 0,
+      bonusHints: isWorldFinale ? finaleBonusHints : 0,
+      newTierTitle: isWorldFinale ? _nextWorldTitle() : null,
+      newGridSize: isWorldFinale ? _nextWorldGridSize() : null,
+      luckyBoxReward: luckyBoxReward,
+      wheelPrize: wheelPrize,
+      wheelPrizeIndex: wheelPrizeIndex,
       finishedEarly: earlyFinish,
       secondsLeftWhenFinished: secondsLeftWhenFinished,
     );
@@ -392,6 +446,18 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       '/level/${widget.levelNumber}/result',
       extra: result,
     );
+  }
+
+  /// שם/גודל העולם הבא (לצורך "עולם חדש נפתח!" בסיום שלב פינאלה) - השלב
+  /// שאחרי הפינאלה הנוכחית, אם קיים.
+  String? _nextWorldTitle() {
+    if (widget.levelNumber >= CampaignLevels.all.length) return null;
+    return CampaignLevels.byLevelNumber(widget.levelNumber + 1).tier.titleHe;
+  }
+
+  int? _nextWorldGridSize() {
+    if (widget.levelNumber >= CampaignLevels.all.length) return null;
+    return CampaignLevels.byLevelNumber(widget.levelNumber + 1).gridSize;
   }
 
   @override

@@ -8,30 +8,32 @@ import '../../core/theme/app_colors.dart';
 import '../../game_engine/models/level_config.dart';
 import '../../providers/sound_provider.dart';
 import 'game_screen.dart';
+import 'widgets/fortune_wheel_dialog.dart';
+import 'widgets/lucky_box_dialog.dart';
 import 'widgets/mascot_widget.dart';
 
 /// עבור תוצאה טובה (2-3 כוכבים) מציגים את הבלש מילולי חוגג עם השחקן/ית -
 /// כדי שגם "מסך ההצלחה" יזכיר את הדמות המובילה של המשחק, כפי שהתבקש.
-/// באבן-דרך (עולם חדש נפתח) הדמות גדולה יותר ורוקדת בעוצמה גבוהה יותר,
+/// בשלב פינאלה (עולם חדש נפתח) הדמות גדולה יותר ורוקדת בעוצמה גבוהה יותר,
 /// כדי שהרגע יורגש כמיוחד באמת.
 class _CelebrationCharacter extends StatelessWidget {
   final int stars;
-  final bool isMilestone;
+  final bool isBigCelebration;
 
-  const _CelebrationCharacter({required this.stars, this.isMilestone = false});
+  const _CelebrationCharacter({required this.stars, this.isBigCelebration = false});
 
   @override
   Widget build(BuildContext context) {
-    if (stars >= 2 || isMilestone) {
+    if (stars >= 2 || isBigCelebration) {
       return Image.asset(
         'assets/avatar/detective_celebrate.png',
-        height: isMilestone ? 170 : 130,
+        height: isBigCelebration ? 170 : 130,
       )
           .animate(onPlay: (c) => c.repeat(reverse: true))
           .scaleXY(
             begin: 1,
-            end: isMilestone ? 1.12 : 1.06,
-            duration: isMilestone ? 380.ms : 500.ms,
+            end: isBigCelebration ? 1.12 : 1.06,
+            duration: isBigCelebration ? 380.ms : 500.ms,
             curve: Curves.easeInOut,
           );
     }
@@ -40,8 +42,8 @@ class _CelebrationCharacter extends StatelessWidget {
   }
 }
 
-/// כרטיס "עולם חדש נפתח!" - מוצג רק בשלבי אבן-דרך שהושלמו בהצלחה (ראו
-/// [LevelConfig.isMilestoneLevel] + lib/features/game/game_screen.dart).
+/// כרטיס "עולם חדש נפתח!" - מוצג רק בשלבי פינאלה שהושלמו בהצלחה (ראו
+/// [LevelConfig.isWorldFinale] + lib/features/game/game_screen.dart).
 /// מציג את שם העולם החדש, גודל הלוח החדש, ופרס נדיב (מטבעות + רמזים).
 class _MilestoneBanner extends StatelessWidget {
   final String tierTitle;
@@ -98,6 +100,40 @@ class _MilestoneBanner extends StatelessWidget {
         .animate()
         .fadeIn(delay: 200.ms)
         .scale(begin: const Offset(0.85, 0.85), curve: Curves.elasticOut, duration: 700.ms);
+  }
+}
+
+/// כרטיס "שלב מאסטר!" - מוצג כששלב מאסטר (ראו [LevelConfig.isMasterLevel])
+/// הושלם בהצלחה. פחות "כבד" מ-[_MilestoneBanner] (אין פתיחת עולם), אבל
+/// עדיין מדגיש שהמטבעות הוכפלו כתגמול על הקושי המוגבר.
+class _MasterBanner extends StatelessWidget {
+  const _MasterBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFFFFA000), Color(0xFFFF7A45)]),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 14)],
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
+          SizedBox(width: 8),
+          Text(
+            'שלב מאסטר - מטבעות כפולות! ⚡',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 200.ms).scale(
+          begin: const Offset(0.85, 0.85),
+          curve: Curves.elasticOut,
+          duration: 600.ms,
+        );
   }
 }
 
@@ -181,16 +217,39 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
   @override
   void initState() {
     super.initState();
-    final isMilestone = widget.result.isMilestoneLevel;
-    _confetti = ConfettiController(duration: Duration(seconds: isMilestone ? 4 : 2));
+    final isWorldFinale = widget.result.isWorldFinale;
+    _confetti = ConfettiController(duration: Duration(seconds: isWorldFinale ? 4 : 2));
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted) return;
       ref.read(soundServiceProvider).playLevelComplete();
       // חוגגים בקונפטי בכל שלב שהושלם בהצלחה (כוכב אחד ומעלה) - לא רק
       // בהצלחה מרשימה במיוחד - כי המטרה עצמה (מספר מילים מוגדר) כבר
       // ברורה ומוחשית, וכל השגה שלה ראויה לחגיגה.
-      if (widget.result.stars >= 1 || isMilestone) _confetti.play();
+      if (widget.result.stars >= 1 || isWorldFinale) _confetti.play();
     });
+    // תגמולי מזל (תיבת מזל / גלגל מזל) מוצגים כדיאלוג נפרד, אחרי שהחגיגה
+    // הראשית על המסך כבר נראתה - גלגל המזל (סיום עולם) קודם לתיבת המזל
+    // כי הוא הרגע הגדול יותר; שני אלה כמעט לעולם לא קורים באותו שלב
+    // בפועל (25/50/75/100 אינם מתחלקים ב-7).
+    Future.delayed(const Duration(milliseconds: 1400), _maybeShowRewardDialogs);
+  }
+
+  Future<void> _maybeShowRewardDialogs() async {
+    if (!mounted) return;
+    final wheelPrize = widget.result.wheelPrize;
+    final luckyBox = widget.result.luckyBoxReward;
+
+    if (wheelPrize != null) {
+      await FortuneWheelDialog.show(
+        context,
+        prizeIndex: widget.result.wheelPrizeIndex,
+        prize: wheelPrize,
+      );
+    }
+    if (!mounted) return;
+    if (luckyBox != null) {
+      await LuckyBoxDialog.show(context, luckyBox);
+    }
   }
 
   @override
@@ -221,7 +280,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                 confettiController: _confetti,
                 blastDirectionality: BlastDirectionality.explosive,
                 shouldLoop: false,
-                numberOfParticles: result.isMilestoneLevel ? 60 : 24,
+                numberOfParticles: result.isWorldFinale ? 60 : 24,
                 gravity: 0.25,
                 colors: const [
                   AppColors.star,
@@ -252,8 +311,11 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                       _EarlyFinishBadge(secondsLeft: result.secondsLeftWhenFinished),
                     ],
                     const SizedBox(height: 12),
-                    _CelebrationCharacter(stars: result.stars, isMilestone: result.isMilestoneLevel),
-                    if (result.isMilestoneLevel) ...[
+                    _CelebrationCharacter(
+                      stars: result.stars,
+                      isBigCelebration: result.isWorldFinale,
+                    ),
+                    if (result.isWorldFinale) ...[
                       const SizedBox(height: 16),
                       _MilestoneBanner(
                         tierTitle: result.newTierTitle ?? '',
@@ -261,6 +323,9 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                         bonusCoins: result.bonusCoins,
                         bonusHints: result.bonusHints,
                       ),
+                    ] else if (result.isMasterLevel) ...[
+                      const SizedBox(height: 16),
+                      const _MasterBanner(),
                     ],
                     const SizedBox(height: 20),
                     Row(

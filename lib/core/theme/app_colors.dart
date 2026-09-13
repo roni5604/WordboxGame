@@ -47,4 +47,19 @@ class AppColors {
   static List<Color> gradientForWorldIndex(int index) {
     return worldGradients[index % worldGradients.length];
   }
+
+  /// אייקון Material ייחודי לכל "עולם" - זהות ויזואלית נוספת מעבר לגרדיאנט
+  /// (בלי תלות בנכסי אמנות חדשים), מוצג בכותרת המפה ובבאנרי מעבר-עולם
+  /// (ראו lib/features/home/campaign_map_screen.dart).
+  static const List<IconData> worldIcons = [
+    Icons.eco_rounded, // נבטים
+    Icons.water_drop_rounded, // ניצנים
+    Icons.wb_sunny_rounded, // פריחה
+    Icons.park_rounded, // היער הגדול
+    Icons.terrain_rounded, // פסגת המילים
+  ];
+
+  static IconData iconForWorldIndex(int index) {
+    return worldIcons[index % worldIcons.length];
+  }
 }

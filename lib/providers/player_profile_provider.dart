@@ -4,6 +4,7 @@ import '../data/models/auth_user.dart';
 import '../data/models/level_progress.dart';
 import '../data/models/player_profile.dart';
 import '../data/repositories/progress_repository.dart';
+import '../game_engine/rewards/reward_tables.dart';
 import 'repository_providers.dart';
 
 /// תוצאה של תביעת בונוס הרמזים היומי - יום נוכחי במחזור (1-7) ומספר
@@ -54,13 +55,26 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
     await _repository.saveProfile(updated);
   }
 
+  /// true אם השלב הנתון עדיין לא סומן כ"הושלם" בפרופיל הנוכחי - שימושי
+  /// כדי להעניק תגמולים חד-פעמיים (תיבת מזל/גלגל מזל) רק בפעם הראשונה
+  /// שמשלימים שלב נתון, לא בכל שיחזור שלו. ראו lib/features/game/game_screen.dart.
+  bool isFirstCompletion(int levelNumber) {
+    final current = state.valueOrNull;
+    if (current == null) return true;
+    return !current.progressFor(levelNumber).completed;
+  }
+
   /// מעדכן התקדמות לאחר סיום שלב: כוכבים, ניקוד שיא, ופתיחת השלב הבא.
-  Future<void> completeLevel({
+  /// אם קיים בונוס "מטבעות כפולות" פעיל (ראו [doubleCoinsLevelsRemaining]
+  /// שהוענק מגלגל המזל), המטבעות שהורווחו מוכפלות והבונוס יורד ב-1.
+  /// מחזיר את כמות המטבעות שנזקפו בפועל (אחרי הכפלה, אם הייתה).
+  Future<int> completeLevel({
     required int levelNumber,
     required int stars,
     required int score,
     required int coinsEarned,
   }) async {
+    int actualCoinsEarned = coinsEarned;
     await _mutate((current) {
       final existing = current.progressFor(levelNumber);
       final updatedProgress = existing.copyWith(
@@ -75,13 +89,37 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
           ? levelNumber + 1
           : current.highestUnlockedLevel;
 
+      final hasDoubleCoinsBuff = current.doubleCoinsLevelsRemaining > 0;
+      actualCoinsEarned = hasDoubleCoinsBuff ? coinsEarned * 2 : coinsEarned;
+      final newBuffRemaining =
+          hasDoubleCoinsBuff ? current.doubleCoinsLevelsRemaining - 1 : current.doubleCoinsLevelsRemaining;
+
       return current.copyWith(
         levelProgress: newLevelMap,
         highestUnlockedLevel: newHighestUnlocked,
-        coins: current.coins + coinsEarned,
+        coins: current.coins + actualCoinsEarned,
+        doubleCoinsLevelsRemaining: newBuffRemaining,
       );
     });
+    return actualCoinsEarned;
   }
+
+  /// מזכה פרס מ"תיבת מזל" (ראו lib/game_engine/rewards/reward_tables.dart) -
+  /// מטבעות, ולעיתים גם רמז/ים.
+  Future<void> grantLuckyBoxReward(LuckyBoxReward reward) => _mutate(
+        (c) => c.copyWith(coins: c.coins + reward.coins, hints: c.hints + reward.hints),
+      );
+
+  /// מזכה פרס מגלגל המזל - מטבעות ו/או רמזים ו/או בונוס "מטבעות כפולות"
+  /// לכמה שלבים הבאים (מצטבר עם בונוס קיים, אם יש).
+  Future<void> grantWheelPrize(FortuneWheelPrize prize) => _mutate(
+        (c) => c.copyWith(
+          coins: c.coins + prize.coins,
+          hints: c.hints + prize.hints,
+          doubleCoinsLevelsRemaining:
+              c.doubleCoinsLevelsRemaining + prize.doubleCoinsLevels,
+        ),
+      );
 
   Future<void> setSoundOn(bool value) => _mutate((c) => c.copyWith(soundOn: value));
   Future<void> setHapticsOn(bool value) => _mutate((c) => c.copyWith(hapticsOn: value));

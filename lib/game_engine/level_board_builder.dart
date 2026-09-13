@@ -26,11 +26,14 @@ class LevelBoardResult {
   const LevelBoardResult({required this.board, required this.anchors});
 }
 
-/// פרופיל הקושי של בניית לוח לשלב נתון - נגזר אוטומטית מהמיקום של השלב
-/// בתוך "עשיריית" העולם שלו (ראו [CampaignLevels.positionWithinTier]):
-/// 0 = השלב הראשון/הכי-קל של העולם (הרבה עוגני מילים מוכרות, יחס גבוה
-/// של מילים מוכרות), ועד 1.0 = השלב האחרון/הכי-קשה (מעט עוגנים, מותר
-/// יחס גבוה יותר של מילים לא-מוכרות מהמילון המורחב).
+/// פרופיל הקושי של בניית לוח לשלב נתון - נגזר מההתקדמות הגלובלית של
+/// השלב על פני **כל** הקמפיין (ראו [CampaignLevels.globalProgress]),
+/// ולא מתאפס בתחילת כל עולם: 0 = השלב הראשון/הכי-קל של כל המשחק (הרבה
+/// עוגני מילים מוכרות, יחס גבוה של מילים מוכרות), ועד 1.0 = השלב
+/// האחרון/הכי-קשה (מעט עוגנים, מותר יחס גבוה יותר של מילים לא-מוכרות
+/// מהמילון המורחב). שלבי מאסטר/פינאלה (ראו [LevelKind]) מקבלים "קפיצת"
+/// קושי נוספת מעל הבייסליין הגלובלי של אותו רגע במשחק, ואז חוזרים
+/// לבייסליין (שממשיך לעלות) בשלב הרגיל שאחריהם - לא לקושי קל יותר.
 class BoardDifficultyProfile {
   final int anchorWordCount;
   final double targetCommonRatio;
@@ -43,14 +46,28 @@ class BoardDifficultyProfile {
   });
 
   factory BoardDifficultyProfile.forLevel(LevelConfig config) {
-    final blockSize = CampaignLevels.tierBlockSize(config.levelNumber);
-    final position = CampaignLevels.positionWithinTier(config.levelNumber);
-    final t = blockSize <= 1 ? 0.0 : position / (blockSize - 1);
+    final g = CampaignLevels.globalProgress(config.levelNumber);
 
-    // 5 עוגנים בשלב הראשון של העולם -> 2 עוגנים בשלב האחרון.
-    final anchorWordCount = (5 - t * 3).round().clamp(2, 5);
-    // 90% מילים מוכרות בשלב הראשון -> 50% בשלב האחרון (רצפת יעד, לא חובה מוחלטת).
-    final targetCommonRatio = 0.9 - t * 0.4;
+    // 5 עוגנים בשלב הראשון של המשחק -> 2 עוגנים בשלב האחרון (בהדרגה).
+    double anchor = 5 - g * 3;
+    // 90% מילים מוכרות בשלב הראשון -> 40% בשלב האחרון (רצפת יעד, לא חובה מוחלטת).
+    double ratio = 0.9 - g * 0.5;
+
+    switch (config.kind) {
+      case LevelKind.master:
+        anchor -= 1;
+        ratio -= 0.1;
+        break;
+      case LevelKind.worldFinale:
+        anchor -= 1.5;
+        ratio -= 0.15;
+        break;
+      case LevelKind.normal:
+        break;
+    }
+
+    final anchorWordCount = anchor.round().clamp(1, 5);
+    final targetCommonRatio = ratio.clamp(0.25, 0.95);
 
     return BoardDifficultyProfile(
       anchorWordCount: anchorWordCount,

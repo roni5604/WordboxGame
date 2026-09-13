@@ -17,7 +17,7 @@ import 'dart:io';
 import 'package:wordbox_hebrew/game_engine/dictionary/common_word_pool.dart';
 import 'package:wordbox_hebrew/game_engine/dictionary/hebrew_trie.dart';
 import 'package:wordbox_hebrew/game_engine/level_board_builder.dart';
-import 'package:wordbox_hebrew/game_engine/models/level_config.dart';
+import 'package:wordbox_hebrew/game_engine/models/level_config.dart' show CampaignLevels, LevelKind;
 
 final _root = Directory.current.path;
 
@@ -65,11 +65,16 @@ Future<void> main() async {
 
     final commonCount =
         board.possibleWords.where((w) => pool.isCommon(w.normalizedWord)).length;
+    final kindLabel = switch (config.kind) {
+      LevelKind.master => '  ⚡ מאסטר',
+      LevelKind.worldFinale => '  👑 פינאלה',
+      LevelKind.normal => '',
+    };
     print(
       '  שלב ${config.levelNumber} (${board.size}x${board.size}): '
       '${board.possibleWords.length} מילים אפשריות ($commonCount מוכרות), '
       '${result.anchors.length} עוגנים הוצבו בהצלחה'
-      '${config.isMilestoneLevel ? "  ⭐ אבן דרך" : ""}',
+      '$kindLabel',
     );
   }
 

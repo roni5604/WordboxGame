@@ -73,6 +73,8 @@ class FirebaseProgressRepository implements ProgressRepository {
       lastHintClaimDate: data['lastHintClaimDate'] as String?,
       authIntroShown: data['authIntroShown'] as bool? ?? false,
       level1TutorialSeen: data['level1TutorialSeen'] as bool? ?? false,
+      doubleCoinsLevelsRemaining:
+          (data['doubleCoinsLevelsRemaining'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -102,6 +104,7 @@ class FirebaseProgressRepository implements ProgressRepository {
       'lastHintClaimDate': profile.lastHintClaimDate,
       'authIntroShown': profile.authIntroShown,
       'level1TutorialSeen': profile.level1TutorialSeen,
+      'doubleCoinsLevelsRemaining': profile.doubleCoinsLevelsRemaining,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
