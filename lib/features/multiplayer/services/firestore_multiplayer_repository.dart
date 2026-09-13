@@ -170,6 +170,10 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
       maxPlayers: (data['maxPlayers'] as num?)?.toInt() ?? 6,
       joinDeadline: (data['joinDeadline'] as Timestamp?)?.toDate(),
       startedAt: (data['startedAt'] as Timestamp?)?.toDate(),
+      wins: (data['wins'] as Map<String, dynamic>?)?.map(
+            (uid, winCount) => MapEntry(uid, (winCount as num?)?.toInt() ?? 0),
+          ) ??
+          const {},
       players: [
         for (final doc in playerDocs)
           PlayerInRoom(
@@ -262,7 +266,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   }
 
   @override
-  Future<void> finishRoom(String roomCode) async {
+  Future<void> finishRoom(String roomCode, {String? winnerUid}) async {
     final roomRef = _rooms.doc(roomCode);
     try {
       await _firestore.runTransaction((tx) async {
@@ -270,11 +274,48 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
         final data = snap.data();
         if (data == null) return;
         if (data['status'] == RoomStatus.finished.name) return;
-        tx.update(roomRef, {'status': RoomStatus.finished.name});
+
+        final update = <String, dynamic>{'status': RoomStatus.finished.name};
+        // מונה הניצחונות מתקדם רק כאן (בתוך אותה טרנזקציה שמסמנת finished
+        // בפעם הראשונה) - כך "מי שראשון קובע" ממנע ספירה כפולה גם אם כמה
+        // לקוחות מנסים לסיים את הסבב בו-זמנית.
+        if (winnerUid != null) {
+          final wins = Map<String, dynamic>.from(data['wins'] as Map? ?? {});
+          wins[winnerUid] = ((wins[winnerUid] as num?)?.toInt() ?? 0) + 1;
+          update['wins'] = wins;
+        }
+        tx.update(roomRef, update);
       });
     } on FirebaseException {
       // "מי שראשון קובע" - אם לקוח אחר כבר סימן שהחדר הסתיים, אין בעיה.
     }
+  }
+
+  @override
+  Future<void> restartRoom(String roomCode) async {
+    final uid = await _ensureUid();
+    final roomRef = _rooms.doc(roomCode);
+    final snap = await roomRef.get();
+    final data = snap.data();
+    if (data == null) throw StateError('החדר לא נמצא.');
+    if (data['hostUid'] != uid) {
+      throw StateError('רק מנהל/ת החדר יכול/ה להתחיל משחק חוזר.');
+    }
+    if (data['status'] != RoomStatus.finished.name) {
+      throw StateError('אפשר להתחיל משחק חוזר רק אחרי שהסבב הנוכחי הסתיים.');
+    }
+
+    final playersSnap = await roomRef.collection('players').get();
+    final batch = _firestore.batch();
+    batch.update(roomRef, {
+      'status': RoomStatus.waiting.name,
+      'boardSeed': Random().nextInt(1 << 31),
+      'startedAt': null,
+    });
+    for (final doc in playersSnap.docs) {
+      batch.update(doc.reference, {'score': 0, 'wordsFound': 0});
+    }
+    await batch.commit();
   }
 
   @override

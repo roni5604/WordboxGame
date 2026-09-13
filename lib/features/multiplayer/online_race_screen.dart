@@ -212,27 +212,46 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     _finished = true;
     _ticker?.cancel();
 
-    _repo.finishRoom(widget.roomCode).catchError((_) {});
-
     final session = _session;
     final room = _room;
-    if (session == null || room == null || !mounted) return;
+    if (session == null || room == null) {
+      _repo.finishRoom(widget.roomCode).catchError((_) {});
+      return;
+    }
 
-    final participants = <RaceParticipantResult>[
+    final ranked = <({String uid, RaceParticipantResult result})>[
       for (final player in room.players)
-        RaceParticipantResult(
-          name: player.displayName,
-          score: player.uid == _myUid ? session.score : player.score,
-          wordsFound: player.uid == _myUid ? session.foundWordsCount : player.wordsFound,
-          isHuman: player.uid == _myUid,
+        (
+          uid: player.uid,
+          result: RaceParticipantResult(
+            name: player.displayName,
+            score: player.uid == _myUid ? session.score : player.score,
+            wordsFound: player.uid == _myUid ? session.foundWordsCount : player.wordsFound,
+            isHuman: player.uid == _myUid,
+          ),
         ),
     ]..sort((a, b) {
-        final scoreCompare = b.score.compareTo(a.score);
+        final scoreCompare = b.result.score.compareTo(a.result.score);
         if (scoreCompare != 0) return scoreCompare;
-        return b.wordsFound.compareTo(a.wordsFound);
+        return b.result.wordsFound.compareTo(a.result.wordsFound);
       });
 
-    context.pushReplacement('/multiplayer/race/result', extra: RaceResult(rankedParticipants: participants));
+    // מעניקים ניצחון רק כשיש מוביל/ה יחיד/ה בלי שוויון - כדי שהיחס
+    // (1:2 וכו') ב-OnlineRaceResultScreen יהיה משמעותי.
+    String? winnerUid;
+    if (ranked.length == 1) {
+      winnerUid = ranked.first.uid;
+    } else if (ranked.length >= 2 && ranked[0].result.score != ranked[1].result.score) {
+      winnerUid = ranked.first.uid;
+    }
+    _repo.finishRoom(widget.roomCode, winnerUid: winnerUid).catchError((_) {});
+
+    if (!mounted) return;
+    final participants = [for (final entry in ranked) entry.result];
+    context.pushReplacement(
+      '/multiplayer/online/room/${widget.roomCode}/result',
+      extra: RaceResult(rankedParticipants: participants),
+    );
   }
 
   Future<void> _exitToHome() async {
