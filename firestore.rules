@@ -3,19 +3,73 @@ rules_version = '2';
 // כללי אבטחה ל-Firestore: כל שחקן/ית יכולים לקרוא ולכתוב רק למסמך
 // ההתקדמות האישי שלהם (players/{uid}), ולחדרי רב-משתתפים בהתאם
 // לתפקידם - ראו docs/FIREBASE_SETUP.md לפירוט המלא.
+//
+// מודל האבטחה למצב "משחק מול חברים" הוא client-trusted: אין Cloud
+// Functions, כל שחקן/ית כותב/ת רק לניקוד של עצמו/ה (מאומת מקומית מול
+// הלוח/המילון, בדיוק כמו במשחק יחיד-שחקן). החוקים כאן אוכפים בעלות,
+// מונוטוניות ניקוד, ומעברי סטטוס חוקיים בלבד - לא מחליפים אימות שרת
+// אמיתי, וזו החלטה מודעת המתאימה למשחק מזדמן מול חברים (ראו התוכנית).
 service cloud.firestore {
   match /databases/{database}/documents {
+    function _roomConfigUnchanged(next, prev) {
+      return next.hostUid == prev.hostUid
+        && next.gridSize == prev.gridSize
+        && next.boardSeed == prev.boardSeed
+        && next.roundSeconds == prev.roundSeconds
+        && next.targetScore == prev.targetScore
+        && next.maxPlayers == prev.maxPlayers;
+    }
+
     match /players/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
     match /rooms/{roomCode} {
       allow read: if request.auth != null;
-      allow write: if false; // רק Cloud Functions כותבות לסטטוס החדר עצמו
+
+      // יצירת חדר: רק מי שמצהיר/ה על עצמו/ה כמנהל/ת (hostUid == המשתמש/ת
+      // המבצע/ת את הכתיבה), עם שדות הגדרה מהסוג הנכון.
+      allow create: if request.auth != null
+        && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.status == 'waiting'
+        && request.resource.data.gridSize is int
+        && request.resource.data.boardSeed is int
+        && request.resource.data.roundSeconds is int
+        && request.resource.data.targetScore is int
+        && request.resource.data.maxPlayers is int;
+
+      // עדכון: שני מעברי סטטוס חוקיים בלבד, וכל שדות ההגדרה נעולים.
+      allow update: if request.auth != null && (
+        // המנהל/ת מתחיל/ה את המשחק.
+        (
+          resource.data.status == 'waiting'
+          && request.resource.data.status == 'inProgress'
+          && request.auth.uid == resource.data.hostUid
+          && _roomConfigUnchanged(request.resource.data, resource.data)
+        )
+        ||
+        // כל חבר/ת בחדר יכול/ה לסמן שהסבב הסתיים (זמן נגמר / ניקוד יעד הושג).
+        (
+          resource.data.status == 'inProgress'
+          && request.resource.data.status == 'finished'
+          && exists(/databases/$(database)/documents/rooms/$(roomCode)/players/$(request.auth.uid))
+          && _roomConfigUnchanged(request.resource.data, resource.data)
+        )
+      );
 
       match /players/{uid} {
         allow read: if request.auth != null;
-        allow create, update: if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null && request.auth.uid == uid;
+        // עדכון ניקוד עצמי בלבד: מותר רק לבעל/ת המסמך, והניקוד/מספר
+        // המילים לא יכולים "לרדת" (מונוטוני), ולא ניתן לשנות שם/תפקיד.
+        allow update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.score is int
+          && request.resource.data.wordsFound is int
+          && request.resource.data.score >= resource.data.score
+          && request.resource.data.wordsFound >= resource.data.wordsFound
+          && request.resource.data.isHost == resource.data.isHost
+          && request.resource.data.displayName == resource.data.displayName;
+        allow delete: if request.auth != null && request.auth.uid == uid;
       }
     }
   }
