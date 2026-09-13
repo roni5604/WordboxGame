@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/theme/app_colors.dart';
 import '../game/widgets/mascot_widget.dart';
 
-/// מסך רב-משתתפים: מציע תחרות מקומית מיידית (2-4 משתתפים, משחקים על
-/// אותו מכשיר מול "בוטים" - ראה lib/game_engine/bot_player.dart), ומציג
-/// תצוגה מקדימה של מצב אונליין אמיתי מול חברים שיגיע בהמשך (דורש שרת -
-/// ראו lib/features/multiplayer/services/multiplayer_repository.dart
-/// ו-docs/FIREBASE_SETUP.md).
+/// מסך "רב-משתתפים" - שער הכניסה לשני מצבים נפרדים ומודגשים:
+/// **משחק מול המחשב** (תחרות מקומית מיידית מול יריבים מדומים - ראה
+/// lib/features/multiplayer/race_setup_screen.dart, לא נגענו בו) ו-
+/// **משחק מול חברים** (חדרים פרטיים אמיתיים עם קוד, דרך Firestore - ראה
+/// create_room_screen.dart/join_room_screen.dart/room_lobby_screen.dart).
 class MultiplayerHomeScreen extends StatelessWidget {
   const MultiplayerHomeScreen({super.key});
 
@@ -29,7 +30,7 @@ class MultiplayerHomeScreen extends StatelessWidget {
             const MascotWidget(mood: MascotMood.excited, size: 90),
             const SizedBox(height: 12),
             const Text(
-              'תחרות 2-4 משתתפים',
+              'איך תרצו לשחק?',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white),
             ),
             const SizedBox(height: 8),
@@ -39,58 +40,64 @@ class MultiplayerHomeScreen extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white70),
             ),
-            const SizedBox(height: 20),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    const Icon(Icons.flash_on_rounded, color: AppColors.primary, size: 36),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'תחרות מהירה - זמינה עכשיו!',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'שחקו נגד יריבים מדומים על אותו מכשיר - מושלם לתרגול\n'
-                      'ולבדיקת המשחק כבר עכשיו, בלי צורך בחיבור לאינטרנט.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.black54, fontSize: 13),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => context.push('/multiplayer/setup'),
-                        child: const Text('יצירת חדר תחרות'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ).animate().fadeIn().slideY(begin: 0.1, end: 0),
             const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(20),
+            _ModeCard(
+              icon: Icons.smart_toy_rounded,
+              iconColor: AppColors.primary,
+              title: 'משחק מול המחשב',
+              subtitle:
+                  'שחקו נגד יריבים מדומים על אותו מכשיר - מושלם לתרגול\n'
+                  'ולבדיקת המשחק כבר עכשיו, בלי צורך בחיבור לאינטרנט.',
+              buttonLabel: 'יצירת חדר תחרות',
+              onTap: () => context.push('/multiplayer/setup'),
+            ).animate().fadeIn().slideY(begin: 0.1, end: 0),
+            const SizedBox(height: 20),
+            if (AppConfig.multiplayerEnabled) ...[
+              _ModeCard(
+                icon: Icons.groups_rounded,
+                iconColor: AppColors.accent,
+                title: 'משחק מול חברים',
+                subtitle:
+                    'צרו חדר פרטי וקבלו קוד לשיתוף, או הצטרפו לחדר של חבר/ה\n'
+                    'עם קוד - כולם משחקים בזמן אמת על אותו לוח!',
+                highlight: true,
+                actions: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.accent,
+                        side: const BorderSide(color: AppColors.accent),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: () => context.push('/multiplayer/online/join'),
+                      child: const Text('הצטרפות עם קוד'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accent,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: () => context.push('/multiplayer/online/create'),
+                      child: const Text('יצירת חדר'),
+                    ),
+                  ),
+                ],
+              ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.1, end: 0),
+            ] else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'בקרוב - משחק אונליין אמיתי מול חברים',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                ),
               ),
-              child: const Text(
-                'בקרוב - משחק אונליין אמיתי מול חברים',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _MockMultiplayerHud(),
-            const SizedBox(height: 12),
-            const Text(
-              'כשנחבר שרת (ראו docs/FIREBASE_SETUP.md), אותו מסך תחרות בדיוק\n'
-              'יעבוד גם מול חברים אמיתיים דרך קוד חדר - במקום בוטים.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54, fontSize: 12),
-            ),
           ],
         ),
       ),
@@ -98,144 +105,56 @@ class MultiplayerHomeScreen extends StatelessWidget {
   }
 }
 
-class _MockMultiplayerHud extends StatelessWidget {
+class _ModeCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final String? buttonLabel;
+  final VoidCallback? onTap;
+  final List<Widget>? actions;
+  final bool highlight;
+
+  const _ModeCard({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    this.buttonLabel,
+    this.onTap,
+    this.actions,
+    this.highlight = false,
+  });
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF9A56), Color(0xFFFF6F91)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: highlight ? const BorderSide(color: AppColors.accent, width: 2) : BorderSide.none,
       ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              _MockPlayerBadge(name: 'דנה', score: 32, active: false),
-              _MockPlayerBadge(name: 'את/ה', score: 20, active: true),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _MockGrid(),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              _MockPlayerBadge(name: 'עומר', score: 24, active: false),
-              _MockPlayerBadge(name: 'נועה', score: 12, active: false),
-            ],
-          ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
-  }
-}
-
-class _MockPlayerBadge extends StatelessWidget {
-  final String name;
-  final int score;
-  final bool active;
-
-  const _MockPlayerBadge({required this.name, required this.score, required this.active});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Stack(
-          alignment: Alignment.topRight,
-          children: [
-            const MascotWidget(mood: MascotMood.happy, size: 48),
-            if (active)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text('$score', style: const TextStyle(color: Colors.white, fontSize: 11)),
-              )
-            else
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text('$score', style: const TextStyle(fontSize: 11)),
-              ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          name,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: active ? FontWeight.w800 : FontWeight.w500,
-            fontSize: 12,
-          ),
-        ),
-        if (active)
-          Container(
-            margin: const EdgeInsets.only(top: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Text('התור שלך', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700)),
-          ),
-      ],
-    );
-  }
-}
-
-class _MockGrid extends StatelessWidget {
-  static const letters = [
-    ['ל', 'ד', 'ש'],
-    ['ם', 'ו', 'ק'],
-    ['ר', 'א', 'ת'],
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(16),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            for (final row in letters)
-              Expanded(
-                child: Row(
-                  children: [
-                    for (final letter in row)
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              letter,
-                              style: const TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+            Icon(icon, color: iconColor, size: 40),
+            const SizedBox(height: 10),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.black54, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            if (actions != null)
+              Row(children: actions!)
+            else
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: onTap,
+                  child: Text(buttonLabel ?? ''),
                 ),
               ),
           ],

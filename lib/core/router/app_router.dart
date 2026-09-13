@@ -6,12 +6,16 @@ import '../../features/game/level_result_screen.dart';
 import '../../features/game/game_screen.dart';
 import '../../features/home/campaign_map_screen.dart';
 import '../../features/home/home_screen.dart';
+import '../../features/multiplayer/create_room_screen.dart';
+import '../../features/multiplayer/join_room_screen.dart';
 import '../../features/multiplayer/models/race_config.dart';
 import '../../features/multiplayer/models/race_result.dart';
 import '../../features/multiplayer/multiplayer_home_screen.dart';
+import '../../features/multiplayer/online_race_screen.dart';
 import '../../features/multiplayer/race_game_screen.dart';
 import '../../features/multiplayer/race_result_screen.dart';
 import '../../features/multiplayer/race_setup_screen.dart';
+import '../../features/multiplayer/room_lobby_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/rules/rules_screen.dart';
@@ -24,8 +28,11 @@ import '../../features/store/store_screen.dart';
 ///
 /// מבנה הניווט: / (splash) -> /onboarding (פעם ראשונה) -> /home (תפריט
 /// ראשי) -> /campaign (מפת השלבים) -> /level/:n/intro|play|result.
-/// רב-משתתפים: /multiplayer -> /multiplayer/setup -> /multiplayer/race
-/// -> /multiplayer/race/result.
+/// רב-משתתפים - משחק מול המחשב: /multiplayer -> /multiplayer/setup ->
+/// /multiplayer/race -> /multiplayer/race/result.
+/// רב-משתתפים - משחק מול חברים: /multiplayer -> /multiplayer/online/create
+/// או /multiplayer/online/join -> /multiplayer/online/room/:roomCode ->
+/// /multiplayer/online/race/:roomCode -> /multiplayer/race/result (משותף).
 final appRouter = GoRouter(
   initialLocation: '/',
   routes: [
@@ -75,6 +82,24 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/multiplayer/race/result',
       builder: (context, state) => RaceResultScreen(result: state.extra as RaceResult),
+    ),
+    GoRoute(
+      path: '/multiplayer/online/create',
+      builder: (context, state) => const CreateRoomScreen(),
+    ),
+    GoRoute(
+      path: '/multiplayer/online/join',
+      builder: (context, state) => const JoinRoomScreen(),
+    ),
+    GoRoute(
+      path: '/multiplayer/online/room/:roomCode',
+      builder: (context, state) =>
+          RoomLobbyScreen(roomCode: state.pathParameters['roomCode']!),
+    ),
+    GoRoute(
+      path: '/multiplayer/online/race/:roomCode',
+      builder: (context, state) =>
+          OnlineRaceScreen(roomCode: state.pathParameters['roomCode']!),
     ),
     GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
     GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
