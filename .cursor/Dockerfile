@@ -35,5 +35,5 @@ USER ubuntu
 # Warm the SDK: enable web, disable analytics, and pre-download web artifacts
 # so the first agent boot does not pay that cost.
 RUN flutter config --no-analytics --enable-web \
-    && flutter precache --universal --web \
+    && flutter precache --web \
     && flutter --version
