@@ -59,6 +59,12 @@ class GameRoom extends Equatable {
   /// לפי `roundSeconds - now.difference(startedAt)`, בלי לשדר טיימר בכל שנייה.
   final DateTime? startedAt;
 
+  /// מונה ניצחונות מצטבר לכל שחקן/ית בחדר הזה (uid -> מספר סבבים שנוצחו),
+  /// לצורך תצוגת יחס ניצחונות/הפסדים (למשל "1:2") בין חברי החדר על פני
+  /// כמה סבבי "משחק חוזר" (ראו restartRoom ב-multiplayer_repository.dart).
+  /// לא מתאפס בין סבבים - רק כשנוצר חדר חדש לגמרי.
+  final Map<String, int> wins;
+
   const GameRoom({
     required this.roomCode,
     required this.status,
@@ -71,6 +77,7 @@ class GameRoom extends Equatable {
     this.maxPlayers = 6,
     this.joinDeadline,
     this.startedAt,
+    this.wins = const {},
   });
 
   bool get hasTargetScore => targetScore > 0;
@@ -82,6 +89,7 @@ class GameRoom extends Equatable {
     RoomStatus? status,
     List<PlayerInRoom>? players,
     DateTime? startedAt,
+    Map<String, int>? wins,
   }) {
     return GameRoom(
       roomCode: roomCode,
@@ -95,6 +103,7 @@ class GameRoom extends Equatable {
       maxPlayers: maxPlayers,
       joinDeadline: joinDeadline,
       startedAt: startedAt ?? this.startedAt,
+      wins: wins ?? this.wins,
     );
   }
 
@@ -111,5 +120,6 @@ class GameRoom extends Equatable {
         maxPlayers,
         joinDeadline,
         startedAt,
+        wins,
       ];
 }

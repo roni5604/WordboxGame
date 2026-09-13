@@ -11,6 +11,7 @@ import '../../features/multiplayer/join_room_screen.dart';
 import '../../features/multiplayer/models/race_config.dart';
 import '../../features/multiplayer/models/race_result.dart';
 import '../../features/multiplayer/multiplayer_home_screen.dart';
+import '../../features/multiplayer/online_race_result_screen.dart';
 import '../../features/multiplayer/online_race_screen.dart';
 import '../../features/multiplayer/race_game_screen.dart';
 import '../../features/multiplayer/race_result_screen.dart';
@@ -32,7 +33,8 @@ import '../../features/store/store_screen.dart';
 /// /multiplayer/race -> /multiplayer/race/result.
 /// רב-משתתפים - משחק מול חברים: /multiplayer -> /multiplayer/online/create
 /// או /multiplayer/online/join -> /multiplayer/online/room/:roomCode ->
-/// /multiplayer/online/race/:roomCode -> /multiplayer/race/result (משותף).
+/// /multiplayer/online/race/:roomCode -> /multiplayer/online/room/:roomCode/result
+/// (מסך תוצאות נפרד עם "משחק חוזר" ויחס ניצחונות - חוזר ללובי אוטומטית).
 final appRouter = GoRouter(
   initialLocation: '/',
   routes: [
@@ -100,6 +102,13 @@ final appRouter = GoRouter(
       path: '/multiplayer/online/race/:roomCode',
       builder: (context, state) =>
           OnlineRaceScreen(roomCode: state.pathParameters['roomCode']!),
+    ),
+    GoRoute(
+      path: '/multiplayer/online/room/:roomCode/result',
+      builder: (context, state) => OnlineRaceResultScreen(
+        roomCode: state.pathParameters['roomCode']!,
+        result: state.extra as RaceResult,
+      ),
     ),
     GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
     GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),

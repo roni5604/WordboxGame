@@ -72,11 +72,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('קוד החדר מורכב מ-5 תווים.'), findsOneWidget);
+    expect(find.text('קוד החדר מורכב מ-5 ספרות.'), findsOneWidget);
     expect(fakeRepo.createRoomCalls, isEmpty);
   });
 
-  testWidgets('JoinRoomScreen uppercases the code and joins successfully', (tester) async {
+  testWidgets('JoinRoomScreen only accepts digits and joins successfully', (tester) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -85,7 +85,12 @@ void main() {
     final fakeRepo = FakeMultiplayerRepository();
     await _pumpJoinScreen(tester, fakeRepo: fakeRepo);
 
-    await tester.enterText(find.byType(TextField).last, 'abcde');
+    // אותיות מסוננות אוטומטית ע"י FilteringTextInputFormatter.digitsOnly -
+    // רק הספרות בתוך הטקסט שמוזן בפועל מתקבלות.
+    await tester.enterText(find.byType(TextField).last, 'a1b2c3d4e5');
+    final codeField = tester.widget<TextField>(find.byType(TextField).last);
+    expect(codeField.controller?.text, '12345');
+
     await tester.tap(find.text('הצטרפות לחדר 🚪'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
@@ -99,14 +104,14 @@ void main() {
     addTearDown(tester.view.reset);
     addTearDown(() => disposeTree(tester));
 
-    final fakeRepo = FakeMultiplayerRepository()..joinRoomError = StateError('חדר עם הקוד ZZZZZ לא נמצא.');
+    final fakeRepo = FakeMultiplayerRepository()..joinRoomError = StateError('חדר עם הקוד 99999 לא נמצא.');
     await _pumpJoinScreen(tester, fakeRepo: fakeRepo);
 
-    await tester.enterText(find.byType(TextField).last, 'ZZZZZ');
+    await tester.enterText(find.byType(TextField).last, '99999');
     await tester.tap(find.text('הצטרפות לחדר 🚪'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('חדר עם הקוד ZZZZZ לא נמצא.'), findsOneWidget);
+    expect(find.text('חדר עם הקוד 99999 לא נמצא.'), findsOneWidget);
   });
 }

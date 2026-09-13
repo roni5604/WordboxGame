@@ -8,7 +8,18 @@ class ScoreboardEntry {
   final int score;
   final bool isHuman;
 
-  const ScoreboardEntry({required this.name, required this.score, required this.isHuman});
+  /// מודגש/ת בהדגשה חזקה יותר מ-[isHuman] הרגילה - שימושי במשחק מול חברים
+  /// כדי להבליט את השחקן/ית הצופה עצמו/ה בין כמה שחקנים אמיתיים (ולא רק
+  /// "אנושי מול בוט"). ברירת המחדל false לא משנה כלל את התצוגה הקיימת
+  /// במשחק מול המחשב.
+  final bool isMe;
+
+  const ScoreboardEntry({
+    required this.name,
+    required this.score,
+    required this.isHuman,
+    this.isMe = false,
+  });
 }
 
 /// לוח תוצאות חי, ממוין לפי ניקוד - מוצג לצד הלוח במהלך תחרות מקומית,
@@ -31,11 +42,16 @@ class LiveScoreboard extends StatelessWidget {
           final isLeader = index == 0;
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: entry.isMe ? 12 : 10, vertical: entry.isMe ? 8 : 6),
             decoration: BoxDecoration(
               color: entry.isHuman ? Colors.white : Colors.white.withValues(alpha: 0.75),
               borderRadius: BorderRadius.circular(16),
-              border: isLeader ? Border.all(color: AppColors.star, width: 2) : null,
+              border: entry.isMe
+                  ? Border.all(color: AppColors.accent, width: 2.5)
+                  : (isLeader ? Border.all(color: AppColors.star, width: 2) : null),
+              boxShadow: entry.isMe
+                  ? [BoxShadow(color: AppColors.accent.withValues(alpha: 0.4), blurRadius: 8)]
+                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -47,7 +63,7 @@ class LiveScoreboard extends StatelessWidget {
                   ),
                 MascotWidget(
                   mood: entry.isHuman ? MascotMood.happy : MascotMood.idle,
-                  size: 26,
+                  size: entry.isMe ? 30 : 26,
                 ),
                 const SizedBox(width: 6),
                 Column(
@@ -56,11 +72,19 @@ class LiveScoreboard extends StatelessWidget {
                   children: [
                     Text(
                       entry.name,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                        color: entry.isMe ? AppColors.accent : null,
+                      ),
                     ),
                     Text(
                       '${entry.score} נק׳',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: entry.isMe ? 16 : 13,
+                        color: entry.isMe ? AppColors.accent : null,
+                      ),
                     ),
                   ],
                 ),

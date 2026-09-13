@@ -38,7 +38,8 @@ service cloud.firestore {
         && request.resource.data.targetScore is int
         && request.resource.data.maxPlayers is int;
 
-      // עדכון: שני מעברי סטטוס חוקיים בלבד, וכל שדות ההגדרה נעולים.
+      // עדכון: שלושה מעברי סטטוס חוקיים בלבד, וכל שדות ההגדרה נעולים
+      // (חוץ מ-boardSeed ב"משחק חוזר", ראו למטה).
       allow update: if request.auth != null && (
         // המנהל/ת מתחיל/ה את המשחק.
         (
@@ -48,27 +49,57 @@ service cloud.firestore {
           && _roomConfigUnchanged(request.resource.data, resource.data)
         )
         ||
-        // כל חבר/ת בחדר יכול/ה לסמן שהסבב הסתיים (זמן נגמר / ניקוד יעד הושג).
+        // כל חבר/ת בחדר יכול/ה לסמן שהסבב הסתיים (זמן נגמר / ניקוד יעד
+        // הושג) - מונה הניצחונות (wins) חופשי להשתנות כאן, לא נעול.
         (
           resource.data.status == 'inProgress'
           && request.resource.data.status == 'finished'
           && exists(/databases/$(database)/documents/rooms/$(roomCode)/players/$(request.auth.uid))
           && _roomConfigUnchanged(request.resource.data, resource.data)
         )
+        ||
+        // "משחק חוזר": רק המנהל/ת, ורק מסבב שהסתיים - לוח חדש (boardSeed
+        // אחר) אך כל שאר הגדרות המשחק ומונה הניצחונות המצטבר נשמרים.
+        (
+          resource.data.status == 'finished'
+          && request.resource.data.status == 'waiting'
+          && request.auth.uid == resource.data.hostUid
+          && request.resource.data.hostUid == resource.data.hostUid
+          && request.resource.data.gridSize == resource.data.gridSize
+          && request.resource.data.roundSeconds == resource.data.roundSeconds
+          && request.resource.data.targetScore == resource.data.targetScore
+          && request.resource.data.maxPlayers == resource.data.maxPlayers
+          && request.resource.data.boardSeed is int
+          && request.resource.data.startedAt == null
+        )
       );
 
       match /players/{uid} {
         allow read: if request.auth != null;
         allow create: if request.auth != null && request.auth.uid == uid;
-        // עדכון ניקוד עצמי בלבד: מותר רק לבעל/ת המסמך, והניקוד/מספר
-        // המילים לא יכולים "לרדת" (מונוטוני), ולא ניתן לשנות שם/תפקיד.
-        allow update: if request.auth != null && request.auth.uid == uid
-          && request.resource.data.score is int
-          && request.resource.data.wordsFound is int
-          && request.resource.data.score >= resource.data.score
-          && request.resource.data.wordsFound >= resource.data.wordsFound
-          && request.resource.data.isHost == resource.data.isHost
-          && request.resource.data.displayName == resource.data.displayName;
+        // עדכון: או בעל/ת המסמך מעדכנ/ת ניקוד עצמי בלבד (מונוטוני, בלי
+        // לשנות שם/תפקיד), או מנהל/ת החדר מאפס/ת ניקוד לכולם בעת "משחק
+        // חוזר" (ראו rooms/{roomCode} allow update למעלה - שני העדכונים
+        // קורים במקביל מהלקוח).
+        allow update: if request.auth != null && (
+          (
+            request.auth.uid == uid
+            && request.resource.data.score is int
+            && request.resource.data.wordsFound is int
+            && request.resource.data.score >= resource.data.score
+            && request.resource.data.wordsFound >= resource.data.wordsFound
+            && request.resource.data.isHost == resource.data.isHost
+            && request.resource.data.displayName == resource.data.displayName
+          )
+          ||
+          (
+            get(/databases/$(database)/documents/rooms/$(roomCode)).data.hostUid == request.auth.uid
+            && request.resource.data.score == 0
+            && request.resource.data.wordsFound == 0
+            && request.resource.data.isHost == resource.data.isHost
+            && request.resource.data.displayName == resource.data.displayName
+          )
+        );
         allow delete: if request.auth != null && request.auth.uid == uid;
       }
     }
