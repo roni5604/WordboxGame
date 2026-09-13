@@ -13,9 +13,12 @@ class AppConfig {
     defaultValue: true,
   );
 
-  /// מצב רב-משתתפים עדיין בפיתוח (שלב 2 בתוכנית) - כרגע מוצג כ"בקרוב".
+  /// מצב "משחק מול חברים" (חדרים פרטיים אמיתיים דרך Firestore) פעיל
+  /// כברירת מחדל - ראו lib/features/multiplayer/. אפשר לכבות זמנית (למשל
+  /// אם חוקי Firestore עדיין לא נפרסו בפרודקשן) עם:
+  ///   flutter run --dart-define=MULTIPLAYER_ENABLED=false
   static const bool multiplayerEnabled = bool.fromEnvironment(
     'MULTIPLAYER_ENABLED',
-    defaultValue: false,
+    defaultValue: true,
   );
 }
