@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../game/widgets/mascot_widget.dart';
+import '../../profile/widgets/avatar_widget.dart';
 
 class ScoreboardEntry {
   final String name;
@@ -14,11 +15,22 @@ class ScoreboardEntry {
   /// במשחק מול המחשב.
   final bool isMe;
 
+  /// מזהה האוואטאר המצויר שנבחר בפרופיל ([PlayerProfile.avatarId]) -
+  /// כשקיים (רק לשחקן/ית האמיתי/ת הצופה, ראו live_scoreboard.dart קריאה),
+  /// מוצג במקום קמע גנרי. null לבוטים/יריבים שאין להם פרופיל מקומי.
+  final String? avatarId;
+
+  /// תמונת הפרופיל האמיתית (Google/Apple/Facebook) אם קיימת - מוצגת
+  /// במקום האוואטאר המצויר. ראו lib/features/profile/widgets/avatar_widget.dart.
+  final String? photoUrl;
+
   const ScoreboardEntry({
     required this.name,
     required this.score,
     required this.isHuman,
     this.isMe = false,
+    this.avatarId,
+    this.photoUrl,
   });
 }
 
@@ -61,10 +73,17 @@ class LiveScoreboard extends StatelessWidget {
                     padding: EdgeInsets.only(left: 4),
                     child: Icon(Icons.emoji_events_rounded, color: AppColors.star, size: 18),
                   ),
-                MascotWidget(
-                  mood: entry.isHuman ? MascotMood.happy : MascotMood.idle,
-                  size: entry.isMe ? 30 : 26,
-                ),
+                entry.avatarId != null
+                    ? AvatarWidget(
+                        avatarId: entry.avatarId!,
+                        photoUrl: entry.photoUrl,
+                        size: entry.isMe ? 30 : 26,
+                        ring: false,
+                      )
+                    : MascotWidget(
+                        mood: entry.isHuman ? MascotMood.happy : MascotMood.idle,
+                        size: entry.isMe ? 30 : 26,
+                      ),
                 const SizedBox(width: 6),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -5,16 +5,18 @@ import '../../../core/theme/app_colors.dart';
 
 enum TileVisualState { idle, selected, success, error, hint }
 
-/// אריח אות בודד בלוח - בסגנון "ריבוע מעוגל צבעוני" (squircle) עם אות
-/// עבה ומתאר לבן, בהשראת אייקון האפליקציה. כל תא במצב idle מקבל צבע
-/// מפלטת ה"ממתקים" (קרם/אפרסק/כתום/פוקסיה) לפי מיקומו בלוח, כך שהלוח
-/// כולו נראה כמו פסיפס חגיגי - אותו סגנון בדיוק כמו האייקון.
+/// אריח אות בודד בלוח - עיגול מלא ואחיד (בהשראת עיצוב משחקי חיבור-אותיות
+/// מוכרים: עיגולים לבנים/אחידים עם צל רך ומרווחים ברורים בין תא לתא,
+/// כדי שגם חיבור אלכסוני יהיה נוח וברור לעין). כל תא במצב idle מקבל את
+/// אותו צבע אפרסק אחיד ([AppColors.tileIdle]) - אין יותר פלטת "פסיפס"
+/// לפי מיקום.
 class LetterTile extends StatelessWidget {
   final String letter;
   final double size;
   final TileVisualState state;
 
-  /// אינדקס לבחירת צבע מהפלטה במצב idle (בד"כ מבוסס על מיקום השורה/עמודה).
+  /// נשמר לתאימות לאחור עם קריאות קיימות (grid_board.dart,
+  /// mini_grid_demo.dart) - לא משפיע יותר על הצבע במצב idle, שהוא אחיד.
   final int paletteIndex;
 
   const LetterTile({
@@ -28,8 +30,7 @@ class LetterTile extends StatelessWidget {
   Color get _bgColor {
     switch (state) {
       case TileVisualState.idle:
-        final palette = AppColors.tileCandyPalette;
-        return palette[paletteIndex % palette.length];
+        return AppColors.tileIdle;
       case TileVisualState.selected:
         return AppColors.tileSelected;
       case TileVisualState.success:
@@ -47,13 +48,10 @@ class LetterTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // רדיוס גדול יותר (squircle קרוב לעיגול) - עם הפער הקטן שנפתח כעת בין
-    // אריח לאריח (ראו grid_board.dart: tileAt מרנדר את התא ב-0.86 מגודל
-    // התא בפועל) האריחים כבר לא צמודים ויזואלית, כך שרדיוס גבוה נראה
-    // כמו "כפתור" עגול נעים - בהשראת עיצוב משחקי חיבור-אותיות מוכרים -
-    // בלי לפגוע בדיוק הגרירה (שמבוסס על cellSize המלא, לא על גודל התא
-    // המצומצם הזה).
-    final radius = size * 0.32;
+    // עיגול מלא (BoxShape.circle) - עם המרווח הנוח שנפתח בין אריח לאריח
+    // (ראו grid_board.dart: tileAt מרנדר את התא בכ-0.8 מגודל התא בפועל)
+    // בהשראת עיצוב משחקי חיבור-אותיות מוכרים, בלי לפגוע בדיוק הגרירה
+    // (שמבוסס על cellSize המלא, לא על גודל התא המצומצם הזה).
     final fontSize = size * 0.46;
     final isIdle = state == TileVisualState.idle;
 
@@ -64,9 +62,15 @@ class LetterTile extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: _bgColor,
-        borderRadius: BorderRadius.circular(radius),
+        shape: BoxShape.circle,
         boxShadow: isIdle
-            ? null
+            ? const [
+                BoxShadow(
+                  color: AppColors.tileShadow,
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ]
             : const [
                 BoxShadow(
                   color: AppColors.tileShadow,

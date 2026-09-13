@@ -15,20 +15,11 @@ class AppColors {
   static const Color tileSelected = Color(0xFFFFE066);
   static const Color tileShadow = Color(0x33000000);
 
-  /// רקע "בין התאים" בלוח - נראה כתפרים דקים בין אריחים צמודים (אין
-  /// שום רווח אמיתי, רק תפר לבן דק על כל אריח - ראו letter_tile.dart),
-  /// ומעניק ללוח כולו מסגרת מאוחדת ומעוגלת (ראו grid_board.dart).
-  static const Color boardGrout = Color(0xFF3A2F5C);
-
-  /// פלטת "האריחים הצבעוניים" - בהשראת אייקון האפליקציה (ריבועים מעוגלים
-  /// קרם/אפרסק/כתום/פוקסיה) עם אות אדומה עבה ומתאר לבן. כל תא בלוח מקבל
-  /// צבע מהפלטה הזו לפי מיקומו, כדי שהלוח ייראה כמו פסיפס חגיגי כמו האייקון.
-  static const List<Color> tileCandyPalette = [
-    Color(0xFFFFF3E0), // קרם
-    Color(0xFFFFD9A0), // אפרסק
-    Color(0xFFFFC178), // כתום בהיר
-    Color(0xFFEC4899), // פוקסיה
-  ];
+  /// צבע אחיד לכל אריחי הלוח במצב idle - עיגולי אפרסק נעימים על רקע
+  /// הגרדיאנט של המסך (ראו letter_tile.dart, grid_board.dart), בהשראת
+  /// עיצוב משחקי חיבור-אותיות מוכרים עם עיגולים לבנים/אחידים ומרווחים
+  /// ברורים בין תא לתא.
+  static const Color tileIdle = Color(0xFFFFD9A0);
 
   static const Color tileLetterRed = Color(0xFFE0303B);
 

@@ -12,9 +12,11 @@ import '../../game_engine/dictionary/hebrew_trie.dart';
 import '../../game_engine/game_session.dart';
 import '../../game_engine/models/grid_position.dart';
 import '../../game_engine/models/level_config.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/dictionary_provider.dart';
 import '../../providers/letter_frequency_provider.dart';
 import '../../providers/multiplayer_repository_provider.dart';
+import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
 import '../game/widgets/current_word_badge.dart';
 import '../game/widgets/found_words_panel.dart';
@@ -291,6 +293,11 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     final session = _session;
     final room = _room;
     if (session == null || room == null) return [];
+    // תמונת/שם הפרופיל האמיתי שלי - מוצגים במקום קמע גנרי (ראו
+    // live_scoreboard.dart), רק לשורה של עצמי; לשאר השחקנים/ות בחדר
+    // הפרטי אין עדיין תמונת פרופיל שמורה בצד השרת.
+    final profile = ref.watch(playerProfileProvider).valueOrNull;
+    final authUser = ref.watch(authStateProvider).valueOrNull;
     final entries = <ScoreboardEntry>[
       for (final player in room.players)
         ScoreboardEntry(
@@ -300,6 +307,8 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
           score: player.uid == _myUid ? session.score : player.score,
           isHuman: player.uid == _myUid,
           isMe: player.uid == _myUid,
+          avatarId: player.uid == _myUid ? (profile?.avatarId ?? 'detective') : null,
+          photoUrl: player.uid == _myUid ? authUser?.photoUrl : null,
         ),
     ]..sort((a, b) => b.score.compareTo(a.score));
     return entries;

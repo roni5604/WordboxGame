@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../game_engine/models/grid_position.dart';
 import 'connector_painter.dart';
 import 'letter_tile.dart';
@@ -235,17 +234,15 @@ class GridBoardState extends State<GridBoard> {
             top: r * cellSize,
             width: cellSize,
             height: cellSize,
-            // התא עצמו קטן מעט מ-cellSize (הפער נראה ברקע ה"grout") - אבל
-            // אזור המגע/הזיהוי (ב-_nearestPosition) נשאר מבוסס על cellSize
-            // המלא, בלי שום שינוי. כך נחשפת "רשת" דקה בין האותיות (בהשראת
-            // עיצוב המשחקים המוכרים) בלי לפגוע כלל בדיוק הגרירה שכבר נפתר.
+            // התא (עיגול) קטן מ-cellSize כדי שיהיה מרווח נוח וברור בין
+            // עיגול לעיגול (בהשראת עיצוב משחקי חיבור-אותיות מוכרים - ראו
+            // letter_tile.dart) - אבל אזור המגע/הזיהוי (ב-_nearestPosition)
+            // נשאר מבוסס על cellSize המלא, בלי שום שינוי, כך שהמרווח
+            // הוויזואלי לא פוגע בדיוק הגרירה, כולל באלכסונים.
             child: Center(
               child: LetterTile(
                 letter: widget.letters[r][c],
-                size: cellSize * 0.86,
-                // דפוס פסאודו-אקראי אך יציב לפי מיקום, כדי שהלוח
-                // ייראה כמו פסיפס צבעוני (כמו אייקון האפליקציה)
-                // ולא יתחלף מחדש בכל build.
+                size: cellSize * 0.8,
                 paletteIndex: (r * 31 + c * 17) % 4,
                 state: stateFor(r, c),
               ),
@@ -263,51 +260,40 @@ class GridBoardState extends State<GridBoard> {
                 _handleUpdate(details.localPosition, cellSize),
             onPanEnd: (_) => _handleEnd(),
             onPanCancel: _handleEnd,
-            // ClipRRect חוצה חוץ בלבד (הלוח כמלבן מעוגל אחיד) - התאים
-            // עצמם צמודים/מלבניים בפנים, כדי שהלוח כולו ייראה כ"רשת"
-            // מאוחדת וברורה, ולא כאוסף ריבועים צפים עם רווחים.
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                color: AppColors.boardGrout,
-                child: Stack(
-                  children: [
-                    // רשת קווים דקה ושקופה בין מרכזי כל שתי אותיות שכנות
-                    // (כולל אלכסונים) - "מלמדת" ויזואלית שגם חיבור אלכסוני
-                    // חוקי לגמרי, בהשראת עיצוב משחקי חיבור-אותיות מוכרים.
-                    // מצוירת מתחת לאריחים, ונראית רק בפער הקטן שנפתח בין
-                    // אריח לאריח (ראו tileAt לעיל).
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: _GridMeshPainter(
-                          size: _size,
-                          cellSize: cellSize,
-                        ),
-                      ),
-                    ),
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: ConnectorPainter(
-                          points: linePoints,
-                          isError: _isError,
-                        ),
-                      ),
-                    ),
-                    // שני מעברים: קודם כל התאים ה"רגילים" (idle), ואז
-                    // התאים המודגשים (נבחר/רמז/שגיאה) - כך שתא מודגש (שגדל
-                    // מעט באנימציה) לעולם לא "נבלע" ויזואלית מתחת לשכן
-                    // צמוד שמצטייר אחריו ב-Stack, גם בלי רווח כלל ביניהם.
-                    for (int r = 0; r < _size; r++)
-                      for (int c = 0; c < _size; c++)
-                        if (stateFor(r, c) == TileVisualState.idle)
-                          tileAt(r, c),
-                    for (int r = 0; r < _size; r++)
-                      for (int c = 0; c < _size; c++)
-                        if (stateFor(r, c) != TileVisualState.idle)
-                          tileAt(r, c),
-                  ],
+            // אין יותר קופסת רקע כהה/אחידה מסביב ללוח - הרקע הוא הגרדיאנט
+            // של המסך המכיל עצמו (ראו game_screen.dart וכו'), כדי שהלוח
+            // יתמזג חזותית עם שאר האפליקציה במקום להיראות כ"קובייה" נפרדת.
+            child: Stack(
+              children: [
+                // רשת קווים דקה ושקופה בין מרכזי כל שתי אותיות שכנות
+                // (כולל אלכסונים) - "מלמדת" ויזואלית שגם חיבור אלכסוני
+                // חוקי לגמרי, בהשראת עיצוב משחקי חיבור-אותיות מוכרים.
+                // מצוירת מתחת לאריחים, ונראית רק במרווח שנפתח בין עיגול
+                // לעיגול (ראו tileAt לעיל).
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _GridMeshPainter(size: _size, cellSize: cellSize),
+                  ),
                 ),
-              ),
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: ConnectorPainter(
+                      points: linePoints,
+                      isError: _isError,
+                    ),
+                  ),
+                ),
+                // שני מעברים: קודם כל התאים ה"רגילים" (idle), ואז
+                // התאים המודגשים (נבחר/רמז/שגיאה) - כך שתא מודגש (שגדל
+                // מעט באנימציה) לעולם לא "נבלע" ויזואלית מתחת לשכן
+                // צמוד שמצטייר אחריו ב-Stack, גם בלי רווח כלל ביניהם.
+                for (int r = 0; r < _size; r++)
+                  for (int c = 0; c < _size; c++)
+                    if (stateFor(r, c) == TileVisualState.idle) tileAt(r, c),
+                for (int r = 0; r < _size; r++)
+                  for (int c = 0; c < _size; c++)
+                    if (stateFor(r, c) != TileVisualState.idle) tileAt(r, c),
+              ],
             ),
           ),
         );
@@ -327,9 +313,13 @@ class _GridMeshPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size canvasSize) {
+    // שקיפות/עובי מוגברים לעומת קודם - בלי קופסת רקע כהה מאחורי הלוח
+    // (ראו build() לעיל) הקו צריך להיות ברור בפני עצמו על גבי הגרדיאנט
+    // הבהיר-יחסית של המסך, בדיוק כמו ברשת הדקה שנראית במשחקי חיבור-
+    // אותיות מוכרים.
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.16)
-      ..strokeWidth = 1.4
+      ..color = Colors.white.withValues(alpha: 0.4)
+      ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round;
 
     Offset centerOf(int row, int col) =>

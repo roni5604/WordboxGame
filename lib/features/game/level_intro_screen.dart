@@ -143,7 +143,10 @@ class _StarGoal extends StatelessWidget {
   Widget build(BuildContext context) {
     // 3 כוכבים הם היעד המלא בדיוק (השלב מסתיים באותו רגע) - לא "3 ומעלה"
     // כמו 1-2 כוכבים (יעדי ביניים) - כך שהתווית לא מטעה.
-    final label = stars >= 3 ? '$words מ׳' : '$words+ מ׳';
+    // כותבים "מילים" במלואה (ולא קיצור כמו "מ׳") כדי שהתווית תהיה
+    // ברורה למשתמש/ת בלי צורך לפענח קיצור לא מוכר.
+    final unit = words == 1 ? 'מילה' : 'מילים';
+    final label = stars >= 3 ? '$words $unit' : '$words+ $unit';
     return Column(
       children: [
         Row(

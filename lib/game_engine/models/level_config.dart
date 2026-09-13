@@ -182,14 +182,15 @@ class CampaignLevels {
     return (5 + t * 2).round().clamp(5, 7);
   }
 
-  /// זמן השלב - קצר וברור בהרבה מהמצב הקודם (למשל שלב 1: 90->57 שניות),
-  /// אבל עם מרווח נוח - כדי שהיעד (מספר מילים) יישאר בהחלט מושג בלי
-  /// למהר, במיוחד בשלב 1 שצריך להיות הכי קל ונוח מכולם. נגזר ממספר
-  /// המילים הנדרש ומגודל הלוח (לוח גדול יותר דורש קצת יותר זמן חיפוש),
-  /// תמיד בטווח סביר (35-115 שניות).
+  /// זמן השלב - קצר וברור, עם מרווח נוח כדי שהיעד (מספר מילים) יישאר
+  /// בהחלט מושג בלי למהר, במיוחד בשלב 1 שצריך להיות הכי קל ונוח מכולם.
+  /// נגזר ממספר המילים הנדרש ומגודל הלוח (לוח גדול יותר דורש קצת יותר
+  /// זמן חיפוש), ומעוגל לעשרות שניות קרובות (30, 40, 50...) כדי שהזמן
+  /// המוצג לשחקן/ית יהיה תמיד מספר "עגול" ונעים, בטווח 30-120 שניות.
   static Duration timeLimitForLevel({required int wordsRequired, required int gridSize}) {
-    final seconds = 30 + wordsRequired * 9 + (gridSize - 3) * 6;
-    return Duration(seconds: seconds.clamp(35, 115));
+    final rawSeconds = 30 + wordsRequired * 9 + (gridSize - 3) * 6;
+    final rounded = ((rawSeconds / 10).round() * 10);
+    return Duration(seconds: rounded.clamp(30, 120));
   }
 
   static LevelConfig byLevelNumber(int levelNumber) {
