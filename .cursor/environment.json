@@ -1,0 +1,12 @@
+{
+  "name": "WordBox Hebrew (Flutter)",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "web",
+      "command": "flutter run -d web-server --web-port 8080 --web-hostname 0.0.0.0"
+    }
+  ],
+  "ports": [8080]
+}
