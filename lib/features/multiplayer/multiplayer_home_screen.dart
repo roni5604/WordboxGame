@@ -48,7 +48,7 @@ class MultiplayerHomeScreen extends StatelessWidget {
               subtitle:
                   'שחקו נגד יריבים מדומים על אותו מכשיר - מושלם לתרגול\n'
                   'ולבדיקת המשחק כבר עכשיו, בלי צורך בחיבור לאינטרנט.',
-              buttonLabel: 'יצירת חדר תחרות',
+              buttonLabel: 'התחלת משחק',
               onTap: () => context.push('/multiplayer/setup'),
             ).animate().fadeIn().slideY(begin: 0.1, end: 0),
             const SizedBox(height: 20),

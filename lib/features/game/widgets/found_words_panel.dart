@@ -14,7 +14,7 @@ class FoundWordsPanel extends StatelessWidget {
       return const SizedBox(
         height: 36,
         child: Center(
-          child: Text('גררו אצבע בין אותיות סמוכות כדי להרכיב מילה ראשונה!',
+          child: Text('המילה הראשונה מחכה לכם - גררו אותיות סמוכות!',
               style: TextStyle(color: Colors.white70, fontSize: 13)),
         ),
       );
