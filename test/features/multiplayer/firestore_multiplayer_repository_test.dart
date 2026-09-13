@@ -126,7 +126,7 @@ void main() {
       expect(second.players, hasLength(2));
     });
 
-    test('קוד חדר לא תלוי רישיות (מומר לאותיות גדולות)', () async {
+    test('הקוד מורכב מספרות בלבד (בלי אותיות מבלבלות)', () async {
       final host = repoFor('host-uid');
       final room = await host.createRoom(
         hostDisplayName: 'מנהל',
@@ -137,12 +137,7 @@ void main() {
         joinWindow: const Duration(minutes: 10),
       );
 
-      final guest = repoFor('guest-uid');
-      final updated = await guest.joinRoom(
-        roomCode: room.roomCode.toLowerCase(),
-        displayName: 'עומר',
-      );
-      expect(updated.roomCode, room.roomCode);
+      expect(RegExp(r'^[0-9]{5}$').hasMatch(room.roomCode), isTrue);
     });
   });
 

@@ -9,17 +9,7 @@ import '../../providers/multiplayer_repository_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../game/widgets/mascot_widget.dart';
 
-/// ממיר טקסט מוזן לאותיות גדולות באנגלית באופן חי - קודי החדר מיוצרים
-/// רק מאותיות גדולות/ספרות (ראו _generateRoomCode ב-repository), כדי
-/// שהקלדה לא-רגישה לרישיות תמיד תתאים לקוד האמיתי.
-class _UpperCaseTextFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    return newValue.copyWith(text: newValue.text.toUpperCase());
-  }
-}
-
-/// מסך "הצטרפות לחדר" - הזנת שם/כינוי וקוד חדר בן 5 תווים שהתקבל
+/// מסך "הצטרפות לחדר" - הזנת שם/כינוי וקוד חדר בן 5 ספרות שהתקבל
 /// ממנהל/ת החדר (ראו create_room_screen.dart).
 class JoinRoomScreen extends ConsumerStatefulWidget {
   const JoinRoomScreen({super.key});
@@ -53,14 +43,14 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
 
   Future<void> _join() async {
     final name = _nameController.text.trim();
-    final code = _codeController.text.trim().toUpperCase();
+    final code = _codeController.text.trim();
 
     if (name.isEmpty) {
       setState(() => _error = 'אנא הזינו שם/כינוי.');
       return;
     }
     if (code.length != 5) {
-      setState(() => _error = 'קוד החדר מורכב מ-5 תווים.');
+      setState(() => _error = 'קוד החדר מורכב מ-5 ספרות.');
       return;
     }
 
@@ -149,11 +139,8 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
                     controller: _codeController,
                     textAlign: TextAlign.center,
                     maxLength: 5,
-                    textCapitalization: TextCapitalization.characters,
-                    inputFormatters: [
-                      _UpperCaseTextFormatter(),
-                      FilteringTextInputFormatter.allow(RegExp('[A-Za-z0-9]')),
-                    ],
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
@@ -164,7 +151,7 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
                       filled: true,
                       fillColor: AppColors.background.withValues(alpha: 0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                      hintText: 'ABCDE',
+                      hintText: '12345',
                     ),
                   ),
                 ],

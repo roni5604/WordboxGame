@@ -30,10 +30,11 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
 
   CollectionReference<Map<String, dynamic>> get _rooms => _firestore.collection('rooms');
 
+  /// קוד חדר בן 5 ספרות (רק 0-9) - קל להקלדה על מקלדת מספרית/בטלפון,
+  /// ואין בו בלבול בין אותיות/ספרות דומות (0/O, 1/I) כמו בקוד אלפאנומרי.
   String _generateRoomCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final rand = Random();
-    return List.generate(5, (_) => chars[rand.nextInt(chars.length)]).join();
+    return List.generate(5, (_) => rand.nextInt(10)).join();
   }
 
   @override
@@ -109,7 +110,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
 
   @override
   Future<GameRoom> joinRoom({required String roomCode, required String displayName}) async {
-    final code = roomCode.trim().toUpperCase();
+    final code = roomCode.trim();
     final uid = await _ensureUid();
     final roomRef = _rooms.doc(code);
     final roomSnap = await roomRef.get();
