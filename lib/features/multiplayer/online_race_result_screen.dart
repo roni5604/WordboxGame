@@ -227,7 +227,7 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
                         : const MascotWidget(mood: MascotMood.sad, size: 100),
                   ),
                   const SizedBox(height: 24),
-                  if (isSeriesFinale && room != null)
+                  if (isSeriesFinale)
                     ..._championsTable(room)
                   else
                     for (int i = 0; i < result.rankedParticipants.length; i++)
@@ -268,7 +268,7 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
                             )
                           : const Text('הסבב הבא 🚀'),
                     ).animate().fadeIn(delay: 200.ms)
-                  else if (!isFinale && room != null)
+                  else if (!isFinale)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Text(
