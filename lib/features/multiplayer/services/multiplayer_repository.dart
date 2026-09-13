@@ -1,45 +1,77 @@
 import '../models/room_models.dart';
 
-/// ממשק מופשט למצב רב-משתתפים - יאפשר להחליף מימוש (Firestore, שרת
-/// עצמאי, וכו') מבלי לגעת במסכים.
-///
-/// המימוש בפועל (Firestore) ייכתב בשלב 2 של הפיתוח, לאחר שהחוקים המדויקים
-/// (סבבים, ניקוד, מה קורה כשנגמר הזמן) יאומתו מול Wordbox המקורי - ראו
-/// "נושאים פתוחים" בתוכנית. המבנה כאן (חדרים, שחקנים, תורות) כבר תואם
-/// לארכיטקטורה שתוארה ב-docs/FIREBASE_SETUP.md כדי לחסוך זמן מימוש עתידי.
+/// ממשק מופשט למצב "משחק מול חברים" - מאפשר להחליף מימוש (Firestore, שרת
+/// עצמאי, וכו') מבלי לגעת במסכים. המימוש בפועל הוא [FirestoreMultiplayerRepository]
+/// (ראו firestore_multiplayer_repository.dart).
 abstract class MultiplayerRepository {
-  Future<GameRoom> createRoom({required String hostDisplayName, int gridSize = 5});
+  /// מזהה המשתמש/ת הנוכחי/ת (מתחבר/ת כאורח/ת אוטומטית אם צריך). שימושי
+  /// ל-UI כדי לדעת "האם אני המנהל/ת" בלי לעבור דרך שאילתת רשת.
+  Future<String> ensureSignedIn();
+
+  Future<GameRoom> createRoom({
+    required String hostDisplayName,
+    required int gridSize,
+    required int roundSeconds,
+    required int targetScore,
+    required int maxPlayers,
+    required Duration joinWindow,
+  });
+
   Future<GameRoom> joinRoom({required String roomCode, required String displayName});
+
   Stream<GameRoom> watchRoom(String roomCode);
-  Future<void> submitWordForTurn(String roomCode, String normalizedWord);
+
+  /// מתחיל את המשחק (רק המנהל/ת רשאי/ת) - קובע `startedAt` ומעביר את
+  /// החדר למצב `inProgress`.
+  Future<void> startGame(String roomCode);
+
+  /// מעדכן את הניקוד/מספר המילים העצמי של השחקן/ית הנוכחי/ת בחדר -
+  /// נקרא בכל מציאת מילה מקומית (ראו lib/game_engine/game_session.dart).
+  Future<void> updateMyScore(String roomCode, {required int score, required int wordsFound});
+
+  /// מסמן שהסבב הסתיים (זמן נגמר / מישהו הגיע לניקוד היעד) - "מי שראשון
+  /// קובע", בטוח לקריאה כפולה מכמה לקוחות בו-זמנית.
+  Future<void> finishRoom(String roomCode);
+
   Future<void> leaveRoom(String roomCode);
 }
 
-/// Stub זמני - זורק חריגה ברורה, כדי שממשק המשתמש יידע להציג מסך
-/// "בקרוב" במקום לנסות להתחבר לשרת שלא קיים עדיין.
+/// Stub זמני - זורק חריגה ברורה, לשימוש כשה-backend כבוי (AppConfig.useFirebaseBackend == false).
 class UnimplementedMultiplayerRepository implements MultiplayerRepository {
-  @override
-  Future<GameRoom> createRoom({required String hostDisplayName, int gridSize = 5}) {
-    throw UnimplementedError('מצב רב-משתתפים עדיין בפיתוח (שלב 2 בתוכנית).');
-  }
+  Never _unavailable() =>
+      throw UnimplementedError('משחק מול חברים דורש חיבור לאינטרנט ול-Firebase.');
 
   @override
-  Future<GameRoom> joinRoom({required String roomCode, required String displayName}) {
-    throw UnimplementedError('מצב רב-משתתפים עדיין בפיתוח (שלב 2 בתוכנית).');
-  }
+  Future<String> ensureSignedIn() => _unavailable();
 
   @override
-  Stream<GameRoom> watchRoom(String roomCode) {
-    throw UnimplementedError('מצב רב-משתתפים עדיין בפיתוח (שלב 2 בתוכנית).');
-  }
+  Future<GameRoom> createRoom({
+    required String hostDisplayName,
+    required int gridSize,
+    required int roundSeconds,
+    required int targetScore,
+    required int maxPlayers,
+    required Duration joinWindow,
+  }) =>
+      _unavailable();
 
   @override
-  Future<void> submitWordForTurn(String roomCode, String normalizedWord) {
-    throw UnimplementedError('מצב רב-משתתפים עדיין בפיתוח (שלב 2 בתוכנית).');
-  }
+  Future<GameRoom> joinRoom({required String roomCode, required String displayName}) =>
+      _unavailable();
 
   @override
-  Future<void> leaveRoom(String roomCode) {
-    throw UnimplementedError('מצב רב-משתתפים עדיין בפיתוח (שלב 2 בתוכנית).');
-  }
+  Stream<GameRoom> watchRoom(String roomCode) => _unavailable();
+
+  @override
+  Future<void> startGame(String roomCode) => _unavailable();
+
+  @override
+  Future<void> updateMyScore(String roomCode, {required int score, required int wordsFound}) =>
+      _unavailable();
+
+  @override
+  Future<void> finishRoom(String roomCode) => _unavailable();
+
+  @override
+  Future<void> leaveRoom(String roomCode) => _unavailable();
 }
