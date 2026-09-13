@@ -22,6 +22,7 @@ import '../../providers/letter_frequency_provider.dart';
 import '../../providers/level_boards_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
+import 'widgets/current_word_badge.dart';
 import 'widgets/found_words_panel.dart';
 import 'widgets/grid_board.dart';
 import 'widgets/mascot_widget.dart';
@@ -75,20 +76,20 @@ class GameScreenResult extends Equatable {
 
   @override
   List<Object?> get props => [
-        score,
-        stars,
-        foundWordsCount,
-        totalPossibleWords,
-        totalPossibleScore,
-        coinsEarned,
-        isMilestoneLevel,
-        bonusCoins,
-        bonusHints,
-        newTierTitle,
-        newGridSize,
-        finishedEarly,
-        secondsLeftWhenFinished,
-      ];
+    score,
+    stars,
+    foundWordsCount,
+    totalPossibleWords,
+    totalPossibleScore,
+    coinsEarned,
+    isMilestoneLevel,
+    bonusCoins,
+    bonusHints,
+    newTierTitle,
+    newGridSize,
+    finishedEarly,
+    secondsLeftWhenFinished,
+  ];
 }
 
 class GameScreen extends ConsumerStatefulWidget {
@@ -114,6 +115,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   bool _finished = false;
   int? _lastWarningSecond;
   int _lastCelebratedStars = 0;
+
+  /// המילה שנבנית כרגע תוך כדי גרירה על הלוח (ריקה כשאין גרירה פעילה) -
+  /// מוצגת בבועה למעלה, כדי שתמיד יהיה ברור אילו אותיות נבחרו עד כה.
+  String _draggingWord = '';
 
   String? _tutorialWord;
   List<GridPosition>? _tutorialPath;
@@ -154,8 +159,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     }
 
     final possibleWords = WordFinder(dictionary.trie).findAllWords(letters);
-    final board = GeneratedBoard(letters: letters, possibleWords: possibleWords, size: _config.gridSize);
-    final session = GameSession(config: _config, board: board, trie: dictionary.trie);
+    final board = GeneratedBoard(
+      letters: letters,
+      possibleWords: possibleWords,
+      size: _config.gridSize,
+    );
+    final session = GameSession(
+      config: _config,
+      board: board,
+      trie: dictionary.trie,
+    );
 
     if (!mounted) return;
     setState(() => _session = session);
@@ -173,7 +186,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       return;
     }
 
-    final profile = await ref.read(playerProfileProvider.notifier).ensureLoaded();
+    final profile = await ref
+        .read(playerProfileProvider.notifier)
+        .ensureLoaded();
     if (profile.level1TutorialSeen) {
       _startTimer();
       return;
@@ -206,7 +221,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           // "טיק" אזהרה בכל שנייה שלמה כשנשארו פחות מ-20% מהזמן (אותו סף
           // כמו "urgent" בפס הטיימר) - כך שהאפקט מתאים גם לשלבים קצרים.
           final secondsLeft = _remaining.inSeconds;
-          final urgent = _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2);
+          final urgent =
+              _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2);
           if (urgent && secondsLeft != _lastWarningSecond) {
             _lastWarningSecond = secondsLeft;
             ref.read(soundServiceProvider).playTimerWarning();
@@ -227,6 +243,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     });
   }
 
+  void _onWordChanging(String word) {
+    if (_draggingWord == word) return;
+    setState(() => _draggingWord = word);
+  }
+
   /// חגיגת-ביניים כשעולה למספר כוכבים גבוה יותר במהלך השלב (לא רק
   /// בסיום) - צליל שמח + רטט + הודעה, כך שברור לשחקן/ית בזמן אמת "כמה
   /// כוכבים כבר בכיס". מתוזמן קצת אחרי הודעת "מילה נמצאה!" כדי לא
@@ -237,7 +258,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final starsText = '⭐' * stars;
     Future.delayed(const Duration(milliseconds: 950), () {
       if (!mounted || _finished) return;
-      _showBanner('$starsText ${stars >= 3 ? "מושלם! כל הכבוד!" : "כוכב חדש!"}');
+      _showBanner(
+        '$starsText ${stars >= 3 ? "מושלם! כל הכבוד!" : "כוכב חדש!"}',
+      );
     });
   }
 
@@ -325,9 +348,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     const milestoneBonusHints = 3;
 
     final coinsEarned =
-        stars * 10 + session.foundWordsCount * 2 + (isMilestone ? milestoneBonusCoins : 0);
+        stars * 10 +
+        session.foundWordsCount * 2 +
+        (isMilestone ? milestoneBonusCoins : 0);
 
-    await ref.read(playerProfileProvider.notifier).completeLevel(
+    await ref
+        .read(playerProfileProvider.notifier)
+        .completeLevel(
           levelNumber: widget.levelNumber,
           stars: stars,
           score: session.score,
@@ -335,7 +362,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         );
 
     if (isMilestone) {
-      await ref.read(playerProfileProvider.notifier).grantHints(milestoneBonusHints);
+      await ref
+          .read(playerProfileProvider.notifier)
+          .grantHints(milestoneBonusHints);
     }
 
     if (!mounted) return;
@@ -359,7 +388,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       secondsLeftWhenFinished: secondsLeftWhenFinished,
     );
 
-    context.pushReplacement('/level/${widget.levelNumber}/result', extra: result);
+    context.pushReplacement(
+      '/level/${widget.levelNumber}/result',
+      extra: result,
+    );
   }
 
   @override
@@ -403,9 +435,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: TimerBar(
-                          progress: _remaining.inMilliseconds /
+                          progress:
+                              _remaining.inMilliseconds /
                               _config.timeLimit.inMilliseconds,
-                          urgent: _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2),
+                          urgent:
+                              _remaining.inSeconds <
+                              (_config.timeLimit.inSeconds * 0.2),
                           secondsLeft: _remaining.inSeconds,
                         ),
                       ),
@@ -418,7 +453,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                           stars: session.currentStars,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
+                      CurrentWordBadge(word: _draggingWord),
+                      const SizedBox(height: 4),
                       Expanded(
                         child: Stack(
                           alignment: Alignment.topCenter,
@@ -429,7 +466,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                 builder: (context, constraints) {
                                   // ריבוע גדול ככל האפשר שעדיין נכנס לגמרי
                                   // בשטח הפנוי - כך כל השורות תמיד גלויות.
-                                  final side = constraints.maxWidth < constraints.maxHeight
+                                  final side =
+                                      constraints.maxWidth <
+                                          constraints.maxHeight
                                       ? constraints.maxWidth
                                       : constraints.maxHeight;
                                   return Center(
@@ -440,6 +479,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                         key: _boardKey,
                                         letters: session.board.letters,
                                         onPathSubmitted: _onPathSubmitted,
+                                        onWordChanged: _onWordChanging,
                                       ),
                                     ),
                                   );
@@ -449,30 +489,44 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                             if (_bannerText != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 20, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: _bannerIsError
-                                        ? AppColors.error
-                                        : Colors.white,
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: const [
-                                      BoxShadow(color: Colors.black26, blurRadius: 10),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    _bannerText!,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 18,
-                                      color: _bannerIsError
-                                          ? Colors.white
-                                          : AppColors.success,
-                                    ),
-                                  ),
-                                ).animate(key: ValueKey(_bannerText)).fadeIn().moveY(
-                                    begin: 10, end: 0, duration: 200.ms),
+                                child:
+                                    Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 20,
+                                            vertical: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: _bannerIsError
+                                                ? AppColors.error
+                                                : Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                            boxShadow: const [
+                                              BoxShadow(
+                                                color: Colors.black26,
+                                                blurRadius: 10,
+                                              ),
+                                            ],
+                                          ),
+                                          child: Text(
+                                            _bannerText!,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 18,
+                                              color: _bannerIsError
+                                                  ? Colors.white
+                                                  : AppColors.success,
+                                            ),
+                                          ),
+                                        )
+                                        .animate(key: ValueKey(_bannerText))
+                                        .fadeIn()
+                                        .moveY(
+                                          begin: 10,
+                                          end: 0,
+                                          duration: 200.ms,
+                                        ),
                               ),
                             if (_showTutorialOverlay && _tutorialWord != null)
                               Positioned(
@@ -480,7 +534,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                 right: 12,
                                 bottom: 8,
                                 child: _TutorialCard(
-                                  word: HebrewTrie.toDisplayWord(_tutorialWord!),
+                                  word: HebrewTrie.toDisplayWord(
+                                    _tutorialWord!,
+                                  ),
                                   onStart: _dismissTutorial,
                                 ),
                               ),
@@ -488,7 +544,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         child: FoundWordsPanel(
                           words: session.foundNormalizedWords
                               .map((w) => HebrewTrie.toDisplayWord(w))
@@ -530,7 +589,10 @@ class _GameHeader extends ConsumerWidget {
           'מיד ובונוס יומי - בלי לאבד את ההתקדמות הנוכחית שלכם.',
         ),
         actions: [
-          TextButton(onPressed: () => dialogContext.pop(), child: const Text('אחר כך')),
+          TextButton(
+            onPressed: () => dialogContext.pop(),
+            child: const Text('אחר כך'),
+          ),
           FilledButton(
             onPressed: () {
               dialogContext.pop();
@@ -559,7 +621,11 @@ class _GameHeader extends ConsumerWidget {
           ),
           Text(
             'שלב $levelNumber',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
           ),
           const Spacer(),
           Material(
@@ -569,17 +635,24 @@ class _GameHeader extends ConsumerWidget {
               borderRadius: BorderRadius.circular(20),
               onTap: isGuest ? () => _showGuestHintPrompt(context) : onHint,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     Icon(
-                      isGuest ? Icons.lock_outline_rounded : Icons.lightbulb_rounded,
+                      isGuest
+                          ? Icons.lock_outline_rounded
+                          : Icons.lightbulb_rounded,
                       color: isGuest ? Colors.black45 : AppColors.star,
                       size: 18,
                     ),
                     const SizedBox(width: 4),
-                    Text(isGuest ? 'הרשמה' : '$hints',
-                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text(
+                      isGuest ? 'הרשמה' : '$hints',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ],
                 ),
               ),
@@ -592,7 +665,10 @@ class _GameHeader extends ConsumerWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text('$score נק׳', style: const TextStyle(fontWeight: FontWeight.w800)),
+            child: Text(
+              '$score נק׳',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
           ),
         ],
       ),
@@ -628,7 +704,10 @@ class _TutorialCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   'גררו אצבע בין האותיות המסומנות בזהב ליצירת המילה "$word"',
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ],

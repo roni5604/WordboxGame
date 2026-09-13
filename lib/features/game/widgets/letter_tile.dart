@@ -47,13 +47,13 @@ class LetterTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // רדיוס עדין (לא ה-0.28 "סקוורקל" הקודם) - כך שהאריחים, שכעת צמודים
-    // זה לזה בלי רווח כלל (ראו grid_board.dart), עדיין נראים כמו רשת
-    // מאוחדת וברורה במקום פרחים חופפים בזוויות. תפר לבן דק (1px) בכל
-    // תא idle מתווה את גבול הריבוע במדויק - בלי שום רווח בפועל - כדי
-    // שיהיה קל להבין ויזואלית איפה נגמר תא אחד ומתחיל השכן שלו
-    // (במיוחד באלכסון, שם זה היה הכי מבלבל).
-    final radius = size * 0.14;
+    // רדיוס גדול יותר (squircle קרוב לעיגול) - עם הפער הקטן שנפתח כעת בין
+    // אריח לאריח (ראו grid_board.dart: tileAt מרנדר את התא ב-0.86 מגודל
+    // התא בפועל) האריחים כבר לא צמודים ויזואלית, כך שרדיוס גבוה נראה
+    // כמו "כפתור" עגול נעים - בהשראת עיצוב משחקי חיבור-אותיות מוכרים -
+    // בלי לפגוע בדיוק הגרירה (שמבוסס על cellSize המלא, לא על גודל התא
+    // המצומצם הזה).
+    final radius = size * 0.32;
     final fontSize = size * 0.46;
     final isIdle = state == TileVisualState.idle;
 
@@ -68,9 +68,14 @@ class LetterTile extends StatelessWidget {
         boxShadow: isIdle
             ? null
             : const [
-                BoxShadow(color: AppColors.tileShadow, blurRadius: 10, offset: Offset(0, 3)),
+                BoxShadow(
+                  color: AppColors.tileShadow,
+                  blurRadius: 10,
+                  offset: Offset(0, 3),
+                ),
               ],
-        border: state == TileVisualState.selected || state == TileVisualState.hint
+        border:
+            state == TileVisualState.selected || state == TileVisualState.hint
             ? Border.all(color: Colors.white, width: 3)
             : Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1),
       ),
@@ -90,12 +95,22 @@ class LetterTile extends StatelessWidget {
     if (state == TileVisualState.selected) {
       // סקאלה מתונה יותר (הייתה 1.12) - כך שאריח נבחר לא "בולע" משמעותית
       // משטח השכנים הצמודים אליו (אין רווח שיכול לספוג את ההתרחבות).
-      return tile.animate().scaleXY(begin: 1, end: 1.06, duration: 120.ms, curve: Curves.easeOut);
+      return tile.animate().scaleXY(
+        begin: 1,
+        end: 1.06,
+        duration: 120.ms,
+        curve: Curves.easeOut,
+      );
     }
     if (state == TileVisualState.hint) {
       return tile
           .animate(onPlay: (c) => c.repeat(reverse: true))
-          .scaleXY(begin: 1, end: 1.06, duration: 300.ms, curve: Curves.easeInOut);
+          .scaleXY(
+            begin: 1,
+            end: 1.06,
+            duration: 300.ms,
+            curve: Curves.easeInOut,
+          );
     }
     return tile;
   }
@@ -129,10 +144,7 @@ class _OutlinedLetter extends StatelessWidget {
               ..color = Colors.white,
           ),
         ),
-        Text(
-          letter,
-          style: baseStyle.copyWith(color: AppColors.tileLetterRed),
-        ),
+        Text(letter, style: baseStyle.copyWith(color: AppColors.tileLetterRed)),
       ],
     );
   }

@@ -13,12 +13,19 @@ import 'letter_tile.dart';
 class GridBoard extends StatefulWidget {
   final List<List<String>> letters;
   final ValueChanged<List<GridPosition>> onPathSubmitted;
+
+  /// נקרא בכל שינוי של הנתיב הנוכחי תוך כדי גרירה (המילה שנבנית כרגע),
+  /// כדי שהמסך שמכיל את הלוח יוכל להציג אותה למעלה בזמן אמת - "בועת
+  /// המילה" שרואים במשחקי חיבור-אותיות מוכרים. מקבל מחרוזת ריקה כשאין
+  /// גרירה פעילה.
+  final ValueChanged<String>? onWordChanged;
   final bool showErrorFlash;
 
   const GridBoard({
     super.key,
     required this.letters,
     required this.onPathSubmitted,
+    this.onWordChanged,
     this.showErrorFlash = false,
   });
 
@@ -58,12 +65,14 @@ class GridBoardState extends State<GridBoard> {
     final candidate = GridPosition(row, col);
 
     var best = candidate;
-    var bestDistanceSq = (localOffset - _centerForPosition(candidate, cellSize)).distanceSquared;
+    var bestDistanceSq =
+        (localOffset - _centerForPosition(candidate, cellSize)).distanceSquared;
 
     for (final n in candidate.rawNeighbors) {
       if (n.row < 0 || n.row >= _size || n.col < 0 || n.col >= _size) continue;
       final isDiagonal = n.row != candidate.row && n.col != candidate.col;
-      var distanceSq = (localOffset - _centerForPosition(n, cellSize)).distanceSquared;
+      var distanceSq =
+          (localOffset - _centerForPosition(n, cellSize)).distanceSquared;
       if (isDiagonal) distanceSq *= _diagonalBias * _diagonalBias;
       if (distanceSq < bestDistanceSq) {
         bestDistanceSq = distanceSq;
@@ -88,6 +97,7 @@ class GridBoardState extends State<GridBoard> {
       _isError = false;
     });
     HapticFeedback.selectionClick();
+    _notifyWordChanged();
   }
 
   /// מעבד נקודת מגע בודדת: מטפל ב"ביטול תא אחרון" (חזרה לאחור), התעלמות
@@ -131,7 +141,10 @@ class GridBoardState extends State<GridBoard> {
     }
 
     setState(() => _dragPosition = localOffset);
-    if (changed) HapticFeedback.selectionClick();
+    if (changed) {
+      HapticFeedback.selectionClick();
+      _notifyWordChanged();
+    }
   }
 
   void _handleEnd() {
@@ -142,6 +155,12 @@ class GridBoardState extends State<GridBoard> {
       _path = [];
       _dragPosition = null;
     });
+    _notifyWordChanged();
+  }
+
+  void _notifyWordChanged() {
+    final word = _path.map((p) => widget.letters[p.row][p.col]).join();
+    widget.onWordChanged?.call(word);
   }
 
   /// מאפשר למסך המשחק להבהב את הלוח באדום כשמתגלה שגיאה, מבלי לשנות state חיצוני.
@@ -157,7 +176,10 @@ class GridBoardState extends State<GridBoard> {
   /// בעצמו/ה מעל האותיות המודגשות כדי לזכות בניקוד. כברירת מחדל נעלם
   /// אוטומטית אחרי [duration]; אפשר להעביר null כדי שיישאר מודגש עד
   /// קריאה מפורשת ל-[clearHint] (למשל בטוטוריאל המוטבע של שלב 1).
-  void showHint(List<GridPosition> path, {Duration? duration = const Duration(milliseconds: 2600)}) {
+  void showHint(
+    List<GridPosition> path, {
+    Duration? duration = const Duration(milliseconds: 2600),
+  }) {
     _hintTimer?.cancel();
     setState(() => _hintPath = path);
     if (duration != null) {
@@ -185,8 +207,12 @@ class GridBoardState extends State<GridBoard> {
       builder: (context, constraints) {
         // הלוח תמיד ריבועי ומוגבל לצלע הקטנה מבין הרוחב/הגובה הזמינים,
         // כדי שלעולם לא "ייחתך" מחוץ למסך (למשל במסכים נמוכים/רחבים).
-        final maxW = constraints.maxWidth.isFinite ? constraints.maxWidth : 400.0;
-        final maxH = constraints.maxHeight.isFinite ? constraints.maxHeight : maxW;
+        final maxW = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 400.0;
+        final maxH = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : maxW;
         final boardSize = maxW < maxH ? maxW : maxH;
         final cellSize = boardSize / _size;
 
@@ -209,17 +235,20 @@ class GridBoardState extends State<GridBoard> {
             top: r * cellSize,
             width: cellSize,
             height: cellSize,
-            child: LetterTile(
-              letter: widget.letters[r][c],
-              // בלי שום רווח בין תאים - התאים צמודים זה לזה בדיוק כמו
-              // אזור המגע (cellSize) עצמו, כדי שהתא שרואים = התא שבו
-              // נוגעים בפועל, ללא "אזור מת" ויזואלי (במיוחד באלכסון).
-              size: cellSize,
-              // דפוס פסאודו-אקראי אך יציב לפי מיקום, כדי שהלוח
-              // ייראה כמו פסיפס צבעוני (כמו אייקון האפליקציה)
-              // ולא יתחלף מחדש בכל build.
-              paletteIndex: (r * 31 + c * 17) % 4,
-              state: stateFor(r, c),
+            // התא עצמו קטן מעט מ-cellSize (הפער נראה ברקע ה"grout") - אבל
+            // אזור המגע/הזיהוי (ב-_nearestPosition) נשאר מבוסס על cellSize
+            // המלא, בלי שום שינוי. כך נחשפת "רשת" דקה בין האותיות (בהשראת
+            // עיצוב המשחקים המוכרים) בלי לפגוע כלל בדיוק הגרירה שכבר נפתר.
+            child: Center(
+              child: LetterTile(
+                letter: widget.letters[r][c],
+                size: cellSize * 0.86,
+                // דפוס פסאודו-אקראי אך יציב לפי מיקום, כדי שהלוח
+                // ייראה כמו פסיפס צבעוני (כמו אייקון האפליקציה)
+                // ולא יתחלף מחדש בכל build.
+                paletteIndex: (r * 31 + c * 17) % 4,
+                state: stateFor(r, c),
+              ),
             ),
           );
         }
@@ -228,8 +257,10 @@ class GridBoardState extends State<GridBoard> {
           width: boardSize,
           height: boardSize,
           child: GestureDetector(
-            onPanStart: (details) => _handleStart(details.localPosition, cellSize),
-            onPanUpdate: (details) => _handleUpdate(details.localPosition, cellSize),
+            onPanStart: (details) =>
+                _handleStart(details.localPosition, cellSize),
+            onPanUpdate: (details) =>
+                _handleUpdate(details.localPosition, cellSize),
             onPanEnd: (_) => _handleEnd(),
             onPanCancel: _handleEnd,
             // ClipRRect חוצה חוץ בלבד (הלוח כמלבן מעוגל אחיד) - התאים
@@ -241,9 +272,25 @@ class GridBoardState extends State<GridBoard> {
                 color: AppColors.boardGrout,
                 child: Stack(
                   children: [
+                    // רשת קווים דקה ושקופה בין מרכזי כל שתי אותיות שכנות
+                    // (כולל אלכסונים) - "מלמדת" ויזואלית שגם חיבור אלכסוני
+                    // חוקי לגמרי, בהשראת עיצוב משחקי חיבור-אותיות מוכרים.
+                    // מצוירת מתחת לאריחים, ונראית רק בפער הקטן שנפתח בין
+                    // אריח לאריח (ראו tileAt לעיל).
                     Positioned.fill(
                       child: CustomPaint(
-                        painter: ConnectorPainter(points: linePoints, isError: _isError),
+                        painter: _GridMeshPainter(
+                          size: _size,
+                          cellSize: cellSize,
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: ConnectorPainter(
+                          points: linePoints,
+                          isError: _isError,
+                        ),
                       ),
                     ),
                     // שני מעברים: קודם כל התאים ה"רגילים" (idle), ואז
@@ -252,10 +299,12 @@ class GridBoardState extends State<GridBoard> {
                     // צמוד שמצטייר אחריו ב-Stack, גם בלי רווח כלל ביניהם.
                     for (int r = 0; r < _size; r++)
                       for (int c = 0; c < _size; c++)
-                        if (stateFor(r, c) == TileVisualState.idle) tileAt(r, c),
+                        if (stateFor(r, c) == TileVisualState.idle)
+                          tileAt(r, c),
                     for (int r = 0; r < _size; r++)
                       for (int c = 0; c < _size; c++)
-                        if (stateFor(r, c) != TileVisualState.idle) tileAt(r, c),
+                        if (stateFor(r, c) != TileVisualState.idle)
+                          tileAt(r, c),
                   ],
                 ),
               ),
@@ -264,5 +313,51 @@ class GridBoardState extends State<GridBoard> {
         );
       },
     );
+  }
+}
+
+/// מצייר רשת קווים דקה בין מרכזי כל שתי אותיות שכנות (כולל אלכסונים) -
+/// "הרשת" שנראית ברקע הלוח במשחקי חיבור-אותיות מוכרים. משודר מחדש רק אם
+/// גודל הלוח/התא משתנה (למשל בסיבוב מסך), כי הקווים עצמם קבועים.
+class _GridMeshPainter extends CustomPainter {
+  final int size;
+  final double cellSize;
+
+  _GridMeshPainter({required this.size, required this.cellSize});
+
+  @override
+  void paint(Canvas canvas, Size canvasSize) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.16)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+
+    Offset centerOf(int row, int col) =>
+        Offset(col * cellSize + cellSize / 2, row * cellSize + cellSize / 2);
+
+    for (int r = 0; r < size; r++) {
+      for (int c = 0; c < size; c++) {
+        final from = centerOf(r, c);
+        // מציירים רק לכיוון "קדימה" (ימין / מטה / שני האלכסונים הקדמיים)
+        // כדי לא לצייר כל קו פעמיים.
+        const forwardNeighbors = [
+          [0, 1],
+          [1, -1],
+          [1, 0],
+          [1, 1],
+        ];
+        for (final delta in forwardNeighbors) {
+          final nr = r + delta[0];
+          final nc = c + delta[1];
+          if (nr < 0 || nr >= size || nc < 0 || nc >= size) continue;
+          canvas.drawLine(from, centerOf(nr, nc), paint);
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GridMeshPainter oldDelegate) {
+    return oldDelegate.size != size || oldDelegate.cellSize != cellSize;
   }
 }

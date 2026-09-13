@@ -16,6 +16,7 @@ import '../../providers/dictionary_provider.dart';
 import '../../providers/letter_frequency_provider.dart';
 import '../../providers/multiplayer_repository_provider.dart';
 import '../../providers/sound_provider.dart';
+import '../game/widgets/current_word_badge.dart';
 import '../game/widgets/found_words_panel.dart';
 import '../game/widgets/grid_board.dart';
 import '../game/widgets/mascot_widget.dart';
@@ -59,6 +60,10 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
   bool _bannerIsError = false;
   Timer? _bannerTimer;
 
+  /// המילה שנבנית כרגע תוך כדי גרירה על הלוח - ראו game_screen.dart
+  /// להסבר המלא; מוצגת גם כאן כדי שהעיצוב יהיה עקבי בין כל מסכי המשחק.
+  String _draggingWord = '';
+
   // מעקב אחר הניקוד האחרון שנצפה לכל יריב/ה, כדי לזהות "עלייה" בניקוד
   // ולהציג עליה התראה חיה - בלי לחשוף איזו מילה בדיוק נמצאה (ראו
   // _notifyOpponentScoreChanges).
@@ -71,7 +76,9 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     _repo.ensureSignedIn().then((uid) {
       if (mounted) setState(() => _myUid = uid);
     });
-    _roomSub = _repo.watchRoom(widget.roomCode).listen(_onRoomUpdate, onError: (_) {});
+    _roomSub = _repo
+        .watchRoom(widget.roomCode)
+        .listen(_onRoomUpdate, onError: (_) {});
   }
 
   void _onRoomUpdate(GameRoom room) {
@@ -134,7 +141,11 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
       wordsRequired: 1,
     );
 
-    final session = GameSession(config: pseudoLevelConfig, board: board, trie: dictionary.trie);
+    final session = GameSession(
+      config: pseudoLevelConfig,
+      board: board,
+      trie: dictionary.trie,
+    );
 
     if (!mounted) return;
     setState(() => _session = session);
@@ -172,6 +183,11 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     });
   }
 
+  void _onWordChanging(String word) {
+    if (_draggingWord == word) return;
+    setState(() => _draggingWord = word);
+  }
+
   void _onPathSubmitted(List<GridPosition> path) {
     final session = _session;
     final room = _room;
@@ -184,7 +200,11 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
         _showBanner('${result.displayWord}  +${result.pointsAwarded}');
         setState(() {});
         _repo
-            .updateMyScore(widget.roomCode, score: session.score, wordsFound: session.foundWordsCount)
+            .updateMyScore(
+              widget.roomCode,
+              score: session.score,
+              wordsFound: session.foundWordsCount,
+            )
             .catchError((_) {});
         if (room.hasTargetScore && session.score >= room.targetScore) {
           _finish();
@@ -219,29 +239,33 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
       return;
     }
 
-    final ranked = <({String uid, RaceParticipantResult result})>[
-      for (final player in room.players)
-        (
-          uid: player.uid,
-          result: RaceParticipantResult(
-            name: player.displayName,
-            score: player.uid == _myUid ? session.score : player.score,
-            wordsFound: player.uid == _myUid ? session.foundWordsCount : player.wordsFound,
-            isHuman: player.uid == _myUid,
-          ),
-        ),
-    ]..sort((a, b) {
-        final scoreCompare = b.result.score.compareTo(a.result.score);
-        if (scoreCompare != 0) return scoreCompare;
-        return b.result.wordsFound.compareTo(a.result.wordsFound);
-      });
+    final ranked =
+        <({String uid, RaceParticipantResult result})>[
+          for (final player in room.players)
+            (
+              uid: player.uid,
+              result: RaceParticipantResult(
+                name: player.displayName,
+                score: player.uid == _myUid ? session.score : player.score,
+                wordsFound: player.uid == _myUid
+                    ? session.foundWordsCount
+                    : player.wordsFound,
+                isHuman: player.uid == _myUid,
+              ),
+            ),
+        ]..sort((a, b) {
+          final scoreCompare = b.result.score.compareTo(a.result.score);
+          if (scoreCompare != 0) return scoreCompare;
+          return b.result.wordsFound.compareTo(a.result.wordsFound);
+        });
 
     // מעניקים ניצחון רק כשיש מוביל/ה יחיד/ה בלי שוויון - כדי שהיחס
     // (1:2 וכו') ב-OnlineRaceResultScreen יהיה משמעותי.
     String? winnerUid;
     if (ranked.length == 1) {
       winnerUid = ranked.first.uid;
-    } else if (ranked.length >= 2 && ranked[0].result.score != ranked[1].result.score) {
+    } else if (ranked.length >= 2 &&
+        ranked[0].result.score != ranked[1].result.score) {
       winnerUid = ranked.first.uid;
     }
     _repo.finishRoom(widget.roomCode, winnerUid: winnerUid).catchError((_) {});
@@ -270,7 +294,9 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     final entries = <ScoreboardEntry>[
       for (final player in room.players)
         ScoreboardEntry(
-          name: player.uid == _myUid ? '${player.displayName} (את/ה)' : player.displayName,
+          name: player.uid == _myUid
+              ? '${player.displayName} (את/ה)'
+              : player.displayName,
           score: player.uid == _myUid ? session.score : player.score,
           isHuman: player.uid == _myUid,
           isMe: player.uid == _myUid,
@@ -315,39 +341,67 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
                         SizedBox(height: 16),
                         CircularProgressIndicator(color: Colors.white),
                         SizedBox(height: 12),
-                        Text('ממתינים שהמשחק יתחיל...', style: TextStyle(color: Colors.white)),
+                        Text(
+                          'ממתינים שהמשחק יתחיל...',
+                          style: TextStyle(color: Colors.white),
+                        ),
                       ],
                     ),
                   )
                 : Column(
                     children: [
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         child: Row(
                           children: [
                             IconButton(
                               onPressed: _exitToHome,
-                              icon: const Icon(Icons.close_rounded, color: Colors.white),
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: Colors.white,
+                              ),
                             ),
                             const Text(
                               'משחק מול חברים',
                               style: TextStyle(
-                                  color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 18,
+                              ),
                             ),
                             const Spacer(),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppColors.accent, width: 2),
+                                border: Border.all(
+                                  color: AppColors.accent,
+                                  width: 2,
+                                ),
                                 boxShadow: [
-                                  BoxShadow(color: AppColors.accent.withValues(alpha: 0.35), blurRadius: 10),
+                                  BoxShadow(
+                                    color: AppColors.accent.withValues(
+                                      alpha: 0.35,
+                                    ),
+                                    blurRadius: 10,
+                                  ),
                                 ],
                               ),
-                              child: Text('${session.score} נק׳',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.accent)),
+                              child: Text(
+                                '${session.score} נק׳',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                  color: AppColors.accent,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -362,12 +416,20 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
                         child: TimerBar(
                           progress: _room == null
                               ? 0
-                              : _remaining.inMilliseconds / (Duration(seconds: _room!.roundSeconds).inMilliseconds),
-                          urgent: _room != null && _remaining.inSeconds < (_room!.roundSeconds * 0.2),
+                              : _remaining.inMilliseconds /
+                                    (Duration(
+                                      seconds: _room!.roundSeconds,
+                                    ).inMilliseconds),
+                          urgent:
+                              _room != null &&
+                              _remaining.inSeconds <
+                                  (_room!.roundSeconds * 0.2),
                           secondsLeft: _remaining.inSeconds,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 4),
+                      CurrentWordBadge(word: _draggingWord),
+                      const SizedBox(height: 4),
                       Expanded(
                         child: Stack(
                           alignment: Alignment.topCenter,
@@ -376,7 +438,9 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
                               padding: const EdgeInsets.all(16),
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
-                                  final side = constraints.maxWidth < constraints.maxHeight
+                                  final side =
+                                      constraints.maxWidth <
+                                          constraints.maxHeight
                                       ? constraints.maxWidth
                                       : constraints.maxHeight;
                                   return Center(
@@ -387,6 +451,7 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
                                         key: _boardKey,
                                         letters: session.board.letters,
                                         onPathSubmitted: _onPathSubmitted,
+                                        onWordChanged: _onWordChanging,
                                       ),
                                     ),
                                   );
@@ -396,31 +461,49 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
                             if (_bannerText != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
-                                child: Container(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: _bannerIsError ? AppColors.error : Colors.white,
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: const [
-                                      BoxShadow(color: Colors.black26, blurRadius: 10),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    _bannerText!,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 15,
-                                      color: _bannerIsError ? Colors.white : AppColors.success,
-                                    ),
-                                  ),
-                                ).animate(key: ValueKey(_bannerText)).fadeIn().moveY(begin: 10, end: 0),
+                                child:
+                                    Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: _bannerIsError
+                                                ? AppColors.error
+                                                : Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                            boxShadow: const [
+                                              BoxShadow(
+                                                color: Colors.black26,
+                                                blurRadius: 10,
+                                              ),
+                                            ],
+                                          ),
+                                          child: Text(
+                                            _bannerText!,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 15,
+                                              color: _bannerIsError
+                                                  ? Colors.white
+                                                  : AppColors.success,
+                                            ),
+                                          ),
+                                        )
+                                        .animate(key: ValueKey(_bannerText))
+                                        .fadeIn()
+                                        .moveY(begin: 10, end: 0),
                               ),
                           ],
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         child: FoundWordsPanel(
                           words: session.foundNormalizedWords
                               .map((w) => HebrewTrie.toDisplayWord(w))
