@@ -30,13 +30,12 @@ class AdsWebGateway extends AdsGateway {
   bool _canRequestAds = false;
   bool _showing = false;
 
-  bool get _useTestAds => !kReleaseMode;
+  /// בלי מזהה AdSense אמיתי נשארים על מודעת הדוגמה של Google,
+  /// גם באתר החי, כדי שהפרסומות יופיעו לפני פתיחת חשבון.
+  bool get _useTestAds => !kReleaseMode || AdsConfig.adsenseClient.isEmpty;
 
   @override
-  bool get isSupported {
-    if (kReleaseMode && AdsConfig.adsenseClient.isEmpty) return false;
-    return true;
-  }
+  bool get isSupported => true;
 
   @override
   bool get isInitialized => _initialized;
@@ -65,15 +64,6 @@ class AdsWebGateway extends AdsGateway {
   }
 
   Future<void> _initialize() async {
-    if (!isSupported) {
-      if (kReleaseMode && AdsConfig.adsenseClient.isEmpty) {
-        debugPrint('Web ads disabled: missing ADSENSE_CLIENT.');
-      }
-      _initialized = true;
-      notifyListeners();
-      return;
-    }
-
     try {
       await _quota.load();
       _installAdScript();

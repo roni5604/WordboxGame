@@ -52,8 +52,8 @@ flutter build ipa --release \
 ```
 
 באתר אין AdMob. הפרסומות שם הן Ad Placement API של AdSense
-(מתנה ומסך מלא). בפיתוח מוצגת מודעת בדיקה של Google. בבילד release
-בלי מזהה מפרסם הפרסומות באתר כבויות.
+(מתנה ומסך מלא). בלי מזהה מפרסם מוצגת מודעת הדוגמה של Google, גם
+באתר החי. ברגע שיש חשבון AdSense בונים כך:
 
 ```bash
 flutter build web --release \

@@ -27,8 +27,8 @@ class AdsConfig {
   );
   static const String nativeIos = String.fromEnvironment('ADMOB_NATIVE_IOS');
 
-  /// מזהה מפרסם AdSense לאתר (`ca-pub-...`). בלי המזהה, בבילד release
-  /// אין פרסומות באתר. בפיתוח רצה מצב בדיקה של Google בלי מזהה.
+  /// מזהה מפרסם AdSense לאתר (`ca-pub-...`). בלי המזהה האתר מציג
+  /// את מודעת הדוגמה של Google. עם המזהה, בבילד release, רצות פרסומות אמיתיות.
   static const String adsenseClient = String.fromEnvironment('ADSENSE_CLIENT');
 
   static const String testAppIdAndroid =
