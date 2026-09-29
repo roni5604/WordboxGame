@@ -48,6 +48,7 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   }
 
   Future<void> _mutate(PlayerProfile Function(PlayerProfile current) mutator) async {
+    await _initialLoad;
     final current = state.valueOrNull;
     if (current == null) return;
     final updated = mutator(current);

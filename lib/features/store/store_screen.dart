@@ -3,10 +3,13 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ads/ads_runtime.dart';
 import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
+import '../ads/native_ad_card.dart';
+import '../ads/store_ad_gift_card.dart';
 
 class _HintPack {
   final int hints;
@@ -38,12 +41,16 @@ class StoreScreen extends ConsumerWidget {
         .read(playerProfileProvider.notifier)
         .buyHints(amount: pack.hints, cost: pack.cost);
     if (!context.mounted) return;
-    ok ? ref.read(soundServiceProvider).playCoin() : ref.read(soundServiceProvider).playError();
+    ok
+        ? ref.read(soundServiceProvider).playCoin()
+        : ref.read(soundServiceProvider).playError();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: ok ? AppColors.success : AppColors.error,
         content: Text(
-          ok ? 'קניתם ${pack.hints} רמזים חדשים! 💡' : 'אין מספיק מטבעות לחבילה הזו 😕',
+          ok
+              ? 'קניתם ${pack.hints} רמזים חדשים! 💡'
+              : 'אין מספיק מטבעות לחבילה הזו 😕',
         ),
         duration: const Duration(seconds: 2),
       ),
@@ -55,6 +62,7 @@ class StoreScreen extends ConsumerWidget {
     final profileAsync = ref.watch(playerProfileProvider);
     final authUser = ref.watch(authStateProvider).valueOrNull;
     final isGuest = authUser == null || authUser.isAnonymous;
+    final showPlacements = ref.watch(adsGatewayProvider).isSupported;
 
     return Scaffold(
       backgroundColor: AppColors.primaryDark,
@@ -68,20 +76,31 @@ class StoreScreen extends ConsumerWidget {
         ),
         child: SafeArea(
           child: profileAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
             error: (e, st) => Center(
-              child: Text('שגיאה: $e', style: const TextStyle(color: Colors.white)),
+              child: Text(
+                'שגיאה: $e',
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
             data: (profile) {
               return Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     child: Row(
                       children: [
                         IconButton(
                           onPressed: () => context.pop(),
-                          icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                          icon: const Icon(
+                            Icons.arrow_forward_rounded,
+                            color: Colors.white,
+                          ),
                         ),
                         const Text(
                           'חנות רמזים',
@@ -93,18 +112,29 @@ class StoreScreen extends ConsumerWidget {
                         ),
                         const Spacer(),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.paid_rounded, color: Colors.amberAccent, size: 18),
+                              const Icon(
+                                Icons.paid_rounded,
+                                color: Colors.amberAccent,
+                                size: 18,
+                              ),
                               const SizedBox(width: 6),
-                              Text('${profile.coins}',
-                                  style: const TextStyle(
-                                      color: Colors.white, fontWeight: FontWeight.w700)),
+                              Text(
+                                '${profile.coins}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -113,7 +143,42 @@ class StoreScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   if (isGuest) ...[
-                    const Expanded(child: _GuestHintsCta()),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight,
+                              ),
+                              child: const IntrinsicHeight(
+                                child: Column(
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                      ),
+                                      child: StoreAdGiftCard(),
+                                    ),
+                                    SizedBox(height: 12),
+                                    Expanded(child: _GuestHintsCta()),
+                                    Padding(
+                                      padding: EdgeInsets.fromLTRB(
+                                        20,
+                                        0,
+                                        20,
+                                        12,
+                                      ),
+                                      child: NativeAdCard(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ] else ...[
                     Text(
                       '💡 יש לך כרגע ${profile.hints} רמזים',
@@ -129,18 +194,28 @@ class StoreScreen extends ConsumerWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white70, fontSize: 13),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 20),
                     Expanded(
                       child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        itemCount: _packs.length,
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                        itemCount: _packs.length + (showPlacements ? 2 : 0),
                         separatorBuilder: (_, __) => const SizedBox(height: 16),
                         itemBuilder: (context, i) {
-                          final pack = _packs[i];
+                          if (showPlacements && i == 0) {
+                            return const StoreAdGiftCard();
+                          }
+                          if (showPlacements && i == _packs.length + 1) {
+                            return const NativeAdCard();
+                          }
+                          final packIndex = showPlacements ? i - 1 : i;
+                          final pack = _packs[packIndex];
                           return _PackCard(
-                            pack: pack,
-                            onBuy: () => _buy(context, ref, pack),
-                          ).animate().fadeIn(delay: (100 * i).ms).slideY(begin: 0.15, end: 0);
+                                pack: pack,
+                                onBuy: () => _buy(context, ref, pack),
+                              )
+                              .animate()
+                              .fadeIn(delay: (100 * packIndex).ms)
+                              .slideY(begin: 0.15, end: 0);
                         },
                       ),
                     ),
@@ -168,14 +243,19 @@ class _GuestHintsCta extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🎁', style: TextStyle(fontSize: 56))
-                .animate()
-                .scale(curve: Curves.elasticOut, duration: 600.ms),
+            const Text(
+              '🎁',
+              style: TextStyle(fontSize: 56),
+            ).animate().scale(curve: Curves.elasticOut, duration: 600.ms),
             const SizedBox(height: 16),
             const Text(
               'רמזים שמורים למי שנרשם/ת',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
             ),
             const SizedBox(height: 10),
             const Text(
@@ -183,7 +263,11 @@ class _GuestHintsCta extends StatelessWidget {
               'מתנה מיד, בונוס רמזים חדש בכל יום, ואפשרות לקנות עוד עם המטבעות '
               'שלכם.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -195,8 +279,10 @@ class _GuestHintsCta extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 onPressed: () => context.push('/auth'),
-                child: const Text('הרשמה / התחברות',
-                    style: TextStyle(fontWeight: FontWeight.w800)),
+                child: const Text(
+                  'הרשמה / התחברות',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
               ),
             ),
           ],
@@ -235,7 +321,11 @@ class _PackCard extends StatelessWidget {
                 color: AppColors.primary.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.lightbulb_rounded, color: AppColors.primary, size: 30),
+              child: const Icon(
+                Icons.lightbulb_rounded,
+                color: AppColors.primary,
+                size: 30,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -244,24 +334,40 @@ class _PackCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(pack.label,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                      Text(
+                        pack.label,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
                       if (pack.bestValue) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.star,
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Text('הכי משתלם',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
+                          child: const Text(
+                            'הכי משתלם',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
                       ],
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text('${pack.hints} רמזים', style: const TextStyle(color: Colors.black54)),
+                  Text(
+                    '${pack.hints} רמזים',
+                    style: const TextStyle(color: Colors.black54),
+                  ),
                 ],
               ),
             ),

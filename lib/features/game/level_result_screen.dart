@@ -4,7 +4,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ads/ads_runtime.dart';
 import '../../core/theme/app_colors.dart';
+import '../ads/double_coins_cta.dart';
 import '../../game_engine/models/level_config.dart';
 import '../../providers/sound_provider.dart';
 import 'game_screen.dart';
@@ -20,15 +22,18 @@ class _CelebrationCharacter extends StatelessWidget {
   final int stars;
   final bool isBigCelebration;
 
-  const _CelebrationCharacter({required this.stars, this.isBigCelebration = false});
+  const _CelebrationCharacter({
+    required this.stars,
+    this.isBigCelebration = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (stars >= 2 || isBigCelebration) {
       return Image.asset(
-        'assets/avatar/detective_celebrate.png',
-        height: isBigCelebration ? 170 : 130,
-      )
+            'assets/avatar/detective_celebrate.png',
+            height: isBigCelebration ? 170 : 130,
+          )
           .animate(onPlay: (c) => c.repeat(reverse: true))
           .scaleXY(
             begin: 1,
@@ -61,45 +66,58 @@ class _MilestoneBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.star, Color(0xFFFF9A56)],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 16)],
-      ),
-      child: Column(
-        children: [
-          const Text('🎉 עולם חדש נפתח!', style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-          )),
-          const SizedBox(height: 4),
-          Text(
-            '$tierTitle - לוח $gridSize×$gridSize',
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.star, Color(0xFFFF9A56)],
             ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 16)],
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
             children: [
-              _PrizeChip(icon: Icons.monetization_on_rounded, label: '+$bonusCoins מטבעות'),
-              const SizedBox(width: 12),
-              _PrizeChip(icon: Icons.lightbulb_rounded, label: '+$bonusHints רמזים'),
+              const Text(
+                '🎉 עולם חדש נפתח!',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$tierTitle - לוח $gridSize×$gridSize',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _PrizeChip(
+                    icon: Icons.monetization_on_rounded,
+                    label: '+$bonusCoins מטבעות',
+                  ),
+                  const SizedBox(width: 12),
+                  _PrizeChip(
+                    icon: Icons.lightbulb_rounded,
+                    label: '+$bonusHints רמזים',
+                  ),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
-    )
+        )
         .animate()
         .fadeIn(delay: 200.ms)
-        .scale(begin: const Offset(0.85, 0.85), curve: Curves.elasticOut, duration: 700.ms);
+        .scale(
+          begin: const Offset(0.85, 0.85),
+          curve: Curves.elasticOut,
+          duration: 700.ms,
+        );
   }
 }
 
@@ -112,24 +130,33 @@ class _MasterBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFFFFA000), Color(0xFFFF7A45)]),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 14)],
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
-          SizedBox(width: 8),
-          Text(
-            'שלב מאסטר - מטבעות כפולות! ⚡',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFA000), Color(0xFFFF7A45)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 14)],
           ),
-        ],
-      ),
-    ).animate().fadeIn(delay: 200.ms).scale(
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
+              SizedBox(width: 8),
+              Text(
+                'שלב מאסטר - מטבעות כפולות! ⚡',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        )
+        .animate()
+        .fadeIn(delay: 200.ms)
+        .scale(
           begin: const Offset(0.85, 0.85),
           curve: Curves.elasticOut,
           duration: 600.ms,
@@ -148,24 +175,30 @@ class _EarlyFinishBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.bolt_rounded, color: AppColors.star, size: 20),
-          const SizedBox(width: 6),
-          Text(
-            'סיימת לפני הזמן עם עוד $secondsLeft שניות בשעון! ⏱️',
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
           ),
-        ],
-      ),
-    ).animate().fadeIn(delay: 250.ms).scale(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.bolt_rounded, color: AppColors.star, size: 20),
+              const SizedBox(width: 6),
+              Text(
+                'סיימת לפני הזמן עם עוד $secondsLeft שניות בשעון! ⏱️',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        )
+        .animate()
+        .fadeIn(delay: 250.ms)
+        .scale(
           begin: const Offset(0.85, 0.85),
           curve: Curves.elasticOut,
           duration: 600.ms,
@@ -192,7 +225,10 @@ class _PrizeChip extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: AppColors.primaryDark),
           const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          ),
         ],
       ),
     );
@@ -205,7 +241,11 @@ class LevelResultScreen extends ConsumerStatefulWidget {
   final int levelNumber;
   final GameScreenResult result;
 
-  const LevelResultScreen({super.key, required this.levelNumber, required this.result});
+  const LevelResultScreen({
+    super.key,
+    required this.levelNumber,
+    required this.result,
+  });
 
   @override
   ConsumerState<LevelResultScreen> createState() => _LevelResultScreenState();
@@ -213,12 +253,19 @@ class LevelResultScreen extends ConsumerStatefulWidget {
 
 class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
   late final ConfettiController _confetti;
+  late final Future<void> _levelRecorded;
+  bool _leaving = false;
 
   @override
   void initState() {
     super.initState();
+    _levelRecorded = ref
+        .read(adsGatewayProvider)
+        .recordCampaignLevelFinished(widget.levelNumber);
     final isWorldFinale = widget.result.isWorldFinale;
-    _confetti = ConfettiController(duration: Duration(seconds: isWorldFinale ? 4 : 2));
+    _confetti = ConfettiController(
+      duration: Duration(seconds: isWorldFinale ? 4 : 2),
+    );
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted) return;
       ref.read(soundServiceProvider).playLevelComplete();
@@ -235,7 +282,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
   }
 
   Future<void> _maybeShowRewardDialogs() async {
-    if (!mounted) return;
+    if (!mounted || _leaving) return;
     final wheelPrize = widget.result.wheelPrize;
     final luckyBox = widget.result.luckyBoxReward;
 
@@ -246,9 +293,25 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
         prize: wheelPrize,
       );
     }
-    if (!mounted) return;
+    if (!mounted || _leaving) return;
     if (luckyBox != null) {
       await LuckyBoxDialog.show(context, luckyBox);
+    }
+  }
+
+  /// "השלב הבא" ו"למפת השלבים" יכולים להציג אינטרסטיאל. "שחקו שוב" לא.
+  Future<void> _exit({required bool showAd, required VoidCallback go}) async {
+    if (_leaving) return;
+    _leaving = true;
+    try {
+      await _levelRecorded;
+      if (showAd && mounted) {
+        await ref
+            .read(adsGatewayProvider)
+            .showInterstitialIfAllowed(levelNumber: widget.levelNumber);
+      }
+    } finally {
+      if (mounted) go();
     }
   }
 
@@ -291,127 +354,181 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
               ),
             ),
             SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    const Spacer(),
-                    Text(
-                      result.finishedEarly
-                          ? 'סיימת לפני הזמן! 🎉'
-                          : (result.stars > 0 ? 'כל הכבוד!' : 'כמעט הצלחת!'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
                       ),
-                    ).animate().fadeIn().slideY(begin: -0.2, end: 0),
-                    if (result.finishedEarly) ...[
-                      const SizedBox(height: 10),
-                      _EarlyFinishBadge(secondsLeft: result.secondsLeftWhenFinished),
-                    ],
-                    const SizedBox(height: 12),
-                    _CelebrationCharacter(
-                      stars: result.stars,
-                      isBigCelebration: result.isWorldFinale,
-                    ),
-                    if (result.isWorldFinale) ...[
-                      const SizedBox(height: 16),
-                      _MilestoneBanner(
-                        tierTitle: result.newTierTitle ?? '',
-                        gridSize: result.newGridSize ?? config.gridSize,
-                        bonusCoins: result.bonusCoins,
-                        bonusHints: result.bonusHints,
-                      ),
-                    ] else if (result.isMasterLevel) ...[
-                      const SizedBox(height: 16),
-                      const _MasterBanner(),
-                    ],
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(3, (i) {
-                        final filled = i < result.stars;
-                        return Icon(
-                          Icons.star_rounded,
-                          size: 56,
-                          color: filled ? AppColors.star : AppColors.starEmpty,
-                        )
-                            .animate(delay: (300 + i * 200).ms)
-                            .scale(
-                              begin: const Offset(0, 0),
-                              end: const Offset(1, 1),
-                              curve: Curves.elasticOut,
-                              duration: 600.ms,
-                            )
-                            .then()
-                            .shake(hz: filled ? 3 : 0, curve: Curves.easeInOut);
-                      }),
-                    ),
-                    const SizedBox(height: 24),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            _StatRow(label: 'ניקוד', value: '${result.score}'),
-                            const Divider(height: 20),
-                            _StatRow(
-                              label: 'יעד מילים',
-                              value: '${result.foundWordsCount} מתוך ${config.wordsRequired}',
-                            ),
-                            const Divider(height: 20),
-                            _StatRow(
-                              label: 'סה"כ מילים בלוח',
-                              value: '${result.foundWordsCount} מתוך ${result.totalPossibleWords}',
-                            ),
-                            const Divider(height: 20),
-                            _StatRow(
-                              label: 'מטבעות שהורווחו',
-                              value: '+${result.coinsEarned}',
-                              valueColor: Colors.amber.shade800,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ).animate().fadeIn(delay: 900.ms).slideY(begin: 0.15, end: 0),
-                    const Spacer(),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: const BorderSide(color: Colors.white),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
+                      child: IntrinsicHeight(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            children: [
+                              const Spacer(),
+                              Text(
+                                result.finishedEarly
+                                    ? 'סיימת לפני הזמן! 🎉'
+                                    : (result.stars > 0
+                                          ? 'כל הכבוד!'
+                                          : 'כמעט הצלחת!'),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ).animate().fadeIn().slideY(begin: -0.2, end: 0),
+                              if (result.finishedEarly) ...[
+                                const SizedBox(height: 10),
+                                _EarlyFinishBadge(
+                                  secondsLeft: result.secondsLeftWhenFinished,
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              _CelebrationCharacter(
+                                stars: result.stars,
+                                isBigCelebration: result.isWorldFinale,
                               ),
-                            ),
-                            onPressed: () =>
-                                context.pushReplacement('/level/${widget.levelNumber}/intro'),
-                            child: const Text('שחקו שוב'),
+                              if (result.isWorldFinale) ...[
+                                const SizedBox(height: 16),
+                                _MilestoneBanner(
+                                  tierTitle: result.newTierTitle ?? '',
+                                  gridSize:
+                                      result.newGridSize ?? config.gridSize,
+                                  bonusCoins: result.bonusCoins,
+                                  bonusHints: result.bonusHints,
+                                ),
+                              ] else if (result.isMasterLevel) ...[
+                                const SizedBox(height: 16),
+                                const _MasterBanner(),
+                              ],
+                              const SizedBox(height: 20),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(3, (i) {
+                                  final filled = i < result.stars;
+                                  return Icon(
+                                        Icons.star_rounded,
+                                        size: 56,
+                                        color: filled
+                                            ? AppColors.star
+                                            : AppColors.starEmpty,
+                                      )
+                                      .animate(delay: (300 + i * 200).ms)
+                                      .scale(
+                                        begin: const Offset(0, 0),
+                                        end: const Offset(1, 1),
+                                        curve: Curves.elasticOut,
+                                        duration: 600.ms,
+                                      )
+                                      .then()
+                                      .shake(
+                                        hz: filled ? 3 : 0,
+                                        curve: Curves.easeInOut,
+                                      );
+                                }),
+                              ),
+                              const SizedBox(height: 24),
+                              Card(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(20),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          _StatRow(
+                                            label: 'ניקוד',
+                                            value: '${result.score}',
+                                          ),
+                                          const Divider(height: 20),
+                                          _StatRow(
+                                            label: 'יעד מילים',
+                                            value:
+                                                '${result.foundWordsCount} מתוך ${config.wordsRequired}',
+                                          ),
+                                          const Divider(height: 20),
+                                          _StatRow(
+                                            label: 'סה"כ מילים בלוח',
+                                            value:
+                                                '${result.foundWordsCount} מתוך ${result.totalPossibleWords}',
+                                          ),
+                                          const Divider(height: 20),
+                                          _StatRow(
+                                            label: 'מטבעות שהורווחו',
+                                            value: '+${result.coinsEarned}',
+                                            valueColor: Colors.amber.shade800,
+                                          ),
+                                          if (result.stars > 0)
+                                            DoubleCoinsCta(
+                                              coins: result.coinsEarned,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                  .animate()
+                                  .fadeIn(delay: 900.ms)
+                                  .slideY(begin: 0.15, end: 0),
+                              const Spacer(),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.white,
+                                        side: const BorderSide(
+                                          color: Colors.white,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            24,
+                                          ),
+                                        ),
+                                      ),
+                                      onPressed: () => _exit(
+                                        showAd: false,
+                                        go: () => context.pushReplacement(
+                                          '/level/${widget.levelNumber}/intro',
+                                        ),
+                                      ),
+                                      child: const Text('שחקו שוב'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: () => _exit(
+                                        showAd: true,
+                                        go: () {
+                                          if (result.stars > 0) {
+                                            context.pushReplacement(
+                                              '/level/${widget.levelNumber + 1}/intro',
+                                            );
+                                          } else {
+                                            context.go('/campaign');
+                                          }
+                                        },
+                                      ),
+                                      child: Text(
+                                        result.stars > 0
+                                            ? 'השלב הבא'
+                                            : 'למפת השלבים',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              if (result.stars > 0) {
-                                context.pushReplacement(
-                                  '/level/${widget.levelNumber + 1}/intro',
-                                );
-                              } else {
-                                context.go('/campaign');
-                              }
-                            },
-                            child: Text(result.stars > 0 ? 'השלב הבא' : 'למפת השלבים'),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
@@ -432,11 +549,18 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(label, style: const TextStyle(fontSize: 15, color: Colors.black54)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 15, color: Colors.black54),
+        ),
         const Spacer(),
         Text(
           value,
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: valueColor),
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+            color: valueColor,
+          ),
         ),
       ],
     );

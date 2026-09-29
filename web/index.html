@@ -32,6 +32,94 @@
 
   <title>מצא ת׳מילה</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    Ad Placement API למשחקי HTML5. הפונקציות חייבות להיות בדף לפני התג.
+    את כתובת התג והמזהה מוסיף AdsWebGateway רק כשפרסומות פעילות,
+    כדי שבילד release בלי חשבון AdSense לא יטען מודעות בדיקה.
+  -->
+  <style>
+    /* שכבת Flutter מכסה את המסך. שכבת המודעה של Google צריכה להיות מעליה. */
+    iframe[src*="doubleclick"],
+    iframe[src*="googlesyndication"],
+    iframe[id^="google_ads"],
+    ins.adsbygoogle {
+      z-index: 2147483646 !important;
+    }
+  </style>
+  <script id="wordbox-ad-stub">
+    window.adsbygoogle = window.adsbygoogle || [];
+    var adBreak = adConfig = function (o) { adsbygoogle.push(o); };
+    window.wordboxAds = {
+      started: false,
+      configure: function (onReady) {
+        adConfig({
+          preloadAdBreaks: 'on',
+          sound: 'on',
+          onReady: function () {
+            try { onReady(); } catch (e) { console.error(e); }
+          }
+        });
+      },
+      showReward: function (onViewed, onDone) {
+        window.wordboxAds.started = false;
+        var viewed = false;
+        adBreak({
+          type: 'reward',
+          name: 'reward',
+          beforeReward: function (showAdFn) {
+            window.wordboxAds.started = true;
+            window.wordboxAds._coverGame(true);
+            try { showAdFn(); } catch (e) { console.error(e); }
+            window.wordboxAds._liftOverlays();
+          },
+          // Google דוחה את הבקשה בלי adDismissed, ולא קורא ל-adBreakDone.
+          adDismissed: function () {},
+          adViewed: function () {
+            viewed = true;
+            try { onViewed(); } catch (e) { console.error('[wordbox ads] viewed', e); }
+          },
+          adBreakDone: function (info) {
+            window.wordboxAds._coverGame(false);
+            var status = info && info.breakStatus ? String(info.breakStatus) : '';
+            console.log('[wordbox ads] reward done', status);
+            try { onDone({ breakStatus: status, viewed: viewed }); }
+            catch (e) { console.error('[wordbox ads] reward callback', e); }
+          }
+        });
+      },
+      showNext: function (onDone) {
+        window.wordboxAds.started = false;
+        adBreak({
+          type: 'next',
+          name: 'next-level',
+          beforeAd: function () {
+            window.wordboxAds.started = true;
+            window.wordboxAds._coverGame(true);
+            window.wordboxAds._liftOverlays();
+          },
+          adBreakDone: function (info) {
+            window.wordboxAds._coverGame(false);
+            try { onDone(info || {}); } catch (e) { console.error(e); }
+          }
+        });
+      },
+      _coverGame: function (hide) {
+        var view = document.querySelector('flutter-view');
+        if (view) view.style.visibility = hide ? 'hidden' : 'visible';
+      },
+      _liftOverlays: function () {
+        if (!document.body) return;
+        var nodes = document.body.children;
+        for (var i = 0; i < nodes.length; i++) {
+          var node = nodes[i];
+          if (node.tagName === 'FLUTTER-VIEW' || node.tagName === 'SCRIPT' || node.tagName === 'STYLE') continue;
+          node.style.zIndex = '2147483646';
+        }
+      }
+    };
+  </script>
+  <script id="wordbox-ad-loader" async crossorigin="anonymous"></script>
 </head>
 <body dir="rtl">
   <script src="flutter_bootstrap.js" async></script>

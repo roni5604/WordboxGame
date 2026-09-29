@@ -10,7 +10,10 @@ import '../../../providers/player_profile_provider.dart';
 class DailyHintDialog extends StatelessWidget {
   final DailyHintReward reward;
 
-  const DailyHintDialog({super.key, required this.reward});
+  /// כפתור אופציונלי "עוד רמז תמורת צפייה". null כשאין פרסומת זמינה.
+  final Widget? extraAction;
+
+  const DailyHintDialog({super.key, required this.reward, this.extraAction});
 
   @override
   Widget build(BuildContext context) {
@@ -30,13 +33,18 @@ class DailyHintDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🎁', style: TextStyle(fontSize: 56))
-                .animate()
-                .scale(curve: Curves.elasticOut, duration: 600.ms),
+            const Text(
+              '🎁',
+              style: TextStyle(fontSize: 56),
+            ).animate().scale(curve: Curves.elasticOut, duration: 600.ms),
             const SizedBox(height: 12),
             const Text(
               'בונוס יומי!',
-              style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -73,18 +81,32 @@ class DailyHintDialog extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.lightbulb_rounded, color: AppColors.star, size: 28),
-                const SizedBox(width: 8),
-                Text(
-                  '+${reward.hintsAwarded} רמזים',
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
-                ),
-              ],
-            ).animate().fadeIn(delay: 200.ms).scale(begin: const Offset(0.8, 0.8)),
-            const SizedBox(height: 24),
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.lightbulb_rounded,
+                      color: AppColors.star,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '+${reward.hintsAwarded} רמזים',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                )
+                .animate()
+                .fadeIn(delay: 200.ms)
+                .scale(begin: const Offset(0.8, 0.8)),
+            if (extraAction != null) ...[
+              const SizedBox(height: 18),
+              SizedBox(width: double.infinity, child: extraAction!),
+            ],
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -94,7 +116,10 @@ class DailyHintDialog extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('תודה! 🙌', style: TextStyle(fontWeight: FontWeight.w800)),
+                child: const Text(
+                  'תודה! 🙌',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
               ),
             ),
           ],

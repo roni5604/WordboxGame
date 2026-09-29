@@ -7,7 +7,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ads/ads_runtime.dart';
 import '../../core/theme/app_colors.dart';
+import '../ads/rewarded_hint_dialog.dart';
 import '../../game_engine/board_generator.dart';
 import '../../game_engine/dictionary/hebrew_trie.dart';
 import '../../game_engine/game_session.dart';
@@ -138,6 +140,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Timer? _bannerTimer;
 
   bool _finished = false;
+  bool _adHintBusy = false;
   int? _lastWarningSecond;
   int _lastCelebratedStars = 0;
 
@@ -303,8 +306,8 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     }
 
     if (profile.hints <= 0) {
-      _showBanner('נגמרו הרמזים - אפשר לקנות עוד בחנות', isError: true);
-      return;
+      final granted = await _tryGrantHintFromAd();
+      if (!granted || !mounted) return;
     }
 
     final used = await ref.read(playerProfileProvider.notifier).useHint();
@@ -313,6 +316,75 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     ref.read(soundServiceProvider).playHint();
     _boardKey.currentState?.showHint(word.path);
     _showBanner('💡 נסו את המילה: ${word.displayWord}');
+  }
+
+  /// כשנגמרו הרמזים: מציעים צפייה בפרסומת לרמז אחד (גם לאורחים), עד 3 ביום.
+  /// הטיימר נעצר לכל אורך הדיאלוג והמודעה.
+  Future<bool> _tryGrantHintFromAd() async {
+    if (_adHintBusy) return false;
+    final ads = ref.read(adsGatewayProvider);
+    final authUser = ref.read(authStateProvider).valueOrNull;
+    final isGuest = authUser == null || authUser.isAnonymous;
+
+    if (!ads.isSupported) {
+      _showBanner(
+        isGuest ? 'נגמרו הרמזים' : 'נגמרו הרמזים - אפשר לקנות עוד בחנות',
+        isError: true,
+      );
+      return false;
+    }
+
+    _adHintBusy = true;
+    final wasRunning = _ticker != null;
+    _ticker?.cancel();
+    _ticker = null;
+    try {
+      await ads.ensureInitialized();
+      if (!mounted) return false;
+      if (!ads.canRequestAds || !ads.isRewardedReady) {
+        _showBanner(
+          isGuest ? 'אין פרסומת כרגע' : 'אין פרסומת כרגע - אפשר לקנות בחנות',
+          isError: true,
+        );
+        return false;
+      }
+      if (ads.adHintsRemaining <= 0) {
+        _showBanner(
+          isGuest
+              ? 'נגמרו הרמזים מפרסומות להיום'
+              : 'נגמרו הרמזים מפרסומות להיום - אפשר לקנות בחנות',
+          isError: true,
+        );
+        return false;
+      }
+
+      final watch = await showRewardedHintDialog(
+        context,
+        remainingToday: ads.adHintsRemaining,
+      );
+      if (!mounted || !watch) return false;
+
+      final earned = await ads.showRewarded();
+      if (!mounted) return false;
+      if (!earned) {
+        _showBanner('לא הושלמה הצפייה, אין רמז', isError: true);
+        return false;
+      }
+
+      await ref.read(playerProfileProvider.notifier).grantHints(1);
+      await ads.recordAdHintGranted();
+      ref.read(soundServiceProvider).playCoin();
+      return true;
+    } finally {
+      _adHintBusy = false;
+      if (wasRunning &&
+          mounted &&
+          !_finished &&
+          _remaining > Duration.zero &&
+          _ticker == null) {
+        _startTimer();
+      }
+    }
   }
 
   void _onPathSubmitted(List<GridPosition> path) {
@@ -412,7 +484,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     FortuneWheelPrize? wheelPrize;
     int wheelPrizeIndex = 0;
     if (isFirstCompletion && isWorldFinale) {
-      final (index, prize) = RewardTables.rollWheelPrize(worldIndex: worldIndex);
+      final (index, prize) = RewardTables.rollWheelPrize(
+        worldIndex: worldIndex,
+      );
       wheelPrize = prize;
       wheelPrizeIndex = index;
       await notifier.grantWheelPrize(prize);

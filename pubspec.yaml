@@ -45,6 +45,13 @@ dependencies:
   flutter_facebook_auth: ^7.1.6
   audioplayers: ^6.7.1
 
+  # פרסומות: AdMob ב-iOS/Android, Ad Placement API באתר.
+  # 7.0.0 היא הגרסה התואמת ל-SDK של הפרויקט (כולל UMP, Native templates, Rewarded).
+  google_mobile_ads: ^7.0.0
+  app_tracking_transparency: ^2.0.7
+  # הטמעת תג הפרסומת של Google בדף האתר (רק קומפילציית Web).
+  web: ^1.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

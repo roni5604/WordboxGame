@@ -3,7 +3,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ads/ads_runtime.dart';
 import '../../core/theme/app_colors.dart';
+import '../ads/rewarded_gift_button.dart';
 import '../../data/models/player_profile.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
@@ -24,19 +26,48 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _dailyRewardChecked = false;
 
-  Future<void> _maybeShowDailyReward(PlayerProfile profile, bool isGuest) async {
+  Future<void> _maybeShowDailyReward(
+    PlayerProfile profile,
+    bool isGuest,
+  ) async {
     if (_dailyRewardChecked) return;
     _dailyRewardChecked = true;
+    final ads = ref.read(adsGatewayProvider);
+    if (ads.isSupported) {
+      await ads.ensureInitialized();
+    }
+    if (!mounted || isGuest) return;
     // בונוס הרמזים היומי שמור לחשבונות אמיתיים בלבד - זו אחת הסיבות
     // הכי טובות להירשם, אז אין טעם להציג אותו למי שעדיין אורח/ת.
-    if (isGuest) return;
-    final reward = await ref.read(playerProfileProvider.notifier).claimDailyHintIfAvailable();
+    final reward = await ref
+        .read(playerProfileProvider.notifier)
+        .claimDailyHintIfAvailable();
     if (reward != null && mounted) {
       ref.read(soundServiceProvider).playDailyReward();
+      final offerExtra = ads.canRequestAds && ads.dailyBonusAdAvailable;
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (context) => DailyHintDialog(reward: reward),
+        builder: (dialogContext) => DailyHintDialog(
+          reward: reward,
+          extraAction: offerExtra
+              ? RewardedGiftButton(
+                  label: 'עוד רמז אחד — צפו בפרסומת',
+                  successLabel: 'קיבלתם רמז נוסף!',
+                  icon: Icons.play_circle_fill_rounded,
+                  style: RewardedButtonStyle.contrast,
+                  onReward: () async {
+                    await ref
+                        .read(playerProfileProvider.notifier)
+                        .grantHints(1);
+                    await ref
+                        .read(adsGatewayProvider)
+                        .recordDailyBonusAdGranted();
+                    ref.read(soundServiceProvider).playCoin();
+                  },
+                )
+              : null,
+        ),
       );
     }
   }
@@ -59,13 +90,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         child: SafeArea(
           child: profileAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
             error: (e, st) => Center(
-              child: Text('שגיאה בטעינת הפרופיל: $e', style: const TextStyle(color: Colors.white)),
+              child: Text(
+                'שגיאה בטעינת הפרופיל: $e',
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
             data: (profile) {
-              WidgetsBinding.instance
-                  .addPostFrameCallback((_) => _maybeShowDailyReward(profile, isGuest));
+              WidgetsBinding.instance.addPostFrameCallback(
+                (_) => _maybeShowDailyReward(profile, isGuest),
+              );
 
               // גלילה + גובה מינימלי = תוכן ממורכז יפה במסכים גבוהים, אך
               // לעולם לא "נחתך" מחוץ למסך במסכים קצרים/רחבים (למשל דפדפן
@@ -74,165 +111,215 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 builder: (context, constraints) {
                   return SingleChildScrollView(
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                      child: IntrinsicHeight(
-                        child: Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              child: Row(
-                                children: [
-                                  _Pill(
-                                      icon: Icons.star_rounded,
-                                      iconColor: AppColors.star,
-                                      label: '${profile.totalStars}'),
-                                  const SizedBox(width: 8),
-                                  _Pill(
-                                      icon: Icons.paid_rounded,
-                                      iconColor: Colors.amberAccent,
-                                      label: '${profile.coins}'),
-                                  const SizedBox(width: 8),
-                                  // רמזים שמורים לחשבונות אמיתיים בלבד - לאורח/ת מציגים
-                                  // הזמנה קצרה להירשם במקום המספר/החנות.
-                                  if (isGuest)
-                                    GestureDetector(
-                                      onTap: () => context.push('/auth'),
-                                      child: const _Pill(
-                                        icon: Icons.lock_outline_rounded,
-                                        iconColor: Colors.amberAccent,
-                                        label: 'הרשמה לרמזים',
-                                      ),
-                                    )
-                                  else
-                                    GestureDetector(
-                                      onTap: () => context.push('/store'),
-                                      child: _Pill(
-                                          icon: Icons.lightbulb_rounded,
-                                          iconColor: AppColors.star,
-                                          label: '${profile.hints}'),
-                                    ),
-                                  const Spacer(),
-                                  IconButton(
-                                    onPressed: () => context.push('/settings'),
-                                    icon: const Icon(Icons.settings_rounded, color: Colors.white),
-                                  ),
-                                  GestureDetector(
-                                    onTap: () => context.push('/profile'),
-                                    child: AvatarWidget(
-                                      avatarId: profile.avatarId,
-                                      size: 40,
-                                      photoUrl: authUser?.photoUrl,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
                             ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Align(
-                                alignment: AlignmentDirectional.centerStart,
-                                child: Text(
-                                  'שלום, ${profile.displayName}! 👋',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
+                            child: Row(
+                              children: [
+                                // הקבוצה יכולה להתכווץ מעט במסך צר, במקום
+                                // לגלוש החוצה ולצייר את פס האזהרה הצהוב.
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _Pill(
+                                          icon: Icons.star_rounded,
+                                          iconColor: AppColors.star,
+                                          label: '${profile.totalStars}',
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _Pill(
+                                          icon: Icons.paid_rounded,
+                                          iconColor: Colors.amberAccent,
+                                          label: '${profile.coins}',
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // רמזים שמורים לחשבונות אמיתיים בלבד.
+                                        // לאורח/ת מציגים הזמנה להירשם.
+                                        if (isGuest)
+                                          GestureDetector(
+                                            onTap: () => context.push('/auth'),
+                                            child: const _Pill(
+                                              icon: Icons.lock_outline_rounded,
+                                              iconColor: Colors.amberAccent,
+                                              label: 'הרשמה לרמזים',
+                                            ),
+                                          )
+                                        else
+                                          GestureDetector(
+                                            onTap: () => context.push('/store'),
+                                            child: _Pill(
+                                              icon: Icons.lightbulb_rounded,
+                                              iconColor: AppColors.star,
+                                              label: '${profile.hints}',
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ).animate().fadeIn(),
-                            const Spacer(),
-                            AnimatedAvatar(
-                              avatarId: profile.avatarId,
-                              size: 130,
-                              photoUrl: authUser?.photoUrl,
-                            )
-                                .animate(onPlay: (c) => c.repeat(reverse: true))
-                                .moveY(begin: -6, end: 6, duration: 1600.ms, curve: Curves.easeInOut),
-                            const SizedBox(height: 12),
-                            const AnimatedMiniGridDemo(
-                              letters: ['ל', 'ב', 'י', 'ז', 'ת', 'ק'],
-                              columns: 3,
-                              path: [1, 2, 4],
-                            ).animate().fadeIn(delay: 150.ms),
-                            const SizedBox(height: 12),
-                            Text(
-                              'מצא ת׳מילה',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 38,
-                                fontWeight: FontWeight.w900,
-                                shadows: [
-                                  Shadow(
-                                      color: Colors.black.withValues(alpha: 0.25), blurRadius: 12),
-                                ],
-                              ),
-                            ).animate().fadeIn().scale(begin: const Offset(0.9, 0.9)),
-                            const Text(
-                              'משחקה של ליאן רודן',
-                              style: TextStyle(color: Colors.white70, fontSize: 14),
-                            ),
-                            const Spacer(),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _MenuButton(
-                                    icon: Icons.play_arrow_rounded,
-                                    label:
-                                        profile.highestUnlockedLevel > 1 ? 'המשך משחק' : 'שחקו!',
-                                    color: AppColors.success,
-                                    isPrimary: true,
-                                    onTap: () => context.push('/campaign'),
-                                  ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.2, end: 0),
-                                  const SizedBox(height: 14),
-                                  _MenuButton(
-                                    icon: Icons.groups_rounded,
-                                    label: 'רב-משתתפים (2-4)',
-                                    color: AppColors.accent,
-                                    onTap: () => context.push('/multiplayer'),
-                                  ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2, end: 0),
-                                  const SizedBox(height: 14),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _MenuButton(
-                                          icon: Icons.school_rounded,
-                                          label: 'איך משחקים',
-                                          color: Colors.white,
-                                          textColor: AppColors.primaryDark,
-                                          compact: true,
-                                          onTap: () => context.push('/how-to-play'),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _MenuButton(
-                                          icon: Icons.menu_book_rounded,
-                                          label: 'חוקי המשחק',
-                                          color: Colors.white,
-                                          textColor: AppColors.primaryDark,
-                                          compact: true,
-                                          onTap: () => context.push('/rules'),
-                                        ),
-                                      ),
-                                    ],
-                                  ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.2, end: 0),
-                                  const SizedBox(height: 14),
-                                  _MenuButton(
-                                    icon: Icons.storefront_rounded,
-                                    label: 'חנות רמזים',
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () => context.push('/settings'),
+                                  icon: const Icon(
+                                    Icons.settings_rounded,
                                     color: Colors.white,
-                                    textColor: AppColors.primaryDark,
-                                    compact: true,
-                                    onTap: () => context.push('/store'),
-                                  ).animate().fadeIn(delay: 380.ms).slideY(begin: 0.2, end: 0),
-                                ],
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: () => context.push('/profile'),
+                                  child: AvatarWidget(
+                                    avatarId: profile.avatarId,
+                                    size: 40,
+                                    photoUrl: authUser?.photoUrl,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: Text(
+                                'שלום, ${profile.displayName}! 👋',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                          ],
-                        ),
+                          ).animate().fadeIn(),
+                          AnimatedAvatar(
+                                avatarId: profile.avatarId,
+                                size: 130,
+                                photoUrl: authUser?.photoUrl,
+                              )
+                              .animate(onPlay: (c) => c.repeat(reverse: true))
+                              .moveY(
+                                begin: -6,
+                                end: 6,
+                                duration: 1600.ms,
+                                curve: Curves.easeInOut,
+                              ),
+                          const SizedBox(height: 12),
+                          const AnimatedMiniGridDemo(
+                            letters: ['ל', 'ב', 'י', 'ז', 'ת', 'ק'],
+                            columns: 3,
+                            path: [1, 2, 4],
+                          ).animate().fadeIn(delay: 150.ms),
+                          const SizedBox(height: 12),
+                          Text(
+                            'מצא ת׳מילה',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 38,
+                              fontWeight: FontWeight.w900,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.25),
+                                  blurRadius: 12,
+                                ),
+                              ],
+                            ),
+                          ).animate().fadeIn().scale(
+                            begin: const Offset(0.9, 0.9),
+                          ),
+                          const Text(
+                            'משחקה של ליאן רודן',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _MenuButton(
+                                      icon: Icons.play_arrow_rounded,
+                                      label: profile.highestUnlockedLevel > 1
+                                          ? 'המשך משחק'
+                                          : 'שחקו!',
+                                      color: AppColors.success,
+                                      isPrimary: true,
+                                      onTap: () => context.push('/campaign'),
+                                    )
+                                    .animate()
+                                    .fadeIn(delay: 100.ms)
+                                    .slideY(begin: 0.2, end: 0),
+                                const SizedBox(height: 14),
+                                _MenuButton(
+                                      icon: Icons.groups_rounded,
+                                      label: 'רב-משתתפים (2-4)',
+                                      color: AppColors.accent,
+                                      onTap: () => context.push('/multiplayer'),
+                                    )
+                                    .animate()
+                                    .fadeIn(delay: 200.ms)
+                                    .slideY(begin: 0.2, end: 0),
+                                const SizedBox(height: 14),
+                                Row(
+                                      children: [
+                                        Expanded(
+                                          child: _MenuButton(
+                                            icon: Icons.school_rounded,
+                                            label: 'איך משחקים',
+                                            color: Colors.white,
+                                            textColor: AppColors.primaryDark,
+                                            compact: true,
+                                            onTap: () =>
+                                                context.push('/how-to-play'),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: _MenuButton(
+                                            icon: Icons.menu_book_rounded,
+                                            label: 'חוקי המשחק',
+                                            color: Colors.white,
+                                            textColor: AppColors.primaryDark,
+                                            compact: true,
+                                            onTap: () => context.push('/rules'),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                    .animate()
+                                    .fadeIn(delay: 300.ms)
+                                    .slideY(begin: 0.2, end: 0),
+                                const SizedBox(height: 14),
+                                _MenuButton(
+                                      icon: Icons.storefront_rounded,
+                                      label: 'חנות רמזים',
+                                      color: Colors.white,
+                                      textColor: AppColors.primaryDark,
+                                      compact: true,
+                                      onTap: () => context.push('/store'),
+                                    )
+                                    .animate()
+                                    .fadeIn(delay: 380.ms)
+                                    .slideY(begin: 0.2, end: 0),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -251,7 +338,11 @@ class _Pill extends StatelessWidget {
   final Color iconColor;
   final String label;
 
-  const _Pill({required this.icon, required this.iconColor, required this.label});
+  const _Pill({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -262,11 +353,17 @@ class _Pill extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: iconColor, size: 18),
           const SizedBox(width: 6),
-          Text(label,
-              style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
         ],
       ),
     );
