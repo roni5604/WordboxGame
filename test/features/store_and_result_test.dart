@@ -29,7 +29,7 @@ class _MemoryProgressRepository implements ProgressRepository {
 }
 
 class _WebIap extends IapController {
-  _WebIap(Ref ref) : super(ref, autoInit: false) {
+  _WebIap(super.ref) : super(autoInit: false) {
     state = const IapState(ready: true, isWeb: true);
   }
 }
