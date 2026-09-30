@@ -46,6 +46,14 @@ class PlayerProfile extends Equatable {
   /// עד שמגיע ל-0.
   final int doubleCoinsLevelsRemaining;
 
+  /// סקינים מצוידים וסקינים שכבר נרכשו. 'classic' הוא ברירת המחדל החינמית.
+  final String boardSkinId;
+  final String letterSkinId;
+  final String markerSkinId;
+  final List<String> ownedBoardSkins;
+  final List<String> ownedLetterSkins;
+  final List<String> ownedMarkerSkins;
+
   const PlayerProfile({
     this.levelProgress = const {},
     this.coins = 0,
@@ -61,6 +69,12 @@ class PlayerProfile extends Equatable {
     this.authIntroShown = false,
     this.level1TutorialSeen = false,
     this.doubleCoinsLevelsRemaining = 0,
+    this.boardSkinId = 'classic',
+    this.letterSkinId = 'classic',
+    this.markerSkinId = 'classic',
+    this.ownedBoardSkins = const ['classic'],
+    this.ownedLetterSkins = const ['classic'],
+    this.ownedMarkerSkins = const ['classic'],
   });
 
   int get totalStars => levelProgress.values.fold(0, (sum, p) => sum + p.stars);
@@ -85,6 +99,12 @@ class PlayerProfile extends Equatable {
     bool? authIntroShown,
     bool? level1TutorialSeen,
     int? doubleCoinsLevelsRemaining,
+    String? boardSkinId,
+    String? letterSkinId,
+    String? markerSkinId,
+    List<String>? ownedBoardSkins,
+    List<String>? ownedLetterSkins,
+    List<String>? ownedMarkerSkins,
   }) {
     return PlayerProfile(
       levelProgress: levelProgress ?? this.levelProgress,
@@ -102,7 +122,24 @@ class PlayerProfile extends Equatable {
       level1TutorialSeen: level1TutorialSeen ?? this.level1TutorialSeen,
       doubleCoinsLevelsRemaining:
           doubleCoinsLevelsRemaining ?? this.doubleCoinsLevelsRemaining,
+      boardSkinId: boardSkinId ?? this.boardSkinId,
+      letterSkinId: letterSkinId ?? this.letterSkinId,
+      markerSkinId: markerSkinId ?? this.markerSkinId,
+      ownedBoardSkins: ownedBoardSkins ?? this.ownedBoardSkins,
+      ownedLetterSkins: ownedLetterSkins ?? this.ownedLetterSkins,
+      ownedMarkerSkins: ownedMarkerSkins ?? this.ownedMarkerSkins,
     );
+  }
+
+  List<String> ownedFor(String slot) {
+    switch (slot) {
+      case 'letter':
+        return ownedLetterSkins;
+      case 'marker':
+        return ownedMarkerSkins;
+      default:
+        return ownedBoardSkins;
+    }
   }
 
   @override
@@ -121,5 +158,11 @@ class PlayerProfile extends Equatable {
         authIntroShown,
         level1TutorialSeen,
         doubleCoinsLevelsRemaining,
+        boardSkinId,
+        letterSkinId,
+        markerSkinId,
+        ownedBoardSkins,
+        ownedLetterSkins,
+        ownedMarkerSkins,
       ];
 }

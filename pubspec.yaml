@@ -44,6 +44,7 @@ dependencies:
   crypto: ^3.0.7
   flutter_facebook_auth: ^7.1.6
   audioplayers: ^6.7.1
+  in_app_purchase: ^3.2.3
 
   # פרסומות: AdMob ב-iOS/Android, Ad Placement API באתר.
   # 7.0.0 היא הגרסה התואמת ל-SDK של הפרויקט (כולל UMP, Native templates, Rewarded).

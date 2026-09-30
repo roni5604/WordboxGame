@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/ads/ads_runtime.dart';
+import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
 import '../ads/rewarded_hint_dialog.dart';
 import '../../game_engine/board_generator.dart';
@@ -69,7 +71,7 @@ class GameScreenResult extends Equatable {
   /// המקטע הנכון.
   final int wheelPrizeIndex;
 
-  /// true אם השלב הסתיים כי הושג יעד המילים ([LevelConfig.wordsRequired])
+  /// true אם השלב הסתיים כי הושג יעד הניקוד ([LevelConfig.scoreRequired])
   /// לפני שהזמן נגמר (השלב מסתיים מיידית באותו רגע) - מפעיל חגיגת "סיים
   /// לפני הזמן!" מיוחדת במסך התוצאה.
   final bool finishedEarly;
@@ -292,6 +294,103 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     });
   }
 
+  Future<bool> _ensureCoins(int cost) async {
+    final profile = ref.read(playerProfileProvider).valueOrNull;
+    if (profile == null) return false;
+    if (profile.coins < cost) {
+      _showNeedCoins();
+      return false;
+    }
+    final spent = await ref.read(playerProfileProvider.notifier).spendCoins(cost);
+    if (!spent) {
+      _showNeedCoins();
+      return false;
+    }
+    return true;
+  }
+
+  void _showNeedCoins() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('אין מספיק מטבעות'),
+        action: SnackBarAction(
+          label: 'לחנות',
+          onPressed: () {
+            if (mounted) context.push('/store');
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _revealLetter() async {
+    final session = _session;
+    if (session == null || _finished) return;
+    final pos = session.letterHintPosition();
+    if (pos == null) {
+      _showBanner('כבר מצאתם את כל המילים! 🎉');
+      return;
+    }
+    if (!await _ensureCoins(CoinCosts.revealLetter)) return;
+    if (!mounted) return;
+    ref.read(soundServiceProvider).playHint();
+    _boardKey.currentState?.showHint([pos], duration: const Duration(seconds: 4));
+    _showBanner('אות נחשפה');
+  }
+
+  Future<void> _shuffleBoard() async {
+    final session = _session;
+    if (session == null || _finished) return;
+    if (!await _ensureCoins(CoinCosts.shuffle)) return;
+    if (!mounted) return;
+    session.reshuffleLetters(Random());
+    _boardKey.currentState?.clearHint();
+    ref.read(soundServiceProvider).playSuccess();
+    setState(() {});
+    _showBanner('האותיות עורבבו');
+  }
+
+  Future<void> _confirmSkip() async {
+    if (_finished) return;
+    final cost = CoinCosts.skipLevel(widget.levelNumber);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('לדלג על השלב?'),
+        content: Text('הדילוג עולה $cost מטבעות, נותן כוכב אחד ופותח את השלב הבא.'),
+        actions: [
+          TextButton(
+            onPressed: () => dialogContext.pop(false),
+            child: const Text('ביטול'),
+          ),
+          FilledButton(
+            onPressed: () => dialogContext.pop(true),
+            child: const Text('דילוג'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || _finished) return;
+    final ok = await ref.read(playerProfileProvider.notifier).skipLevel(
+          levelNumber: widget.levelNumber,
+          cost: cost,
+        );
+    if (!ok || !mounted) {
+      _showNeedCoins();
+      return;
+    }
+    _finished = true;
+    _ticker?.cancel();
+    ref.read(soundServiceProvider).playCoin();
+    final next = widget.levelNumber + 1;
+    if (next > CampaignLevels.totalLevels) {
+      context.go('/campaign');
+    } else {
+      context.pushReplacement('/level/$next/intro');
+    }
+  }
+
   Future<void> _useHint() async {
     final session = _session;
     if (session == null || _finished) return;
@@ -402,13 +501,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           _lastCelebratedStars = newStars;
           _celebrateStarGained(newStars);
         }
-        // ברגע שהושג יעד המילים - השלב מסתיים מיידית (3 כוכבים, חגיגת
+        // ברגע שהושג יעד הניקוד - השלב מסתיים מיידית (3 כוכבים, חגיגת
         // "סיים לפני הזמן!"), בלי לחכות שהזמן יגמר או שכל מילות הלוח
         // יימצאו.
-        if (session.hasReachedWordsGoal || session.isFullyCompleted) {
+        if (session.hasReachedScoreGoal || session.isFullyCompleted) {
           Future.delayed(
             const Duration(milliseconds: 500),
-            () => _finishLevel(earlyFinish: session.hasReachedWordsGoal),
+            () => _finishLevel(earlyFinish: session.hasReachedScoreGoal),
           );
         }
         break;
@@ -545,6 +644,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Widget build(BuildContext context) {
     final session = _session;
     final worldIndex = _config.tier.index;
+    final profile = ref.watch(playerProfileProvider).valueOrNull;
+    final boardSkin = CosmeticCatalog.boardById(profile?.boardSkinId);
+    final letterSkin = CosmeticCatalog.letterById(profile?.letterSkinId);
+    final markerSkin = CosmeticCatalog.markerById(profile?.markerSkinId);
 
     return PopScope(
       canPop: false,
@@ -588,9 +691,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: WordsGoalPanel(
-                          found: session.foundWordsCount,
-                          required: _config.wordsRequired,
+                          score: session.score,
+                          required: _config.scoreRequired,
                           stars: session.currentStars,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _PowerRow(
+                          onReveal: _revealLetter,
+                          onShuffle: _shuffleBoard,
+                          onSkip: _confirmSkip,
+                          skipCost: CoinCosts.skipLevel(widget.levelNumber),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -620,6 +733,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                         letters: session.board.letters,
                                         onPathSubmitted: _onPathSubmitted,
                                         onWordChanged: _onWordChanging,
+                                        boardSkin: boardSkin,
+                                        letterSkin: letterSkin,
+                                        markerSkin: markerSkin,
                                       ),
                                     ),
                                   );
@@ -697,6 +813,92 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                       const SizedBox(height: 12),
                     ],
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PowerRow extends StatelessWidget {
+  final VoidCallback onReveal;
+  final VoidCallback onShuffle;
+  final VoidCallback onSkip;
+  final int skipCost;
+
+  const _PowerRow({
+    required this.onReveal,
+    required this.onShuffle,
+    required this.onSkip,
+    required this.skipCost,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _PowerButton(
+            icon: Icons.font_download_rounded,
+            label: 'אות · ${CoinCosts.revealLetter}',
+            onPressed: onReveal,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _PowerButton(
+            icon: Icons.shuffle_rounded,
+            label: 'ערבוב · ${CoinCosts.shuffle}',
+            onPressed: onShuffle,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _PowerButton(
+            icon: Icons.skip_next_rounded,
+            label: 'דילוג · $skipCost',
+            onPressed: onSkip,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PowerButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  const _PowerButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.92),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: AppColors.primaryDark),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                ),
+              ),
+            ],
           ),
         ),
       ),

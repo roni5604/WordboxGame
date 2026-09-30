@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/ads/ads_runtime.dart';
+import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
+import '../../providers/player_profile_provider.dart';
 import '../ads/double_coins_cta.dart';
 import '../../game_engine/models/level_config.dart';
 import '../../providers/sound_provider.dart';
@@ -269,9 +271,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted) return;
       ref.read(soundServiceProvider).playLevelComplete();
-      // חוגגים בקונפטי בכל שלב שהושלם בהצלחה (כוכב אחד ומעלה) - לא רק
-      // בהצלחה מרשימה במיוחד - כי המטרה עצמה (מספר מילים מוגדר) כבר
-      // ברורה ומוחשית, וכל השגה שלה ראויה לחגיגה.
+      // חוגגים בקונפטי בכל שלב שהושלם בהצלחה (כוכב אחד ומעלה).
       if (widget.result.stars >= 1 || isWorldFinale) _confetti.play();
     });
     // תגמולי מזל (תיבת מזל / גלגל מזל) מוצגים כדיאלוג נפרד, אחרי שהחגיגה
@@ -299,7 +299,42 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
     }
   }
 
-  /// "השלב הבא" ו"למפת השלבים" יכולים להציג אינטרסטיאל. "שחקו שוב" לא.
+  Future<void> _skipFromResult() async {
+    final cost = CoinCosts.skipLevel(widget.levelNumber);
+    final ok = await ref.read(playerProfileProvider.notifier).skipLevel(
+          levelNumber: widget.levelNumber,
+          cost: cost,
+        );
+    if (!mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('אין מספיק מטבעות'),
+          action: SnackBarAction(
+            label: 'לחנות',
+            onPressed: () {
+              if (mounted) context.push('/store');
+            },
+          ),
+        ),
+      );
+      return;
+    }
+    ref.read(soundServiceProvider).playCoin();
+    final next = widget.levelNumber + 1;
+    _exit(
+      showAd: false,
+      go: () {
+        if (next > CampaignLevels.totalLevels) {
+          context.go('/campaign');
+        } else {
+          context.pushReplacement('/level/$next/intro');
+        }
+      },
+    );
+  }
+
+  /// "השלב הבא" יכול להציג אינטרסטיאל. "שחקו שוב" וחזרה לתפריט לא.
   Future<void> _exit({required bool showAd, required VoidCallback go}) async {
     if (_leaving) return;
     _leaving = true;
@@ -366,6 +401,21 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                           padding: const EdgeInsets.all(24),
                           child: Column(
                             children: [
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: IconButton(
+                                  tooltip: 'תפריט ראשי',
+                                  onPressed: () => _exit(
+                                    showAd: false,
+                                    go: () => context.go('/home'),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.home_rounded,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
                               const Spacer(),
                               Text(
                                 result.finishedEarly
@@ -443,9 +493,9 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                                           ),
                                           const Divider(height: 20),
                                           _StatRow(
-                                            label: 'יעד מילים',
+                                            label: 'יעד נקודות',
                                             value:
-                                                '${result.foundWordsCount} מתוך ${config.wordsRequired}',
+                                                '${result.score} מתוך ${config.scoreRequired}',
                                           ),
                                           const Divider(height: 20),
                                           _StatRow(
@@ -471,10 +521,32 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                                   .fadeIn(delay: 900.ms)
                                   .slideY(begin: 0.15, end: 0),
                               const Spacer(),
+                              if (result.stars == 0) ...[
+                                Text(
+                                  'צריך לפחות כוכב אחד כדי לעבור שלב',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: const BorderSide(color: Colors.white),
+                                  ),
+                                  onPressed: _skipFromResult,
+                                  icon: const Icon(Icons.skip_next_rounded),
+                                  label: Text(
+                                    'דלגו על השלב · ${CoinCosts.skipLevel(widget.levelNumber)} מטבעות',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
                               Row(
                                 children: [
                                   Expanded(
-                                    child: OutlinedButton(
+                                    child: OutlinedButton.icon(
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: Colors.white,
                                         side: const BorderSide(
@@ -495,29 +567,30 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                                           '/level/${widget.levelNumber}/intro',
                                         ),
                                       ),
-                                      child: const Text('שחקו שוב'),
+                                      icon: const Icon(Icons.replay_rounded),
+                                      label: const Text('שחקו שוב'),
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
-                                    child: ElevatedButton(
-                                      onPressed: () => _exit(
-                                        showAd: true,
-                                        go: () {
-                                          if (result.stars > 0) {
-                                            context.pushReplacement(
-                                              '/level/${widget.levelNumber + 1}/intro',
-                                            );
-                                          } else {
-                                            context.go('/campaign');
-                                          }
-                                        },
-                                      ),
-                                      child: Text(
-                                        result.stars > 0
-                                            ? 'השלב הבא'
-                                            : 'למפת השלבים',
-                                      ),
+                                    child: ElevatedButton.icon(
+                                      onPressed: result.stars > 0
+                                          ? () => _exit(
+                                                showAd: true,
+                                                go: () {
+                                                  final next = widget.levelNumber + 1;
+                                                  if (next > CampaignLevels.totalLevels) {
+                                                    context.go('/campaign');
+                                                  } else {
+                                                    context.pushReplacement(
+                                                      '/level/$next/intro',
+                                                    );
+                                                  }
+                                                },
+                                              )
+                                          : null,
+                                      icon: const Icon(Icons.arrow_back_rounded),
+                                      label: const Text('השלב הבא'),
                                     ),
                                   ),
                                 ],

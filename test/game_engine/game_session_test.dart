@@ -25,7 +25,7 @@ void main() {
       tier: WorldTier.seedling,
       gridSize: 2,
       timeLimit: Duration(seconds: 60),
-      wordsRequired: 1,
+      scoreRequired: 3,
     );
   });
 
@@ -91,50 +91,51 @@ void main() {
     expect(result.status, WordSubmitStatus.invalidWord);
   });
 
-  group('GameSession.starsForWordCount (יעד מילים מחולק לשלישים, לא ניקוד)', () {
-    // הדוגמה המפורשת: יעד של 6 מילים -> כל 2 מילים שווה כוכב.
-    test('דוגמת יעד=6: 0/1 מילים -> 0 כוכבים, 2/3 -> כוכב, 4/5 -> 2 כוכבים, 6+ -> 3 כוכבים', () {
-      expect(GameSession.starsForWordCount(0, 6), 0);
-      expect(GameSession.starsForWordCount(1, 6), 0);
-      expect(GameSession.starsForWordCount(2, 6), 1);
-      expect(GameSession.starsForWordCount(3, 6), 1);
-      expect(GameSession.starsForWordCount(4, 6), 2);
-      expect(GameSession.starsForWordCount(5, 6), 2);
-      expect(GameSession.starsForWordCount(6, 6), 3);
-      expect(GameSession.starsForWordCount(10, 6), 3);
+  group('GameSession.starsForScore (יעד ניקוד מחולק לשלישים)', () {
+    test('יעד=6: 0-1 נקודות בלי כוכב, 2-3 כוכב, 4-5 שני כוכבים, 6+ שלושה', () {
+      expect(GameSession.starsForScore(0, 6), 0);
+      expect(GameSession.starsForScore(1, 6), 0);
+      expect(GameSession.starsForScore(2, 6), 1);
+      expect(GameSession.starsForScore(3, 6), 1);
+      expect(GameSession.starsForScore(4, 6), 2);
+      expect(GameSession.starsForScore(5, 6), 2);
+      expect(GameSession.starsForScore(6, 6), 3);
+      expect(GameSession.starsForScore(10, 6), 3);
     });
 
-    test('שלב 1 (יעד=3): כל מילה שווה כוכב', () {
-      expect(GameSession.starsForWordCount(0, 3), 0);
-      expect(GameSession.starsForWordCount(1, 3), 1);
-      expect(GameSession.starsForWordCount(2, 3), 2);
-      expect(GameSession.starsForWordCount(3, 3), 3);
-    });
-
-    test('שלב 2 (יעד=4): כל מילה וקצת שווה כוכב', () {
-      expect(GameSession.starsForWordCount(0, 4), 0);
-      expect(GameSession.starsForWordCount(1, 4), 0);
-      expect(GameSession.starsForWordCount(2, 4), 1);
-      expect(GameSession.starsForWordCount(3, 4), 2);
-      expect(GameSession.starsForWordCount(4, 4), 3);
+    test('יעד=9: שליש, שני שלישים, והיעד המלא', () {
+      expect(GameSession.starsForScore(0, 9), 0);
+      expect(GameSession.starsForScore(2, 9), 0);
+      expect(GameSession.starsForScore(3, 9), 1);
+      expect(GameSession.starsForScore(6, 9), 2);
+      expect(GameSession.starsForScore(9, 9), 3);
     });
   });
 
-  test('currentStars/wordsRemainingForGoal מתעדכנים לפי מילים שנמצאו לעומת יעד השלב', () {
-    // config בטסט הזה מוגדר עם wordsRequired: 1, כך שמילה אחת = היעד המלא (3 כוכבים).
+  test('currentStars מתעדכן לפי ניקוד, ומילה ארוכה שווה יותר ממילה קצרה', () {
     final session = buildSession();
     expect(session.currentStars, 0);
-    expect(session.wordsRemainingForGoal, 1);
-    expect(session.hasReachedWordsGoal, isFalse);
+    expect(session.pointsRemainingForGoal, 3);
+    expect(session.hasReachedScoreGoal, isFalse);
 
-    session.submitPath([
+    final shortWord = session.submitPath([
+      const GridPosition(0, 0),
+      const GridPosition(0, 1),
+    ]);
+    expect(shortWord.isSuccess, isTrue);
+    expect(shortWord.pointsAwarded, 1);
+    expect(session.currentStars, 1);
+    expect(session.hasReachedScoreGoal, isFalse);
+
+    final longWord = session.submitPath([
       const GridPosition(0, 0),
       const GridPosition(0, 1),
       const GridPosition(1, 0),
     ]);
-
+    expect(longWord.pointsAwarded, greaterThan(shortWord.pointsAwarded));
+    expect(session.score, 4);
     expect(session.currentStars, 3);
-    expect(session.wordsRemainingForGoal, 0);
-    expect(session.hasReachedWordsGoal, isTrue);
+    expect(session.pointsRemainingForGoal, 0);
+    expect(session.hasReachedScoreGoal, isTrue);
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../core/cosmetics/cosmetic_catalog.dart';
 import '../../../core/theme/app_colors.dart';
 
 enum TileVisualState { idle, selected, success, error, hint }
@@ -19,18 +20,26 @@ class LetterTile extends StatelessWidget {
   /// mini_grid_demo.dart) - לא משפיע יותר על הצבע במצב idle, שהוא אחיד.
   final int paletteIndex;
 
+  /// סקין אותיות. null = העיצוב הקלאסי.
+  final LetterSkin? letterSkin;
+
+  /// צבע אריח מסקין הלוח. סקין האותיות יכול לדרוס אותו דרך [LetterSkin.tileOverride].
+  final Color? boardTileColor;
+
   const LetterTile({
     super.key,
     required this.letter,
     required this.size,
     this.state = TileVisualState.idle,
     this.paletteIndex = 0,
+    this.letterSkin,
+    this.boardTileColor,
   });
 
   Color get _bgColor {
     switch (state) {
       case TileVisualState.idle:
-        return AppColors.tileIdle;
+        return letterSkin?.tileOverride ?? boardTileColor ?? AppColors.tileIdle;
       case TileVisualState.selected:
         return AppColors.tileSelected;
       case TileVisualState.success:
@@ -42,9 +51,8 @@ class LetterTile extends StatelessWidget {
     }
   }
 
-  /// במצב idle האות נראית כמו באייקון: אדומה עם מתאר לבן עבה.
-  /// במצבים אחרים (נבחר/הצלחה/שגיאה) האות לבנה על רקע צבעוני רווי.
-  bool get _useRedOutlinedLetter => state == TileVisualState.idle;
+  /// במצב idle האות לפי הסקין. במצבים אחרים האות לבנה על רקע צבעוני.
+  bool get _useStyledIdleLetter => state == TileVisualState.idle;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +62,7 @@ class LetterTile extends StatelessWidget {
     // (שמבוסס על cellSize המלא, לא על גודל התא המצומצם הזה).
     final fontSize = size * 0.46;
     final isIdle = state == TileVisualState.idle;
+    final rounded = letterSkin?.shape == LetterTileShape.roundedSquare;
 
     final tile = AnimatedContainer(
       duration: const Duration(milliseconds: 140),
@@ -62,7 +71,8 @@ class LetterTile extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: _bgColor,
-        shape: BoxShape.circle,
+        shape: rounded ? BoxShape.rectangle : BoxShape.circle,
+        borderRadius: rounded ? BorderRadius.circular(size * 0.22) : null,
         boxShadow: isIdle
             ? const [
                 BoxShadow(
@@ -84,8 +94,8 @@ class LetterTile extends StatelessWidget {
             : Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1),
       ),
       alignment: Alignment.center,
-      child: _useRedOutlinedLetter
-          ? _OutlinedLetter(letter: letter, fontSize: fontSize)
+      child: _useStyledIdleLetter
+          ? _StyledIdleLetter(letter: letter, fontSize: fontSize, skin: letterSkin)
           : Text(
               letter,
               style: TextStyle(
@@ -120,22 +130,28 @@ class LetterTile extends StatelessWidget {
   }
 }
 
-/// אות עבה עם מתאר לבן - אפקט "מדבקה" כמו באייקון האפליקציה. מיושם עם
-/// Stack: טקסט תחתון עם קו מתאר לבן עבה (Paint.stroke) וטקסט עליון מלא
-/// באדום, שני הטקסטים ממורכזים בדיוק זה על זה.
-class _OutlinedLetter extends StatelessWidget {
+/// אות במצב idle לפי סקין. ברירת המחדל היא האות האדומה עם מתאר לבן.
+class _StyledIdleLetter extends StatelessWidget {
   final String letter;
   final double fontSize;
+  final LetterSkin? skin;
 
-  const _OutlinedLetter({required this.letter, required this.fontSize});
+  const _StyledIdleLetter({required this.letter, required this.fontSize, this.skin});
 
   @override
   Widget build(BuildContext context) {
+    final outlined = skin?.outlined ?? true;
+    final letterColor = skin?.letterColor ?? AppColors.tileLetterRed;
+    final outlineColor = skin?.outlineColor ?? Colors.white;
+    final weight = skin?.fontWeight ?? FontWeight.w900;
     final baseStyle = TextStyle(
       fontSize: fontSize,
-      fontWeight: FontWeight.w900,
+      fontWeight: weight,
       height: 1,
     );
+    if (!outlined) {
+      return Text(letter, style: baseStyle.copyWith(color: letterColor));
+    }
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -145,10 +161,10 @@ class _OutlinedLetter extends StatelessWidget {
             foreground: Paint()
               ..style = PaintingStyle.stroke
               ..strokeWidth = fontSize * 0.16
-              ..color = Colors.white,
+              ..color = outlineColor,
           ),
         ),
-        Text(letter, style: baseStyle.copyWith(color: AppColors.tileLetterRed)),
+        Text(letter, style: baseStyle.copyWith(color: letterColor)),
       ],
     );
   }

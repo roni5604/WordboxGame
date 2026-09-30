@@ -148,6 +148,7 @@ class LevelBoardBuilder {
 
       final wordCount = result.board.possibleWords.length;
       if (wordCount < profile.minWordsRequired) continue;
+      if (result.board.totalPossibleScore < config.scoreRequired) continue;
 
       final score = _qualityScore(result.board, profile);
       if (score > bestScore) {

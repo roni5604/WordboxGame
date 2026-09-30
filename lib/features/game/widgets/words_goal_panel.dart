@@ -2,28 +2,27 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 
-/// פס התקדמות "מטרת המילים" בזמן המשחק - מציג בבירור כמה מילים עוד
-/// נותרו כדי להגיע ליעד השלב, ותצוגת שלושה כוכבים "חיה" שמתמלאת בזמן
-/// אמת ברגע שהיחס בין מילים שנמצאו למילים שנדרשו עולה (ראו
-/// GameSession.currentStars) - כך שברור לשחקן/ית בכל רגע כמה נשארו
-/// וכמה כוכבים כבר "בכיס".
+/// פס התקדמות "מטרת הניקוד" בזמן המשחק - מציג כמה נקודות עוד נותרו
+/// ליעד השלב, ותצוגת שלושה כוכבים שמתמלאת ברגע שהיחס בין הניקוד ליעד
+/// עולה (ראו GameSession.currentStars).
 class WordsGoalPanel extends StatelessWidget {
-  final int found;
+  final int score;
   final int required;
   final int stars;
 
   const WordsGoalPanel({
     super.key,
-    required this.found,
+    required this.score,
     required this.required,
     required this.stars,
   });
 
   @override
   Widget build(BuildContext context) {
-    final remaining = (required - found).clamp(0, required);
+    final remaining = (required - score).clamp(0, required);
+    final unit = remaining == 1 ? 'נקודה' : 'נקודות';
     final label = remaining > 0
-        ? 'עוד $remaining ${remaining == 1 ? "מילה" : "מילים"} למטרה 🎯'
+        ? 'עוד $remaining $unit למטרה 🎯'
         : '🎉 המטרה הושגה! השלב מסתיים...';
 
     return Container(

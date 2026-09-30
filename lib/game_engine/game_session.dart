@@ -23,7 +23,7 @@ class WordSubmitResult {
 /// ניתנת לבדיקה (testable) בקלות.
 class GameSession {
   final LevelConfig config;
-  final GeneratedBoard board;
+  GeneratedBoard board;
   final HebrewTrie trie;
 
   final Set<String> _foundNormalizedWords = <String>{};
@@ -79,24 +79,41 @@ class GameSession {
     );
   }
 
-  /// מספר הכוכבים (0-3) שהושגו לפי היחס בין מילים שנמצאו למילים שנדרשו
-  /// ([LevelConfig.wordsRequired]) - לא לפי ניקוד: מחלקים את היעד לשלישים,
-  /// וכל שליש שהושלם שווה כוכב. למשל אם היעד הוא 6 מילים, כל 2 מילים
-  /// שנמצאו הן כוכב נוסף. שלושה כוכבים (המקסימום) מתקבלים בדיוק כשמגיעים
-  /// ליעד המילים המלא - ואז השלב מסתיים מיידית, גם אם נשאר זמן.
-  static int starsForWordCount(int found, int required) {
-    if (required <= 0) return found > 0 ? 3 : 0;
-    final stars = (found * 3 / required).floor();
+  /// מספר הכוכבים (0-3) לפי היחס בין הניקוד שנצבר ליעד השלב
+  /// ([LevelConfig.scoreRequired]). שליש מהיעד = כוכב, היעד המלא = 3.
+  static int starsForScore(int score, int required) {
+    if (required <= 0) return score > 0 ? 3 : 0;
+    final stars = (score * 3 / required).floor();
     return stars.clamp(0, 3);
   }
 
-  int get currentStars => starsForWordCount(foundWordsCount, config.wordsRequired);
+  int get currentStars => starsForScore(_score, config.scoreRequired);
 
-  /// כמה מילים עוד נותרו כדי להגיע ליעד השלב (0 אם היעד כבר הושג).
-  int get wordsRemainingForGoal =>
-      (config.wordsRequired - foundWordsCount).clamp(0, config.wordsRequired);
+  /// כמה נקודות עוד נותרו כדי להגיע ליעד השלב (0 אם היעד כבר הושג).
+  int get pointsRemainingForGoal =>
+      (config.scoreRequired - _score).clamp(0, config.scoreRequired);
 
-  bool get hasReachedWordsGoal => foundWordsCount >= config.wordsRequired;
+  bool get hasReachedScoreGoal => _score >= config.scoreRequired;
+
+  /// מדגיש אות אחת ממילה שטרם נמצאה, בלי לחשוף את המילה כולה.
+  GridPosition? letterHintPosition({Random? random}) {
+    final word = hintForUnfoundWord(random: random);
+    if (word == null || word.path.isEmpty) return null;
+    final rnd = random ?? Random();
+    return word.path[rnd.nextInt(word.path.length)];
+  }
+
+  /// מערבב את מיקום האותיות ומחשב מחדש את המילים האפשריות.
+  /// הניקוד והמילים שכבר נמצאו נשמרים.
+  void reshuffleLetters(Random random) {
+    final flat = [for (final row in board.letters) ...row]..shuffle(random);
+    final size = board.size;
+    final letters = <List<String>>[
+      for (var r = 0; r < size; r++) List<String>.from(flat.sublist(r * size, (r + 1) * size)),
+    ];
+    final words = WordFinder(trie, minWordLength: config.minWordLength).findAllWords(letters);
+    board = GeneratedBoard(letters: letters, possibleWords: words, size: size);
+  }
 
   /// בוחר מילה שטרם נמצאה עבור מנגנון הרמזים - מעדיפים את המילים
   /// הקצרות/קלות שנותרו (כדי שהרמז יעזור אך לא "יפתור" את כל השלב),

@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
 import '../../game_engine/board_generator.dart';
 import '../../game_engine/dictionary/hebrew_trie.dart';
@@ -139,8 +140,8 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
       tier: WorldTier.bloom,
       gridSize: room.gridSize,
       timeLimit: Duration(seconds: room.roundSeconds),
-      // משחק מול חברים לא משתמש בכוכבים/יעד-מילים - רק בניקוד גולמי.
-      wordsRequired: 1,
+      // משחק מול חברים נגמר לפי שעון, לא לפי יעד השלב.
+      scoreRequired: CampaignLevels.raceScoreGoal,
     );
 
     final session = GameSession(
@@ -326,6 +327,10 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
   @override
   Widget build(BuildContext context) {
     final session = _session;
+    final profile = ref.watch(playerProfileProvider).valueOrNull;
+    final boardSkin = CosmeticCatalog.boardById(profile?.boardSkinId);
+    final letterSkin = CosmeticCatalog.letterById(profile?.letterSkinId);
+    final markerSkin = CosmeticCatalog.markerById(profile?.markerSkinId);
 
     return PopScope(
       canPop: false,
@@ -477,6 +482,9 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
                                         letters: session.board.letters,
                                         onPathSubmitted: _onPathSubmitted,
                                         onWordChanged: _onWordChanging,
+                                        boardSkin: boardSkin,
+                                        letterSkin: letterSkin,
+                                        markerSkin: markerSkin,
                                       ),
                                     ),
                                   );

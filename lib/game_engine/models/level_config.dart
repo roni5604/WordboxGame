@@ -59,19 +59,20 @@ enum LevelKind { normal, master, worldFinale }
 
 /// הגדרות שלב בודד בקמפיין יחיד-המשתתף.
 ///
-/// המטרה של שלב היא **מספר מילים** (לא ניקוד) - [wordsRequired] - כדי
-/// שהיעד יהיה מוחשי, ברור וקל להבנה ("מצאו 3 מילים!"). הכוכבים (ראו
-/// [GameSession.currentStars] ב-lib/game_engine/game_session.dart) נגזרים
-/// מהיחס בין מילים שנמצאו למילים שנדרשו (שליש מהיעד = כוכב), לא מניקוד.
-/// השלב מסתיים באופן מיידי כשמגיעים ליעד המילים המלא, גם אם נשאר זמן.
+/// המטרה של שלב היא **ניקוד** - [scoreRequired]. מילה קצרה שווה מעט
+/// נקודות ומילה ארוכה שווה הרבה יותר (ראו [scoreForWordLength]).
+/// הכוכבים (ראו [GameSession.currentStars]) נגזרים מהיחס בין הניקוד
+/// שנצבר ליעד: שליש = כוכב, שני שלישים = שני כוכבים, היעד המלא = שלושה.
+/// השלב מסתיים ברגע שמגיעים ליעד הניקוד, גם אם נשאר זמן. בלי כוכב אחד
+/// לפחות השלב הבא נשאר נעול.
 class LevelConfig extends Equatable {
   final int levelNumber; // 1-based
   final WorldTier tier;
   final int gridSize;
   final Duration timeLimit;
 
-  /// מספר המילים שצריך למצוא כדי "לעבור" את השלב (כוכב אחד לפחות).
-  final int wordsRequired;
+  /// ניקוד שצריך לצבור כדי לסיים את השלב בשלושה כוכבים.
+  final int scoreRequired;
   final int minWordLength;
 
   /// סוג השלב - רגיל / מאסטר / פינאלה של עולם (ראו [LevelKind]).
@@ -82,7 +83,7 @@ class LevelConfig extends Equatable {
     required this.tier,
     required this.gridSize,
     required this.timeLimit,
-    required this.wordsRequired,
+    required this.scoreRequired,
     this.minWordLength = 2,
     this.kind = LevelKind.normal,
   });
@@ -94,13 +95,13 @@ class LevelConfig extends Equatable {
   /// lib/features/game/level_result_screen.dart).
   bool get isWorldFinale => kind == LevelKind.worldFinale;
 
-  /// יעדי המילים לכוכב 1/2/3 - מחלקים את [wordsRequired] לשלישים (ראו
-  /// [GameSession.starsForWordCount]): כל שליש מהיעד שנמצא שווה כוכב,
-  /// ושלושה כוכבים (המקסימום) מתקבלים בדיוק כשמגיעים ליעד המילים המלא -
-  /// ואז השלב מסתיים באותו רגע, גם אם נשאר זמן על השעון.
-  int get oneStarWords => (wordsRequired / 3).ceil();
-  int get twoStarWords => (wordsRequired * 2 / 3).ceil();
-  int get threeStarWords => wordsRequired;
+  /// יעדי הניקוד לכוכב 1/2/3 - מחלקים את [scoreRequired] לשלישים (ראו
+  /// [GameSession.starsForScore]): כל שליש מהיעד שווה כוכב, ושלושה
+  /// כוכבים מתקבלים בדיוק כשמגיעים ליעד הניקוד המלא - ואז השלב מסתיים
+  /// באותו רגע, גם אם נשאר זמן על השעון.
+  int get oneStarScore => (scoreRequired / 3).ceil();
+  int get twoStarScore => (scoreRequired * 2 / 3).ceil();
+  int get threeStarScore => scoreRequired;
 
   @override
   List<Object?> get props => [
@@ -108,7 +109,7 @@ class LevelConfig extends Equatable {
         tier,
         gridSize,
         timeLimit,
-        wordsRequired,
+        scoreRequired,
         minWordLength,
         kind,
       ];
@@ -123,7 +124,7 @@ class LevelConfig extends Equatable {
 /// העולם הבא + גלגל מזל). ראו [LevelKind].
 ///
 /// שלב א' נוכחי: 4 עולמות × 25 שלבים = 100 שלבים (נבטים 3×3, ניצנים 4×4,
-/// פריחה 5×5, היער הגדול 6×6). הקושי (ראו [wordsRequiredForLevel] ו-
+/// פריחה 5×5, היער הגדול 6×6). הקושי (ראו [scoreRequiredForLevel] ו-
 /// [BoardDifficultyProfile.forLevel] ב-lib/game_engine/level_board_builder.dart)
 /// עולה **בהדרגה על פני כל המשחק** (לא מתאפס בתחילת כל עולם) כדי שההתקדמות
 /// תישאר משמעותית ולא תרגיש כמו "איפוס" בכל עולם חדש.
@@ -138,6 +139,14 @@ class CampaignLevels {
   /// לשלב האחרון של העולם עצמו (שהוא פינאלה, לא מאסטר). בעולם בן 25
   /// שלבים זה נותן 4 שלבי מאסטר (6, 12, 18, 24) + פינאלה אחת (25).
   static const int masterCadence = 6;
+
+  /// יעד ניקוד לתחרויות רב-משתתפים, שנגמרות לפי שעון ולא לפי יעד שלב.
+  /// גבוה מספיק כדי שסשן תחרות לא ייסגר מוקדם אם מישהו בודק את היעד.
+  static const int raceScoreGoal = 1000000;
+
+  /// תחילת וסוף עקומת הניקוד לכל עולם (שלב רגיל, לפני בונוס מאסטר/פינאלה).
+  static const List<int> _worldScoreStart = [9, 26, 50, 80];
+  static const List<int> _worldScoreEnd = [22, 45, 75, 120];
 
   /// סדר העולמות הפעילים כרגע. הוספת עולם נוסף בעתיד (למשל
   /// [WorldTier.summit], 7×7) היא שינוי של שורה אחת כאן בלבד.
@@ -159,18 +168,18 @@ class CampaignLevels {
     for (final tier in worldOrder) {
       for (int position = 1; position <= levelsPerWorld; position++) {
         final kind = _kindForPosition(position);
-        final wordsRequired = wordsRequiredForLevel(levelNumber, kind: kind);
+        final scoreRequired = scoreRequiredForLevel(levelNumber, kind: kind);
         levels.add(
           LevelConfig(
             levelNumber: levelNumber,
             tier: tier,
             gridSize: tier.gridSize,
             timeLimit: timeLimitForLevel(
-              wordsRequired: wordsRequired,
+              scoreRequired: scoreRequired,
               gridSize: tier.gridSize,
               kind: kind,
             ),
-            wordsRequired: wordsRequired,
+            scoreRequired: scoreRequired,
             kind: kind,
           ),
         );
@@ -202,37 +211,37 @@ class CampaignLevels {
     return ((levelNumber - 1) % levelsPerWorld) + 1;
   }
 
-  /// מספר המילים הנדרש לעבור שלב - עולה בהדרגה כדי שהמטרה תישאר ברורה
-  /// ומוחשית: שלב 1 = 3 מילים, שלב 2 = 4, שלב 3 = 5, שלב 4 = 6, שלב 5 = 7,
-  /// ומשם ממשיך לעלות **לאט מאוד ולאורך כל המשחק** (לא נשאר שטוח לנצח),
-  /// עם תוספת קלה לשלבי מאסטר/פינאלה כדי שהם יורגשו קשים יותר מרגע
-  /// הופעתם, לא רק בגלל הלוח.
-  static int wordsRequiredForLevel(int levelNumber, {LevelKind kind = LevelKind.normal}) {
-    if (levelNumber == 1) return 3;
-    if (levelNumber == 2) return 4;
-    if (levelNumber == 3) return 5;
-    if (levelNumber == 4) return 6;
-    if (levelNumber == 5) return 7;
-
-    final g = globalProgress(levelNumber);
-    int base = (5 + g * 3).round().clamp(5, 8);
-    if (kind == LevelKind.master) base += 1;
-    if (kind == LevelKind.worldFinale) base += 2;
-    return base.clamp(5, 11);
+  /// ניקוד היעד של שלב. בכל עולם העקומה עולה לאט מתחילת הטווח לסופו
+  /// (3×3: 9–22, 4×4: 26–45, 5×5: 50–75, 6×6: 80–120). שלב מאסטר מקבל
+  /// כ-20% יותר, ופינאלה כ-30% יותר, כדי שהם יורגשו קשים יותר.
+  static int scoreRequiredForLevel(int levelNumber, {LevelKind kind = LevelKind.normal}) {
+    final worldIndex =
+        ((levelNumber - 1) ~/ levelsPerWorld).clamp(0, _worldScoreStart.length - 1);
+    final position = positionWithinWorld(levelNumber);
+    final start = _worldScoreStart[worldIndex];
+    final end = _worldScoreEnd[worldIndex];
+    final span = levelsPerWorld - 1;
+    final t = span == 0 ? 0.0 : (position - 1) / span;
+    final base = (start + (end - start) * t).round();
+    final multiplier = switch (kind) {
+      LevelKind.master => 1.2,
+      LevelKind.worldFinale => 1.3,
+      LevelKind.normal => 1.0,
+    };
+    return (base * multiplier).round();
   }
 
-  /// זמן השלב - קצר וברור, עם מרווח נוח כדי שהיעד (מספר מילים) יישאר
-  /// בהחלט מושג בלי למהר. נגזר ממספר המילים הנדרש ומגודל הלוח (לוח גדול
-  /// יותר דורש קצת יותר זמן חיפוש), ומעוגל לעשרות שניות קרובות (30, 40,
-  /// 50...) כדי שהזמן המוצג יהיה תמיד מספר "עגול" ונעים. שלבי מאסטר
-  /// ופינאלה מקבלים פחות זמן יחסית לבייסליין (15%-20% פחות) - כך שהם
-  /// מורגשים דחוקים ומאתגרים יותר, לא רק "עוד מילה אחת".
+  /// זמן השלב - קצר וברור, עם מרווח נוח כדי שיעד הניקוד יישאר בהישג
+  /// בלי למהר. נגזר מיעד הניקוד (בערך כאילו כל 3 נקודות הן "מילה")
+  /// ומגודל הלוח, ומעוגל לעשרות שניות. שלבי מאסטר ופינאלה מקבלים פחות
+  /// זמן יחסית לבייסליין (15%-20% פחות).
   static Duration timeLimitForLevel({
-    required int wordsRequired,
+    required int scoreRequired,
     required int gridSize,
     LevelKind kind = LevelKind.normal,
   }) {
-    final rawSeconds = 30 + wordsRequired * 9 + (gridSize - 3) * 6;
+    final wordEquivalent = (scoreRequired / 3).round();
+    final rawSeconds = 30 + wordEquivalent * 9 + (gridSize - 3) * 6;
     double multiplier = 1.0;
     if (kind == LevelKind.master) multiplier = 0.85;
     if (kind == LevelKind.worldFinale) multiplier = 0.8;

@@ -2,18 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wordbox_hebrew/features/game/widgets/words_goal_panel.dart';
 
-/// בדיקת רינדור מדויקת ל-WordsGoalPanel (לא בדיקה ויזואלית/צילום-מסך) -
-/// מוודאת שמספר הכוכבים המלאים המוצג בפועל תואם בדיוק לפרמטר [stars],
-/// ושהטקסט "כמה מילים נשארו" נכון. חשוב במיוחד כי בדיקות ידניות בדפדפן
-/// (עם טקסט RTL בעברית) נוטות "לקרוא" את המסך הפוך ולא מדויק.
 void main() {
-  Future<void> pump(WidgetTester tester, {required int found, required int required, required int stars}) {
+  Future<void> pump(WidgetTester tester, {required int score, required int required, required int stars}) {
     return tester.pumpWidget(
       MaterialApp(
         home: Directionality(
           textDirection: TextDirection.rtl,
           child: Scaffold(
-            body: WordsGoalPanel(found: found, required: required, stars: stars),
+            body: WordsGoalPanel(score: score, required: required, stars: stars),
           ),
         ),
       ),
@@ -26,26 +22,26 @@ void main() {
     return icons.where((icon) => icon.color != Colors.grey.shade300).length;
   }
 
-  testWidgets('שלב 1 (יעד=3): מילה אחת נמצאה -> כוכב אחד מלא בדיוק, לא 2 או 4', (tester) async {
-    await pump(tester, found: 1, required: 3, stars: 1);
+  testWidgets('יעד=9: 6 נקודות שנשארו -> כוכב אחד', (tester) async {
+    await pump(tester, score: 3, required: 9, stars: 1);
     expect(countFilledStars(tester), 1);
-    expect(find.text('עוד 2 מילים למטרה 🎯'), findsOneWidget);
+    expect(find.text('עוד 6 נקודות למטרה 🎯'), findsOneWidget);
   });
 
-  testWidgets('שלב 1 (יעד=3): שתי מילים נמצאו -> שני כוכבים מלאים בדיוק, לא 4', (tester) async {
-    await pump(tester, found: 2, required: 3, stars: 2);
+  testWidgets('נותרה נקודה אחת -> ניסוח ביחיד', (tester) async {
+    await pump(tester, score: 8, required: 9, stars: 2);
     expect(countFilledStars(tester), 2);
-    expect(find.text('עוד 1 מילה למטרה 🎯'), findsOneWidget);
+    expect(find.text('עוד 1 נקודה למטרה 🎯'), findsOneWidget);
   });
 
-  testWidgets('שלב 1 (יעד=3): כל שלוש המילים נמצאו -> שלושה כוכבים מלאים ("הושגה")', (tester) async {
-    await pump(tester, found: 3, required: 3, stars: 3);
+  testWidgets('היעד הושג -> שלושה כוכבים', (tester) async {
+    await pump(tester, score: 9, required: 9, stars: 3);
     expect(countFilledStars(tester), 3);
     expect(find.text('🎉 המטרה הושגה! השלב מסתיים...'), findsOneWidget);
   });
 
-  testWidgets('לעולם לא מוצגים יותר משלושה כוכבים מלאים, גם עם ערך stars גבוה יתר על המידה', (tester) async {
-    await pump(tester, found: 10, required: 3, stars: 3);
+  testWidgets('לעולם לא מוצגים יותר משלושה כוכבים מלאים', (tester) async {
+    await pump(tester, score: 20, required: 9, stars: 3);
     expect(countFilledStars(tester), 3);
   });
 }

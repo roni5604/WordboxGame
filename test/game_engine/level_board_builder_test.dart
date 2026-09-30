@@ -115,9 +115,9 @@ void main() {
           reason: 'level ${config.levelNumber} (${config.kind})',
         );
         expect(
-          result.board.possibleWords.length,
-          greaterThanOrEqualTo(config.wordsRequired),
-          reason: 'level ${config.levelNumber} must have enough words to reach its own goal',
+          result.board.totalPossibleScore,
+          greaterThanOrEqualTo(config.scoreRequired),
+          reason: 'level ${config.levelNumber} must have enough points to reach its own goal',
         );
       }
     });

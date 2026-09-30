@@ -75,6 +75,12 @@ class FirebaseProgressRepository implements ProgressRepository {
       level1TutorialSeen: data['level1TutorialSeen'] as bool? ?? false,
       doubleCoinsLevelsRemaining:
           (data['doubleCoinsLevelsRemaining'] as num?)?.toInt() ?? 0,
+      boardSkinId: data['boardSkinId'] as String? ?? 'classic',
+      letterSkinId: data['letterSkinId'] as String? ?? 'classic',
+      markerSkinId: data['markerSkinId'] as String? ?? 'classic',
+      ownedBoardSkins: _stringList(data['ownedBoardSkins']),
+      ownedLetterSkins: _stringList(data['ownedLetterSkins']),
+      ownedMarkerSkins: _stringList(data['ownedMarkerSkins']),
     );
   }
 
@@ -105,7 +111,20 @@ class FirebaseProgressRepository implements ProgressRepository {
       'authIntroShown': profile.authIntroShown,
       'level1TutorialSeen': profile.level1TutorialSeen,
       'doubleCoinsLevelsRemaining': profile.doubleCoinsLevelsRemaining,
+      'boardSkinId': profile.boardSkinId,
+      'letterSkinId': profile.letterSkinId,
+      'markerSkinId': profile.markerSkinId,
+      'ownedBoardSkins': profile.ownedBoardSkins,
+      'ownedLetterSkins': profile.ownedLetterSkins,
+      'ownedMarkerSkins': profile.ownedMarkerSkins,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
+}
+
+List<String> _stringList(Object? raw) {
+  if (raw is List && raw.isNotEmpty) {
+    return raw.map((e) => e.toString()).toList();
+  }
+  return const ['classic'];
 }

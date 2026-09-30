@@ -307,7 +307,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 const SizedBox(height: 14),
                                 _MenuButton(
                                       icon: Icons.storefront_rounded,
-                                      label: 'חנות רמזים',
+                                      label: 'חנות',
                                       color: Colors.white,
                                       textColor: AppColors.primaryDark,
                                       compact: true,

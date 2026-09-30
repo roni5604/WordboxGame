@@ -82,16 +82,15 @@ class LevelIntroScreen extends StatelessWidget {
                         _InfoRow(
                           icon: Icons.flag_rounded,
                           label: 'מטרה',
-                          value:
-                              '${config.wordsRequired} ${config.wordsRequired == 1 ? "מילה" : "מילים"}',
+                          value: '${config.scoreRequired} נקודות',
                         ),
                         const Divider(height: 24),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            _StarGoal(stars: 1, words: config.oneStarWords),
-                            _StarGoal(stars: 2, words: config.twoStarWords),
-                            _StarGoal(stars: 3, words: config.threeStarWords),
+                            _StarGoal(stars: 1, points: config.oneStarScore),
+                            _StarGoal(stars: 2, points: config.twoStarScore),
+                            _StarGoal(stars: 3, points: config.threeStarScore),
                           ],
                         ),
                       ],
@@ -175,18 +174,15 @@ class _InfoRow extends StatelessWidget {
 
 class _StarGoal extends StatelessWidget {
   final int stars;
-  final int words;
+  final int points;
 
-  const _StarGoal({required this.stars, required this.words});
+  const _StarGoal({required this.stars, required this.points});
 
   @override
   Widget build(BuildContext context) {
-    // 3 כוכבים הם היעד המלא בדיוק (השלב מסתיים באותו רגע) - לא "3 ומעלה"
-    // כמו 1-2 כוכבים (יעדי ביניים) - כך שהתווית לא מטעה.
-    // כותבים "מילים" במלואה (ולא קיצור כמו "מ׳") כדי שהתווית תהיה
-    // ברורה למשתמש/ת בלי צורך לפענח קיצור לא מוכר.
-    final unit = words == 1 ? 'מילה' : 'מילים';
-    final label = stars >= 3 ? '$words $unit' : '$words+ $unit';
+    // 3 כוכבים הם היעד המלא בדיוק (השלב מסתיים באותו רגע).
+    final unit = points == 1 ? 'נקודה' : 'נקודות';
+    final label = stars >= 3 ? '$points $unit' : '$points+ $unit';
     return Column(
       children: [
         Row(

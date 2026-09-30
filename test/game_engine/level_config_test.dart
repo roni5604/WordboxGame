@@ -127,39 +127,47 @@ void main() {
     });
   });
 
-  group('CampaignLevels.wordsRequiredForLevel / difficulty progression', () {
-    test('wordsRequired grows from 3 (level 1) then rises gently across the whole game', () {
-      expect(CampaignLevels.byLevelNumber(1).wordsRequired, 3);
-      expect(CampaignLevels.byLevelNumber(2).wordsRequired, 4);
-      for (int i = 3; i <= 100; i++) {
-        final words = CampaignLevels.byLevelNumber(i).wordsRequired;
-        expect(words, inInclusiveRange(5, 11), reason: 'level $i');
+  group('CampaignLevels.scoreRequiredForLevel / difficulty progression', () {
+    test('level 1 asks for 9 points, then the goal rises across the campaign', () {
+      expect(CampaignLevels.byLevelNumber(1).scoreRequired, 9);
+      expect(
+        CampaignLevels.byLevelNumber(2).scoreRequired,
+        greaterThan(CampaignLevels.byLevelNumber(1).scoreRequired),
+      );
+      for (int i = 1; i <= 100; i++) {
+        final score = CampaignLevels.byLevelNumber(i).scoreRequired;
+        expect(score, inInclusiveRange(9, 160), reason: 'level $i');
       }
     });
 
     test('does NOT reset at world boundaries: first normal level of a new world is not easier '
         'than the last normal level of the previous world', () {
-      // משווים שלבים "רגילים" (לא מאסטר/פינאלה) משני צידי הגבול, כדי
-      // לוודא שהקושי הבסיסי לא "קופץ אחורה" בתחילת עולם חדש.
-      final lastNormalOfWorld1 = CampaignLevels.byLevelNumber(23); // 24=master, 25=finale
-      final firstNormalOfWorld2 = CampaignLevels.byLevelNumber(27); // 26 still fine too
+      final lastNormalOfWorld1 = CampaignLevels.byLevelNumber(23);
+      final firstNormalOfWorld2 = CampaignLevels.byLevelNumber(27);
       expect(
-        firstNormalOfWorld2.wordsRequired,
-        greaterThanOrEqualTo(lastNormalOfWorld1.wordsRequired),
+        firstNormalOfWorld2.scoreRequired,
+        greaterThanOrEqualTo(lastNormalOfWorld1.scoreRequired),
       );
     });
 
-    test('master levels require at least as many words as a normal level at the same point',
-        () {
+    test('master levels require at least as many points as a normal neighbor', () {
       final master = CampaignLevels.byLevelNumber(12);
       final normalNeighbor = CampaignLevels.byLevelNumber(11);
-      expect(master.wordsRequired, greaterThanOrEqualTo(normalNeighbor.wordsRequired));
+      expect(master.scoreRequired, greaterThanOrEqualTo(normalNeighbor.scoreRequired));
     });
 
-    test('worldFinale requires more words than the master level right before it', () {
+    test('worldFinale requires more points than the master level right before it', () {
       final master = CampaignLevels.byLevelNumber(24);
       final finale = CampaignLevels.byLevelNumber(25);
-      expect(finale.wordsRequired, greaterThan(master.wordsRequired));
+      expect(finale.scoreRequired, greaterThan(master.scoreRequired));
+    });
+
+    test('one star is a third of the score goal and three stars is the full goal', () {
+      final config = CampaignLevels.byLevelNumber(1);
+      expect(config.scoreRequired, 9);
+      expect(config.oneStarScore, 3);
+      expect(config.twoStarScore, 6);
+      expect(config.threeStarScore, 9);
     });
   });
 
@@ -185,20 +193,20 @@ void main() {
       expect(seconds, lessThan(CampaignLevels.byLevelNumber(100).timeLimit.inSeconds));
     });
 
-    test('master/finale levels get less time than a normal level with the same words/gridSize',
+    test('master/finale levels get less time than a normal level with the same score/gridSize',
         () {
       final normalTime = CampaignLevels.timeLimitForLevel(
-        wordsRequired: 6,
+        scoreRequired: 18,
         gridSize: 4,
         kind: LevelKind.normal,
       );
       final masterTime = CampaignLevels.timeLimitForLevel(
-        wordsRequired: 6,
+        scoreRequired: 18,
         gridSize: 4,
         kind: LevelKind.master,
       );
       final finaleTime = CampaignLevels.timeLimitForLevel(
-        wordsRequired: 6,
+        scoreRequired: 18,
         gridSize: 4,
         kind: LevelKind.worldFinale,
       );

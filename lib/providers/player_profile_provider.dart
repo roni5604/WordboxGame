@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/cosmetics/cosmetic_catalog.dart';
 import '../data/models/auth_user.dart';
 import '../data/models/level_progress.dart';
 import '../data/models/player_profile.dart';
@@ -66,8 +67,9 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   }
 
   /// מעדכן התקדמות לאחר סיום שלב: כוכבים, ניקוד שיא, ופתיחת השלב הבא.
-  /// אם קיים בונוס "מטבעות כפולות" פעיל (ראו [doubleCoinsLevelsRemaining]
-  /// שהוענק מגלגל המזל), המטבעות שהורווחו מוכפלות והבונוס יורד ב-1.
+  /// השלב הבא נפתח רק עם כוכב אחד לפחות. שיא ניקוד נשמר גם בכישלון,
+  /// בלי לנעול שלבים שכבר נפתחו ובלי להוריד כוכבים קיימים.
+  /// בונוס "מטבעות כפולות" יורד רק כשהשלב באמת הושלם.
   /// מחזיר את כמות המטבעות שנזקפו בפועל (אחרי הכפלה, אם הייתה).
   Future<int> completeLevel({
     required int levelNumber,
@@ -75,23 +77,26 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
     required int score,
     required int coinsEarned,
   }) async {
-    int actualCoinsEarned = coinsEarned;
+    int actualCoinsEarned = 0;
     await _mutate((current) {
       final existing = current.progressFor(levelNumber);
+      final passed = stars >= 1;
       final updatedProgress = existing.copyWith(
         stars: stars > existing.stars ? stars : existing.stars,
         bestScore: score > existing.bestScore ? score : existing.bestScore,
-        completed: true,
+        completed: existing.completed || passed,
       );
       final newLevelMap = Map<int, LevelProgress>.from(current.levelProgress)
         ..[levelNumber] = updatedProgress;
 
-      final newHighestUnlocked = levelNumber + 1 > current.highestUnlockedLevel
+      final newHighestUnlocked = passed && levelNumber + 1 > current.highestUnlockedLevel
           ? levelNumber + 1
           : current.highestUnlockedLevel;
 
-      final hasDoubleCoinsBuff = current.doubleCoinsLevelsRemaining > 0;
-      actualCoinsEarned = hasDoubleCoinsBuff ? coinsEarned * 2 : coinsEarned;
+      final hasDoubleCoinsBuff = passed && current.doubleCoinsLevelsRemaining > 0;
+      actualCoinsEarned = passed
+          ? (hasDoubleCoinsBuff ? coinsEarned * 2 : coinsEarned)
+          : 0;
       final newBuffRemaining =
           hasDoubleCoinsBuff ? current.doubleCoinsLevelsRemaining - 1 : current.doubleCoinsLevelsRemaining;
 
@@ -103,6 +108,30 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
       );
     });
     return actualCoinsEarned;
+  }
+
+  /// מדלג על שלב תמורת מטבעות: כוכב אחד, השלמה, ופתיחת השלב הבא.
+  /// בלי פרס מטבעות נוסף. מחזיר false אם אין מספיק מטבעות.
+  Future<bool> skipLevel({required int levelNumber, required int cost}) async {
+    final current = state.valueOrNull;
+    if (current == null || cost < 0 || current.coins < cost) return false;
+    await _mutate((c) {
+      final existing = c.progressFor(levelNumber);
+      final updated = existing.copyWith(
+        stars: existing.stars < 1 ? 1 : existing.stars,
+        completed: true,
+      );
+      final newLevelMap = Map<int, LevelProgress>.from(c.levelProgress)
+        ..[levelNumber] = updated;
+      final next = levelNumber + 1;
+      return c.copyWith(
+        levelProgress: newLevelMap,
+        highestUnlockedLevel:
+            next > c.highestUnlockedLevel ? next : c.highestUnlockedLevel,
+        coins: c.coins - cost,
+      );
+    });
+    return true;
   }
 
   /// מזכה פרס מ"תיבת מזל" (ראו lib/game_engine/rewards/reward_tables.dart) -
@@ -184,6 +213,39 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
     if (current == null || current.hints <= 0) return false;
     await _mutate((c) => c.copyWith(hints: c.hints - 1));
     return true;
+  }
+
+  /// קונה סקין במטבעות ומצייד אותו. אם כבר בבעלות, רק מצייד בלי לחייב.
+  /// מחזיר false אם אין מספיק מטבעות.
+  Future<bool> buyOrEquipCosmetic({
+    required CosmeticSlot slot,
+    required String id,
+    required int cost,
+  }) async {
+    final current = state.valueOrNull;
+    if (current == null) return false;
+    final alreadyOwned = current.ownedFor(slot.name).contains(id);
+    if (!alreadyOwned && current.coins < cost) return false;
+    await _mutate((c) {
+      final owned = List<String>.from(c.ownedFor(slot.name));
+      if (!owned.contains(id)) owned.add(id);
+      final coins = alreadyOwned ? c.coins : c.coins - cost;
+      switch (slot) {
+        case CosmeticSlot.letter:
+          return c.copyWith(coins: coins, letterSkinId: id, ownedLetterSkins: owned);
+        case CosmeticSlot.marker:
+          return c.copyWith(coins: coins, markerSkinId: id, ownedMarkerSkins: owned);
+        case CosmeticSlot.board:
+          return c.copyWith(coins: coins, boardSkinId: id, ownedBoardSkins: owned);
+      }
+    });
+    return true;
+  }
+
+  /// מזכה חבילה שנקנתה בכסף אמיתי (מטבעות ו/או רמזים).
+  Future<void> grantRealMoneyReward({int coins = 0, int hints = 0}) async {
+    if (coins <= 0 && hints <= 0) return;
+    await _mutate((c) => c.copyWith(coins: c.coins + coins, hints: c.hints + hints));
   }
 
   /// קונה [amount] רמזים תמורת [cost] מטבעות (בחנות). מחזיר false אם אין

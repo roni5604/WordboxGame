@@ -69,6 +69,12 @@ class LocalProgressRepository implements ProgressRepository {
       level1TutorialSeen: box.get('level1_tutorial_seen', defaultValue: false) as bool,
       doubleCoinsLevelsRemaining:
           box.get('double_coins_levels_remaining', defaultValue: 0) as int,
+      boardSkinId: box.get('board_skin_id', defaultValue: 'classic') as String,
+      letterSkinId: box.get('letter_skin_id', defaultValue: 'classic') as String,
+      markerSkinId: box.get('marker_skin_id', defaultValue: 'classic') as String,
+      ownedBoardSkins: _stringList(box, 'owned_board_skins'),
+      ownedLetterSkins: _stringList(box, 'owned_letter_skins'),
+      ownedMarkerSkins: _stringList(box, 'owned_marker_skins'),
     );
   }
 
@@ -104,6 +110,20 @@ class LocalProgressRepository implements ProgressRepository {
       'auth_intro_shown': profile.authIntroShown,
       'level1_tutorial_seen': profile.level1TutorialSeen,
       'double_coins_levels_remaining': profile.doubleCoinsLevelsRemaining,
+      'board_skin_id': profile.boardSkinId,
+      'letter_skin_id': profile.letterSkinId,
+      'marker_skin_id': profile.markerSkinId,
+      'owned_board_skins': profile.ownedBoardSkins,
+      'owned_letter_skins': profile.ownedLetterSkins,
+      'owned_marker_skins': profile.ownedMarkerSkins,
     });
   }
+}
+
+List<String> _stringList(Box box, String key) {
+  final raw = box.get(key);
+  if (raw is List && raw.isNotEmpty) {
+    return raw.map((e) => e.toString()).toList();
+  }
+  return const ['classic'];
 }

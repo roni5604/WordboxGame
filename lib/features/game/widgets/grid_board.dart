@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/cosmetics/cosmetic_catalog.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../game_engine/models/grid_position.dart';
 import 'connector_painter.dart';
 import 'letter_tile.dart';
@@ -19,6 +21,9 @@ class GridBoard extends StatefulWidget {
   /// גרירה פעילה.
   final ValueChanged<String>? onWordChanged;
   final bool showErrorFlash;
+  final BoardSkin? boardSkin;
+  final LetterSkin? letterSkin;
+  final MarkerSkin? markerSkin;
 
   const GridBoard({
     super.key,
@@ -26,6 +31,9 @@ class GridBoard extends StatefulWidget {
     required this.onPathSubmitted,
     this.onWordChanged,
     this.showErrorFlash = false,
+    this.boardSkin,
+    this.letterSkin,
+    this.markerSkin,
   });
 
   @override
@@ -245,11 +253,14 @@ class GridBoardState extends State<GridBoard> {
                 size: cellSize * 0.8,
                 paletteIndex: (r * 31 + c * 17) % 4,
                 state: stateFor(r, c),
+                letterSkin: widget.letterSkin,
+                boardTileColor: widget.boardSkin?.tileColor,
               ),
             ),
           );
         }
 
+        final backdrop = widget.boardSkin?.backdropColor;
         return SizedBox(
           width: boardSize,
           height: boardSize,
@@ -265,6 +276,15 @@ class GridBoardState extends State<GridBoard> {
             // יתמזג חזותית עם שאר האפליקציה במקום להיראות כ"קובייה" נפרדת.
             child: Stack(
               children: [
+                if (backdrop != null)
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: backdrop,
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                    ),
+                  ),
                 // רשת קווים דקה ושקופה בין מרכזי כל שתי אותיות שכנות
                 // (כולל אלכסונים) - "מלמדת" ויזואלית שגם חיבור אלכסוני
                 // חוקי לגמרי, בהשראת עיצוב משחקי חיבור-אותיות מוכרים.
@@ -272,7 +292,11 @@ class GridBoardState extends State<GridBoard> {
                 // לעיגול (ראו tileAt לעיל).
                 Positioned.fill(
                   child: CustomPaint(
-                    painter: _GridMeshPainter(size: _size, cellSize: cellSize),
+                    painter: _GridMeshPainter(
+                      size: _size,
+                      cellSize: cellSize,
+                      color: widget.boardSkin?.meshColor,
+                    ),
                   ),
                 ),
                 Positioned.fill(
@@ -280,6 +304,8 @@ class GridBoardState extends State<GridBoard> {
                     painter: ConnectorPainter(
                       points: linePoints,
                       isError: _isError,
+                      style: widget.markerSkin?.style ?? MarkerStyle.classic,
+                      markerColor: widget.markerSkin?.color ?? AppColors.tileSelected,
                     ),
                   ),
                 ),
@@ -308,8 +334,9 @@ class GridBoardState extends State<GridBoard> {
 class _GridMeshPainter extends CustomPainter {
   final int size;
   final double cellSize;
+  final Color? color;
 
-  _GridMeshPainter({required this.size, required this.cellSize});
+  _GridMeshPainter({required this.size, required this.cellSize, this.color});
 
   @override
   void paint(Canvas canvas, Size canvasSize) {
@@ -318,7 +345,7 @@ class _GridMeshPainter extends CustomPainter {
     // הבהיר-יחסית של המסך, בדיוק כמו ברשת הדקה שנראית במשחקי חיבור-
     // אותיות מוכרים.
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.4)
+      ..color = color ?? Colors.white.withValues(alpha: 0.4)
       ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round;
 
@@ -348,6 +375,8 @@ class _GridMeshPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GridMeshPainter oldDelegate) {
-    return oldDelegate.size != size || oldDelegate.cellSize != cellSize;
+    return oldDelegate.size != size ||
+        oldDelegate.cellSize != cellSize ||
+        oldDelegate.color != color;
   }
 }
