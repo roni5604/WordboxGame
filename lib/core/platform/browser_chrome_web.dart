@@ -33,7 +33,7 @@ void setBrowserTopColor(Color color) {
     web.document.body?.style.backgroundColor = hex;
     // הפס הצמוד לראש המסך (ראו #top-tint ב-index.html) - זה מה ש-Safari
     // ב-iOS 26 משתמש בו לצבע אזור השעה.
-    (web.document.getElementById('top-tint') as web.HTMLElement?)?.style.backgroundColor = hex;
+    _replaceTopTint(hex);
   } catch (_) {
     // לא קריטי - רק קוסמטיקה של הדפדפן.
   }
@@ -73,4 +73,25 @@ void Function() onBrowserBackBlocked(void Function() callback) {
   final listener = ((web.Event _) => callback()).toJS;
   web.window.addEventListener('wb-back-blocked', listener);
   return () => web.window.removeEventListener('wb-back-blocked', listener);
+}
+
+/// Safari (iOS 26) דוגם את צבע אזור השעה מאלמנט fixed בראש הדף רק כשמבנה
+/// האלמנטים הצמודים משתנה - שינוי צבע בלבד נקלט רק אחרי גלילה/גרירה. לכן
+/// מכניסים פס *חדש* בצבע החדש, ומסירים את הישן בפריים הבא (בלי הבהוב).
+void _replaceTopTint(String hex) {
+  final body = web.document.body;
+  if (body == null) return;
+  final old = web.document.getElementById('top-tint');
+  final fresh = web.document.createElement('div') as web.HTMLElement;
+  fresh.id = 'top-tint';
+  fresh.style.backgroundColor = hex;
+  if (old != null) {
+    old.id = 'top-tint-old';
+    old.after(fresh);
+    web.window.requestAnimationFrame(((JSNumber _) {
+      old.remove();
+    }).toJS);
+  } else {
+    body.append(fresh);
+  }
 }
