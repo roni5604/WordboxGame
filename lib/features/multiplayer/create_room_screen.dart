@@ -227,7 +227,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
           GameSectionCard(
             title: 'גודל לוח',
             child: GameChipRow<int>(
-              values: const [4, 5, 6, 7],
+              values: const [3, 4, 5, 6, 7],
               selected: _gridSize,
               labelBuilder: (v) => '$v×$v',
               onSelected: (v) => setState(() => _gridSize = v),
