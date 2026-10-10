@@ -116,11 +116,6 @@ class _RoomLobbyScreenState extends ConsumerState<RoomLobbyScreen> {
         'כניסה ישירה: ${AppLinks.joinRoom(widget.roomCode)}';
   }
 
-  Future<void> _shareWhatsApp() async {
-    final ok = await ShareService.whatsApp(_inviteText);
-    if (!ok && mounted) await ShareService.system(context, text: _inviteText);
-  }
-
   Future<void> _copyLink() async {
     await Clipboard.setData(ClipboardData(text: AppLinks.joinRoom(widget.roomCode)));
     if (mounted) GameToast.show(context, message: 'הקישור לחדר הועתק 🔗', icon: Icons.link_rounded);
@@ -244,7 +239,6 @@ class _RoomLobbyScreenState extends ConsumerState<RoomLobbyScreen> {
                 _RoomCodeCard(
                   roomCode: room.roomCode,
                   onCopy: _copyCode,
-                  onWhatsApp: _shareWhatsApp,
                   onCopyLink: _copyLink,
                   onMore: () => ShareService.system(context, text: _inviteText),
                 ),
@@ -401,14 +395,12 @@ final _sentInvitesProvider = StreamProvider.autoDispose.family<List<GameInvite>,
 class _RoomCodeCard extends StatelessWidget {
   final String roomCode;
   final VoidCallback onCopy;
-  final VoidCallback onWhatsApp;
   final VoidCallback onCopyLink;
   final VoidCallback onMore;
 
   const _RoomCodeCard({
     required this.roomCode,
     required this.onCopy,
-    required this.onWhatsApp,
     required this.onCopyLink,
     required this.onMore,
   });
@@ -454,31 +446,57 @@ class _RoomCodeCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                flex: 3,
                 child: CandyButton(
-                  label: 'וואטסאפ',
-                  icon: Icons.chat_rounded,
-                  palette: const CandyPalette(
-                    top: Color(0xFF5BEA7E),
-                    bottom: Color(0xFF25C254),
-                    lip: Color(0xFF138A37),
-                  ),
-                  height: 48,
-                  fontSize: 16,
-                  onPressed: onWhatsApp,
+                  label: 'שיתוף ההזמנה',
+                  subtitle: 'וואטסאפ, הודעה או כל אפליקציה',
+                  icon: Icons.ios_share_rounded,
+                  palette: CandyPalette.green,
+                  height: 62,
+                  fontSize: 19,
+                  onPressed: onMore,
                 ),
               ),
-              const SizedBox(width: 8),
-              CandyIconButton(icon: Icons.link_rounded, tooltip: 'העתקת קישור', onPressed: onCopyLink),
-              const SizedBox(width: 8),
-              CandyIconButton(icon: Icons.ios_share_rounded, tooltip: 'שיתוף', onPressed: onMore),
+              const SizedBox(width: 10),
+              _LabeledIconAction(icon: Icons.link_rounded, label: 'העתקת קישור', onTap: onCopyLink),
             ],
           ),
         ],
       ),
     ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic);
+  }
+}
+
+/// כפתור עגול קטן עם תווית מתחתיו (למשל "העתקת קישור").
+class _LabeledIconAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _LabeledIconAction({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      semanticLabel: label,
+      child: SizedBox(
+        width: 74,
+        child: Column(
+          children: [
+            IgnorePointer(child: CandyIconButton(icon: icon, size: 48, onPressed: () {})),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5, color: Color(0xFF6B5E8F)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -580,7 +598,7 @@ class _InviteFriendsSheetState extends ConsumerState<_InviteFriendsSheet> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Text(
-                'אין עדיין חברים להזמנה.\nאפשר לשלוח קישור בוואטסאפ ממסך החדר.',
+                'אין עדיין חברים להזמנה.\nאפשר לשלוח הזמנה בכפתור "שיתוף ההזמנה".',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF6B5E8F)),
               ),

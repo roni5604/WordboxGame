@@ -30,6 +30,7 @@ import 'models/race_result.dart';
 import 'models/room_models.dart';
 import 'services/multiplayer_repository.dart';
 import 'widgets/live_scoreboard.dart';
+import '../../core/platform/top_bar_tint.dart';
 
 /// מסך המשחק במצב "משחק מול חברים" - זהה למבנה של [RaceGameScreen] (הלוח,
 /// הטיימר, לוח התוצאות החי) אך במקום בוטים מקומיים, כל השחקנים הם
@@ -336,162 +337,167 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _confirmExit();
       },
-      child: Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+      child: TopBarTint(
+        color: const Color(0xFF6A11CB),
+        child: Scaffold(
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+              ),
             ),
-          ),
-          child: SafeArea(
-            child: session == null
-                ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+            child: SafeArea(
+              child: session == null
+                  ? const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          MascotWidget(mood: MascotMood.idle, size: 100),
+                          SizedBox(height: 16),
+                          CircularProgressIndicator(color: Colors.white),
+                          SizedBox(height: 12),
+                          Text('ממתינים שהמשחק יתחיל...', style: TextStyle(color: Colors.white)),
+                        ],
+                      ),
+                    )
+                  : Column(
                       children: [
-                        MascotWidget(mood: MascotMood.idle, size: 100),
-                        SizedBox(height: 16),
-                        CircularProgressIndicator(color: Colors.white),
-                        SizedBox(height: 12),
-                        Text('ממתינים שהמשחק יתחיל...', style: TextStyle(color: Colors.white)),
-                      ],
-                    ),
-                  )
-                : Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Row(
-                          children: [
-                            CandyIconButton(
-                              icon: Icons.close_rounded,
-                              tooltip: 'יציאה',
-                              size: 42,
-                              onPressed: _confirmExit,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'משחק מול חברים',
-                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
-                                  ),
-                                  if (_room != null && _room!.isSeries)
-                                    Text(
-                                      _room!.roundLabel,
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 12,
-                                      ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Row(
+                            children: [
+                              CandyIconButton(
+                                icon: Icons.close_rounded,
+                                tooltip: 'יציאה',
+                                size: 42,
+                                onPressed: _confirmExit,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'משחק מול חברים',
+                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
                                     ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppColors.accent, width: 2),
-                                boxShadow: [BoxShadow(color: AppColors.accent.withValues(alpha: 0.35), blurRadius: 10)],
-                              ),
-                              child: Text(
-                                '${session.score} נק׳',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                  color: AppColors.accent,
+                                    if (_room != null && _room!.isSeries)
+                                      Text(
+                                        _room!.roundLabel,
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
-                            ),
-                          ],
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: AppColors.accent, width: 2),
+                                  boxShadow: [
+                                    BoxShadow(color: AppColors.accent.withValues(alpha: 0.35), blurRadius: 10),
+                                  ],
+                                ),
+                                child: Text(
+                                  '${session.score} נק׳',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: LiveScoreboard(entries: _buildScoreboard()),
-                      ),
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: TimerBar(
-                          progress: _room == null
-                              ? 0
-                              : _remaining.inMilliseconds / (Duration(seconds: _room!.roundSeconds).inMilliseconds),
-                          urgent: _room != null && _remaining.inSeconds < (_room!.roundSeconds * 0.2),
-                          secondsLeft: _remaining.inSeconds,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: LiveScoreboard(entries: _buildScoreboard()),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      CurrentWordBadge(word: _draggingWord),
-                      const SizedBox(height: 4),
-                      Expanded(
-                        child: Stack(
-                          alignment: Alignment.topCenter,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final side = constraints.maxWidth < constraints.maxHeight
-                                      ? constraints.maxWidth
-                                      : constraints.maxHeight;
-                                  return Center(
-                                    child: SizedBox(
-                                      width: side,
-                                      height: side,
-                                      child: GridBoard(
-                                        key: _boardKey,
-                                        letters: session.board.letters,
-                                        onPathSubmitted: _onPathSubmitted,
-                                        isPathAcceptable: session.wouldAccept,
-                                        onWordChanged: _onWordChanging,
-                                        boardSkin: boardSkin,
-                                        letterSkin: letterSkin,
-                                        markerSkin: markerSkin,
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: TimerBar(
+                            progress: _room == null
+                                ? 0
+                                : _remaining.inMilliseconds / (Duration(seconds: _room!.roundSeconds).inMilliseconds),
+                            urgent: _room != null && _remaining.inSeconds < (_room!.roundSeconds * 0.2),
+                            secondsLeft: _remaining.inSeconds,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        CurrentWordBadge(word: _draggingWord),
+                        const SizedBox(height: 4),
+                        Expanded(
+                          child: Stack(
+                            alignment: Alignment.topCenter,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final side = constraints.maxWidth < constraints.maxHeight
+                                        ? constraints.maxWidth
+                                        : constraints.maxHeight;
+                                    return Center(
+                                      child: SizedBox(
+                                        width: side,
+                                        height: side,
+                                        child: GridBoard(
+                                          key: _boardKey,
+                                          letters: session.board.letters,
+                                          onPathSubmitted: _onPathSubmitted,
+                                          isPathAcceptable: session.wouldAccept,
+                                          onWordChanged: _onWordChanging,
+                                          boardSkin: boardSkin,
+                                          letterSkin: letterSkin,
+                                          markerSkin: markerSkin,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              if (_bannerText != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: _bannerIsError ? AppColors.error : Colors.white,
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                                    ),
+                                    child: Text(
+                                      _bannerText!,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15,
+                                        color: _bannerIsError ? Colors.white : AppColors.success,
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
-                            ),
-                            if (_bannerText != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: _bannerIsError ? AppColors.error : Colors.white,
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
-                                  ),
-                                  child: Text(
-                                    _bannerText!,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 15,
-                                      color: _bannerIsError ? Colors.white : AppColors.success,
-                                    ),
-                                  ),
-                                ).animate(key: ValueKey(_bannerText)).fadeIn().moveY(begin: 10, end: 0),
-                              ),
-                          ],
+                                  ).animate(key: ValueKey(_bannerText)).fadeIn().moveY(begin: 10, end: 0),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: FoundWordsPanel(
-                          words: session.foundNormalizedWords.map((w) => HebrewTrie.toDisplayWord(w)).toList(),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: FoundWordsPanel(
+                            words: session.foundNormalizedWords.map((w) => HebrewTrie.toDisplayWord(w)).toList(),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  ),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),

@@ -11,6 +11,7 @@ import '../../data/models/auth_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../core/ui/candy_button.dart';
+import '../../core/platform/top_bar_tint.dart';
 
 /// מסך התחברות/הרשמה: Google, Apple, Facebook, מייל+סיסמה, או המשך
 /// כאורח/ת. נגיש דרך מסך הפרופיל. עובד תמיד (גם בלי Firebase מוגדר) -
@@ -71,22 +72,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         await _completeInitialAuth();
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppColors.success,
-          content: Text('התחברתם בהצלחה! 🎉'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(backgroundColor: AppColors.success, content: Text('התחברתם בהצלחה! 🎉')));
     } on AuthException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: AppColors.error, content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: AppColors.error, content: Text(e.message)));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: AppColors.error, content: Text('שגיאה: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(backgroundColor: AppColors.error, content: Text('שגיאה: $e')));
     } finally {
       if (mounted) setState(() => _busyAction = null);
     }
@@ -99,164 +95,167 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final user = authAsync.valueOrNull;
     final isRealAccount = user != null && !user.isAnonymous;
 
-    return Scaffold(
-      backgroundColor: AppColors.primaryDark,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.primaryDark, AppColors.primary],
+    return TopBarTint(
+      color: AppColors.primaryDark,
+      child: Scaffold(
+        backgroundColor: AppColors.primaryDark,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AppColors.primaryDark, AppColors.primary],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            children: [
-              if (!widget.isInitial)
-                Row(
-                  children: [
-                    CandyIconButton(
-                      icon: Icons.arrow_back_rounded,
-                      tooltip: 'חזרה',
-                      onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
-                    ),
-                    const Spacer(),
-                  ],
-                )
-              else
-                const SizedBox(height: 12),
-              const SizedBox(height: 4),
-              Center(
-                child: Image.asset('assets/avatar/detective_explain.png', height: 130)
-                    .animate()
-                    .fadeIn()
-                    .scale(begin: const Offset(0.85, 0.85)),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'התחברות ויצירת חשבון',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'התחברו כדי לשמור את ההתקדמות שלכם בענן ולשחק מכל מכשיר -\n'
-                'או פשוט המשיכו כאורח/ת בלי שום התחייבות.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
-              ),
-              const SizedBox(height: 28),
-              if (isRealAccount) ...[
-                _AccountCard(user: user, onSignOut: () => _run('signout', () async {
-                      await repo.signOut();
-                      return await repo.signInAsGuest();
-                    })),
-                const SizedBox(height: 20),
-              ] else ...[
-                _AuthButton(
-                  label: 'המשך עם Google',
-                  icon: Icons.g_mobiledata_rounded,
-                  iconColor: const Color(0xFFEA4335),
-                  background: Colors.white,
-                  foreground: AppColors.textDark,
-                  busy: _busyAction == 'google',
-                  onTap: () => _run('google', repo.signInWithGoogle),
-                ),
-                const SizedBox(height: 12),
-                if (_appleAvailable) ...[
-                  _AuthButton(
-                    label: 'המשך עם Apple',
-                    icon: Icons.apple_rounded,
-                    iconColor: Colors.white,
-                    background: Colors.black,
-                    foreground: Colors.white,
-                    busy: _busyAction == 'apple',
-                    onTap: () => _run('apple', repo.signInWithApple),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                _AuthButton(
-                  label: 'המשך עם Facebook',
-                  icon: Icons.facebook_rounded,
-                  iconColor: Colors.white,
-                  background: const Color(0xFF1877F2),
-                  foreground: Colors.white,
-                  busy: _busyAction == 'facebook',
-                  onTap: () => _run('facebook', repo.signInWithFacebook),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.3))),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10),
-                      child: Text('או', style: TextStyle(color: Colors.white70)),
-                    ),
-                    Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.3))),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (!_showEmailForm)
-                  _AuthButton(
-                    label: 'התחברות עם מייל וסיסמה',
-                    icon: Icons.email_rounded,
-                    iconColor: AppColors.primary,
-                    background: Colors.white,
-                    foreground: AppColors.textDark,
-                    busy: false,
-                    onTap: () => setState(() => _showEmailForm = true),
+          child: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              children: [
+                if (!widget.isInitial)
+                  Row(
+                    children: [
+                      CandyIconButton(
+                        icon: Icons.arrow_back_rounded,
+                        tooltip: 'חזרה',
+                        onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+                      ),
+                      const Spacer(),
+                    ],
                   )
                 else
-                  _EmailForm(
-                    mode: _emailMode,
-                    nameController: _nameController,
-                    emailController: _emailController,
-                    passwordController: _passwordController,
-                    busy: _busyAction == 'email',
-                    onToggleMode: () => setState(() {
-                      _emailMode = _emailMode == _EmailMode.signIn
-                          ? _EmailMode.register
-                          : _EmailMode.signIn;
-                    }),
-                    onSubmit: () {
-                      final email = _emailController.text.trim();
-                      final password = _passwordController.text;
-                      final name = _nameController.text.trim();
-                      if (email.isEmpty || password.isEmpty) return;
-                      _run('email', () {
-                        if (_emailMode == _EmailMode.register) {
-                          return repo.registerWithEmail(
-                            email: email,
-                            password: password,
-                            displayName: name.isEmpty ? 'שחקן/ית' : name,
-                          );
-                        }
-                        return repo.signInWithEmail(email: email, password: password);
-                      });
-                    },
-                  ),
+                  const SizedBox(height: 12),
+                const SizedBox(height: 4),
+                Center(
+                  child: Image.asset(
+                    'assets/avatar/detective_explain.png',
+                    height: 130,
+                  ).animate().fadeIn().scale(begin: const Offset(0.85, 0.85)),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'התחברות ויצירת חשבון',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'התחברו כדי לשמור את ההתקדמות שלכם בענן ולשחק מכל מכשיר -\n'
+                  'או פשוט המשיכו כאורח/ת בלי שום התחייבות.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+                ),
                 const SizedBox(height: 28),
-              ],
-              Center(
-                child: TextButton(
-                  onPressed: _busyAction != null
-                      ? null
-                      : () {
-                          if (widget.isInitial) {
-                            _run('guest', repo.signInAsGuest);
-                          } else {
-                            context.pop();
+                if (isRealAccount) ...[
+                  _AccountCard(
+                    user: user,
+                    onSignOut: () => _run('signout', () async {
+                      await repo.signOut();
+                      return await repo.signInAsGuest();
+                    }),
+                  ),
+                  const SizedBox(height: 20),
+                ] else ...[
+                  _AuthButton(
+                    label: 'המשך עם Google',
+                    icon: Icons.g_mobiledata_rounded,
+                    iconColor: const Color(0xFFEA4335),
+                    background: Colors.white,
+                    foreground: AppColors.textDark,
+                    busy: _busyAction == 'google',
+                    onTap: () => _run('google', repo.signInWithGoogle),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_appleAvailable) ...[
+                    _AuthButton(
+                      label: 'המשך עם Apple',
+                      icon: Icons.apple_rounded,
+                      iconColor: Colors.white,
+                      background: Colors.black,
+                      foreground: Colors.white,
+                      busy: _busyAction == 'apple',
+                      onTap: () => _run('apple', repo.signInWithApple),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  _AuthButton(
+                    label: 'המשך עם Facebook',
+                    icon: Icons.facebook_rounded,
+                    iconColor: Colors.white,
+                    background: const Color(0xFF1877F2),
+                    foreground: Colors.white,
+                    busy: _busyAction == 'facebook',
+                    onTap: () => _run('facebook', repo.signInWithFacebook),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.3))),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Text('או', style: TextStyle(color: Colors.white70)),
+                      ),
+                      Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.3))),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (!_showEmailForm)
+                    _AuthButton(
+                      label: 'התחברות עם מייל וסיסמה',
+                      icon: Icons.email_rounded,
+                      iconColor: AppColors.primary,
+                      background: Colors.white,
+                      foreground: AppColors.textDark,
+                      busy: false,
+                      onTap: () => setState(() => _showEmailForm = true),
+                    )
+                  else
+                    _EmailForm(
+                      mode: _emailMode,
+                      nameController: _nameController,
+                      emailController: _emailController,
+                      passwordController: _passwordController,
+                      busy: _busyAction == 'email',
+                      onToggleMode: () => setState(() {
+                        _emailMode = _emailMode == _EmailMode.signIn ? _EmailMode.register : _EmailMode.signIn;
+                      }),
+                      onSubmit: () {
+                        final email = _emailController.text.trim();
+                        final password = _passwordController.text;
+                        final name = _nameController.text.trim();
+                        if (email.isEmpty || password.isEmpty) return;
+                        _run('email', () {
+                          if (_emailMode == _EmailMode.register) {
+                            return repo.registerWithEmail(
+                              email: email,
+                              password: password,
+                              displayName: name.isEmpty ? 'שחקן/ית' : name,
+                            );
                           }
-                        },
-                  child: Text(
-                    isRealAccount ? 'חזרה' : 'המשך כאורח/ת בלי להתחבר',
-                    style: const TextStyle(
-                        color: Colors.white70, fontWeight: FontWeight.w700, fontSize: 14),
+                          return repo.signInWithEmail(email: email, password: password);
+                        });
+                      },
+                    ),
+                  const SizedBox(height: 28),
+                ],
+                Center(
+                  child: TextButton(
+                    onPressed: _busyAction != null
+                        ? null
+                        : () {
+                            if (widget.isInitial) {
+                              _run('guest', repo.signInAsGuest);
+                            } else {
+                              context.pop();
+                            }
+                          },
+                    child: Text(
+                      isRealAccount ? 'חזרה' : 'המשך כאורח/ת בלי להתחבר',
+                      style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700, fontSize: 14),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -271,37 +270,33 @@ class _AccountCard extends StatelessWidget {
   const _AccountCard({required this.user, required this.onSignOut});
 
   String get _providerLabel => switch (user.provider) {
-        AuthProviderType.google => 'Google',
-        AuthProviderType.apple => 'Apple',
-        AuthProviderType.facebook => 'Facebook',
-        AuthProviderType.email => 'מייל וסיסמה',
-        AuthProviderType.guest => 'אורח/ת',
-      };
+    AuthProviderType.google => 'Google',
+    AuthProviderType.apple => 'Apple',
+    AuthProviderType.facebook => 'Facebook',
+    AuthProviderType.email => 'מייל וסיסמה',
+    AuthProviderType.guest => 'אורח/ת',
+  };
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
       child: Column(
         children: [
           CircleAvatar(
             radius: 32,
             backgroundColor: AppColors.primary.withValues(alpha: 0.15),
             backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-            child: user.photoUrl == null
-                ? const Icon(Icons.person_rounded, color: AppColors.primary, size: 32)
-                : null,
+            child: user.photoUrl == null ? const Icon(Icons.person_rounded, color: AppColors.primary, size: 32) : null,
           ),
           const SizedBox(height: 12),
-          Text(user.displayName ?? user.email ?? 'משתמש/ת',
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+          Text(
+            user.displayName ?? user.email ?? 'משתמש/ת',
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          ),
           const SizedBox(height: 4),
-          Text('מחובר/ת עם $_providerLabel',
-              style: const TextStyle(color: Colors.black54, fontSize: 13)),
+          Text('מחובר/ת עם $_providerLabel', style: const TextStyle(color: Colors.black54, fontSize: 13)),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -347,15 +342,14 @@ class _AuthButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (busy)
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2.4, color: foreground),
-                )
+                SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.4, color: foreground))
               else ...[
                 Icon(icon, color: iconColor, size: 22),
                 const SizedBox(width: 10),
-                Text(label, style: TextStyle(color: foreground, fontWeight: FontWeight.w800)),
+                Text(
+                  label,
+                  style: TextStyle(color: foreground, fontWeight: FontWeight.w800),
+                ),
               ],
             ],
           ),
