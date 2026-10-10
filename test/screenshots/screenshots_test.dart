@@ -18,6 +18,7 @@ import 'package:wordbox_hebrew/core/theme/app_colors.dart';
 import 'package:wordbox_hebrew/data/models/level_progress.dart';
 import 'package:wordbox_hebrew/data/models/player_profile.dart';
 import 'package:wordbox_hebrew/data/repositories/progress_repository.dart';
+import 'package:wordbox_hebrew/features/daily/daily_challenge_game_screen.dart';
 import 'package:wordbox_hebrew/features/daily/daily_challenge_screen.dart';
 import 'package:wordbox_hebrew/features/game/game_screen.dart';
 import 'package:wordbox_hebrew/game_engine/daily_challenge.dart';
@@ -372,6 +373,13 @@ void main() {
         ),
     'onboarding': (t) => _shoot(t, 'onboarding', () => const OnboardingScreen(standalone: true)),
     'daily': (t) => _shoot(t, 'daily', () => const DailyChallengeScreen()),
+    'daily_play': (t) => _shoot(
+          t,
+          'daily_play',
+          () => const DailyChallengeGameScreen(),
+          settle: const Duration(seconds: 4),
+          realWaitSeconds: 12,
+        ),
     'daily_done': (t) => _shoot(
           t,
           'daily_done',
