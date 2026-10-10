@@ -20,7 +20,7 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="מצא ת׳מילה - משחק מילים בעברית בסגנון Boggle/Wordbox. חברו אותיות שכנות ומצאו מילים בלוח שגדל משלב לשלב. משחקו של רוני מיכאלי.">
   <meta name="author" content="רוני מיכאלי">
-  <meta name="theme-color" content="#E85D2A">
+  <meta name="theme-color" content="#FF8A3D">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
   <!-- תצוגה מקדימה יפה כשמשתפים קישור בפייסבוק / וואטסאפ -->
@@ -54,7 +54,38 @@
        אותו (lib/core/platform/web_safe_area.dart) כדי שהתוכן יישב באזור הבטוח.
   -->
   <style>
-    html, body { background: #E85D2A; }
+    html, body { background: #FF8A3D; margin: 0; }
+
+    /* מסך טעינה ב-HTML - מוצג מיד, עוד לפני ש-Flutter נטען, ותואם למסך
+       הפתיחה של האפליקציה (lib/features/splash/splash_screen.dart). נעלם
+       בעדינות ברגע ש-Flutter מצייר את הפריים הראשון. */
+    #boot {
+      position: fixed; inset: 0; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(170deg, #FF8A3D 0%, #FF5E7E 55%, #9B5CFF 100%);
+      font-family: -apple-system, "Segoe UI", Heebo, Arial, sans-serif;
+      color: #fff; direction: rtl;
+      transition: opacity .45s ease;
+    }
+    #boot.hide { opacity: 0; pointer-events: none; }
+    #boot .tiles { display: grid; grid-template-columns: repeat(3, 58px); gap: 10px;
+      transform: perspective(600px) rotateX(28deg); margin-bottom: 26px; }
+    #boot .tile { width: 58px; height: 58px; border-radius: 50%; background: #FFD9A0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 30px; font-weight: 900; color: #E23B4E;
+      box-shadow: 0 6px 0 rgba(120,40,40,.18);
+      animation: boot-drop .7s cubic-bezier(.34,1.56,.64,1) both; }
+    #boot .tile.lit { background: #FFE27A; animation: boot-drop .7s cubic-bezier(.34,1.56,.64,1) both, boot-glow 1.6s ease-in-out infinite 1s; }
+    #boot h1 { margin: 0; font-size: 44px; font-weight: 900; text-shadow: 0 5px 0 rgba(180,50,31,.9); }
+    #boot p { margin: 4px 0 26px; font-weight: 700; opacity: .9; }
+    #boot .bar { width: 62%; max-width: 280px; height: 10px; border-radius: 8px; overflow: hidden;
+      background: rgba(0,0,0,.18); border: 1.5px solid rgba(255,255,255,.5); }
+    #boot .bar i { display: block; height: 100%; width: 40%; border-radius: 8px;
+      background: linear-gradient(90deg, #FFE27A, #FFB700); animation: boot-bar 1.3s ease-in-out infinite; }
+    @keyframes boot-drop { from { transform: translateY(-80px); opacity: 0; } to { transform: none; opacity: 1; } }
+    @keyframes boot-glow { 50% { transform: scale(1.08); box-shadow: 0 0 22px rgba(255,226,122,.9); } }
+    @keyframes boot-bar { 0% { transform: translateX(160%); } 100% { transform: translateX(-260%); } }
+    @media (prefers-reduced-motion: reduce) { #boot * { animation: none !important; } }
     #safe-area-probe {
       position: fixed; top: 0; left: 0; width: 0; height: 0;
       visibility: hidden; pointer-events: none;
@@ -171,6 +202,24 @@
 </head>
 <body dir="rtl">
   <div id="safe-area-probe"></div>
+  <div id="boot" aria-label="טוען את מצא ת׳מילה">
+    <div class="tiles">
+      <div class="tile lit" style="animation-delay:.05s">מ</div><div class="tile" style="animation-delay:.1s">צ</div><div class="tile" style="animation-delay:.15s">א</div>
+      <div class="tile" style="animation-delay:.2s">ת</div><div class="tile lit" style="animation-delay:.25s">י</div><div class="tile lit" style="animation-delay:.3s">ל</div>
+      <div class="tile" style="animation-delay:.35s">ש</div><div class="tile" style="animation-delay:.4s">ב</div><div class="tile lit" style="animation-delay:.45s">ה</div>
+    </div>
+    <h1>מצא ת׳מילה</h1>
+    <p>משחקו של רוני מיכאלי</p>
+    <div class="bar"><i></i></div>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var boot = document.getElementById('boot');
+      if (!boot) return;
+      boot.classList.add('hide');
+      setTimeout(function () { boot.remove(); }, 600);
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
