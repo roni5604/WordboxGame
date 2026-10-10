@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wordbox_hebrew/game_engine/input/swipe_path_tracker.dart';
