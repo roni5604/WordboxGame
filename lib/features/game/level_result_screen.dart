@@ -27,13 +27,14 @@ import 'widgets/mascot_widget.dart';
 class _CelebrationCharacter extends StatelessWidget {
   final int stars;
   final bool isBigCelebration;
+  final double scale;
 
-  const _CelebrationCharacter({required this.stars, this.isBigCelebration = false});
+  const _CelebrationCharacter({required this.stars, this.isBigCelebration = false, this.scale = 1});
 
   @override
   Widget build(BuildContext context) {
     if (stars >= 2 || isBigCelebration) {
-      return Image.asset('assets/avatar/detective_celebrate.png', height: isBigCelebration ? 170 : 130)
+      return Image.asset('assets/avatar/detective_celebrate.png', height: (isBigCelebration ? 170 : 130) * scale)
           .animate(onPlay: (c) => c.repeat(reverse: true))
           .scaleXY(
             begin: 1,
@@ -43,7 +44,7 @@ class _CelebrationCharacter extends StatelessWidget {
           );
     }
     final mood = stars == 1 ? MascotMood.happy : MascotMood.sad;
-    return MascotWidget(mood: mood, size: 110);
+    return MascotWidget(mood: mood, size: 110 * scale);
   }
 }
 
@@ -414,6 +415,10 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
             ),
             LayoutBuilder(
               builder: (context, constraints) {
+                // מסך נמוך (iPhone SE / אנדרואיד קטן): הדמות והכוכבים קטנים
+                // יותר, כך שהכרטיס וכפתור השיתוף נראים בלי לגלול.
+                final compact = constraints.maxHeight < 600;
+                final s = constraints.maxHeight < 500 ? 0.58 : (compact ? 0.72 : 1.0);
                 return SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   child: ConstrainedBox(
@@ -428,9 +433,9 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                                     ? 'סיימת לפני הזמן! 🎉'
                                     : (passed ? (result.stars >= 3 ? 'מושלם!' : 'כל הכבוד!') : 'כמעט הצלחת!'),
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 34,
+                                  fontSize: compact ? 30 : 34,
                                   fontWeight: FontWeight.w900,
                                   shadows: [Shadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 3))],
                                 ),
@@ -442,8 +447,8 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                             const SizedBox(height: 10),
                             _EarlyFinishBadge(secondsLeft: result.secondsLeftWhenFinished),
                           ],
-                          const SizedBox(height: 8),
-                          _CelebrationCharacter(stars: result.stars, isBigCelebration: result.isWorldFinale),
+                          SizedBox(height: compact ? 2 : 8),
+                          _CelebrationCharacter(stars: result.stars, isBigCelebration: result.isWorldFinale, scale: s),
                           if (result.isWorldFinale) ...[
                             const SizedBox(height: 14),
                             _MilestoneBanner(
@@ -456,9 +461,9 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                             const SizedBox(height: 14),
                             const _MasterBanner(),
                           ],
-                          const SizedBox(height: 14),
-                          _StarsArc(stars: result.stars),
-                          const SizedBox(height: 18),
+                          SizedBox(height: compact ? 8 : 14),
+                          _StarsArc(stars: result.stars, scale: s),
+                          SizedBox(height: compact ? 10 : 18),
                           _ResultCard(
                             result: result,
                             scoreRequired: config.scoreRequired,
@@ -507,7 +512,8 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
 /// הרגע הכי "מתגמל" במסך התוצאות.
 class _StarsArc extends StatelessWidget {
   final int stars;
-  const _StarsArc({required this.stars});
+  final double scale;
+  const _StarsArc({required this.stars, this.scale = 1});
 
   @override
   Widget build(BuildContext context) {
@@ -539,7 +545,13 @@ class _StarsArc extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
-      children: [star(0, 62, 0), const SizedBox(width: 6), star(1, 80, 14), const SizedBox(width: 6), star(2, 62, 0)],
+      children: [
+        star(0, 62 * scale, 0),
+        const SizedBox(width: 6),
+        star(1, 80 * scale, 14 * scale),
+        const SizedBox(width: 6),
+        star(2, 62 * scale, 0),
+      ],
     );
   }
 }

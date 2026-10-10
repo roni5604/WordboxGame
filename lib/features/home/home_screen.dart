@@ -112,6 +112,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               builder: (context, constraints) {
                 final topInset = context.safeTop;
                 final bottomInset = context.safeBottom(min: 20, extra: 14);
+                // טלפונים נמוכים (iPhone SE/8, אנדרואיד קטן): מקטינים את הדמות,
+                // לוח ההדגמה והכותרת כך שכל המסך - כולל שורת הקיצורים
+                // התחתונה - נכנס בלי גלילה.
+                final usable = constraints.maxHeight - topInset - bottomInset;
+                final compact = usable < 720;
+                final tight = usable < 640;
                 return SingleChildScrollView(
                   padding: EdgeInsets.only(top: topInset, bottom: bottomInset),
                   child: ConstrainedBox(
@@ -204,7 +210,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             const SizedBox(height: 4),
                             AnimatedAvatar(
                                   avatarId: profile.avatarId,
-                                  size: 118,
+                                  size: tight ? 74 : (compact ? 88 : 118),
                                   photoUrl: authUser?.photoUrl,
                                 )
                                 .animate(onPlay: (c) => c.repeat(reverse: true))
@@ -214,18 +220,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   duration: 1600.ms,
                                   curve: Curves.easeInOut,
                                 ),
-                            const SizedBox(height: 8),
-                            const AnimatedMiniGridDemo(
-                              letters: ['ל', 'ב', 'י', 'ז', 'ת', 'ק'],
+                            SizedBox(height: compact ? 4 : 8),
+                            AnimatedMiniGridDemo(
+                              letters: const ['ל', 'ב', 'י', 'ז', 'ת', 'ק'],
                               columns: 3,
-                              path: [1, 2, 4],
+                              path: const [1, 2, 4],
+                              tileSize: tight ? 40 : (compact ? 46 : 56),
+                              spacing: compact ? 9 : 12,
                             ).animate().fadeIn(delay: 150.ms),
-                            const SizedBox(height: 8),
+                            SizedBox(height: compact ? 4 : 8),
                             Text(
                               'מצא ת׳מילה',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 40,
+                                fontSize: compact ? 34 : 40,
                                 fontWeight: FontWeight.w900,
                                 height: 1.1,
                                 shadows: [
@@ -253,7 +261,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                              padding: EdgeInsets.fromLTRB(20, compact ? 10 : 16, 20, 4),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -264,14 +272,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                             : null,
                                         icon: Icons.play_arrow_rounded,
                                         palette: CandyPalette.green,
-                                        height: 74,
-                                        fontSize: 24,
+                                        height: compact ? 66 : 74,
+                                        fontSize: compact ? 22 : 24,
                                         onPressed: () => context.push('/campaign'),
                                       )
                                       .animate()
                                       .fadeIn(delay: 100.ms)
                                       .slideY(begin: 0.25, end: 0, curve: Curves.easeOutBack),
-                                  const SizedBox(height: 14),
+                                  SizedBox(height: compact ? 10 : 14),
                                   Row(
                                         children: [
                                           Expanded(
@@ -280,7 +288,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                               label: 'שחק נגד המחשב',
                                               subtitle: 'תחרות מול יריבים ממוחשבים',
                                               palette: CandyPalette.blue,
-                                              height: 128,
+                                              height: compact ? 112 : 128,
                                               onPressed: () => context.push('/multiplayer/setup'),
                                             ),
                                           ),
@@ -293,7 +301,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                                   ? '$onlineFriends חברים מחוברים'
                                                   : 'חדר פרטי בזמן אמת',
                                               palette: CandyPalette.purple,
-                                              height: 128,
+                                              height: compact ? 112 : 128,
                                               badgeCount: incomingRequests,
                                               onPressed: () => context.push('/play/friends'),
                                             ),
@@ -303,7 +311,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       .animate()
                                       .fadeIn(delay: 200.ms)
                                       .slideY(begin: 0.25, end: 0, curve: Curves.easeOutBack),
-                                  const SizedBox(height: 16),
+                                  SizedBox(height: compact ? 10 : 16),
                                   Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                         children: [

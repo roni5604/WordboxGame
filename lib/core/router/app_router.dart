@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../platform/top_bar_tint.dart';
 import '../../features/auth/auth_screen.dart';
 import '../../features/daily/daily_challenge_game_screen.dart';
 import '../../features/daily/daily_challenge_screen.dart';
@@ -49,6 +50,8 @@ final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 final appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: '/',
+  // באתר: הפס העליון של הדפדפן מוחשך כשנפתח דיאלוג (ראו top_bar_tint.dart).
+  observers: [TopTintObserver()],
   routes: [
     GoRoute(path: '/', pageBuilder: (context, state) => gamePage(state, const SplashScreen())),
     GoRoute(
