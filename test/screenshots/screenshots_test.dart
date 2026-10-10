@@ -11,13 +11,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wordbox_hebrew/core/audio/sound_service.dart';
 import 'package:wordbox_hebrew/core/router/transitions.dart';
+import 'package:wordbox_hebrew/providers/sound_provider.dart';
 import 'package:wordbox_hebrew/core/theme/app_colors.dart';
 import 'package:wordbox_hebrew/data/models/level_progress.dart';
 import 'package:wordbox_hebrew/data/models/player_profile.dart';
 import 'package:wordbox_hebrew/data/repositories/progress_repository.dart';
 import 'package:wordbox_hebrew/features/game/game_screen.dart';
 import 'package:wordbox_hebrew/features/game/level_result_screen.dart';
+import 'package:wordbox_hebrew/features/share/share_achievement_sheet.dart';
 import 'package:wordbox_hebrew/features/home/campaign_map_screen.dart';
 import 'package:wordbox_hebrew/features/home/home_screen.dart';
 import 'package:wordbox_hebrew/features/multiplayer/create_room_screen.dart';
@@ -158,6 +161,7 @@ Future<void> _shoot(
       overrides: [
         progressRepositoryProvider.overrideWithValue(_Progress()),
         socialRepositoryProvider.overrideWithValue(social ?? _social()),
+        soundServiceProvider.overrideWithValue(SoundService.silent()),
         if (multiplayer != null) multiplayerRepositoryProvider.overrideWithValue(multiplayer),
       ],
       child: RepaintBoundary(
@@ -309,6 +313,27 @@ void main() {
             ),
           ),
           settle: const Duration(seconds: 3),
+        ),
+    'share_sheet': (t) => _shoot(
+          t,
+          'share_sheet',
+          () => Builder(
+            builder: (context) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                showShareAchievementSheet(
+                  context,
+                  ShareAchievement.level(
+                    levelNumber: 9,
+                    stars: 3,
+                    score: 64,
+                    words: 11,
+                    colors: AppColors.gradientForWorldIndex(0),
+                  ),
+                );
+              });
+              return const SizedBox.expand(child: ColoredBox(color: Colors.orange));
+            },
+          ),
         ),
     'race_result': (t) => _shoot(
           t,

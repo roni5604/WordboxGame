@@ -159,10 +159,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('הסבב הבא 🚀'), findsOneWidget);
+    expect(find.text('הסבב הבא'), findsOneWidget);
     expect(find.text('טבלת האלופים'), findsNothing);
 
-    await tester.tap(find.text('הסבב הבא 🚀'));
+    await tester.tap(find.text('הסבב הבא'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -190,7 +190,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('ממתינים לסבב הבא...'), findsOneWidget);
-    expect(find.text('הסבב הבא 🚀'), findsNothing);
+    expect(find.text('הסבב הבא'), findsNothing);
   });
 
   testWidgets('מציג יחס ניצחונות X : Y כשקיים מונה wins בחדר', (tester) async {
@@ -237,7 +237,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('טבלת האלופים'), findsOneWidget);
-    expect(find.text('הסבב הבא 🚀'), findsNothing);
+    expect(find.text('הסבב הבא'), findsNothing);
     expect(find.textContaining('ניצחונות'), findsWidgets);
   });
 

@@ -50,9 +50,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(tester.takeException(), isNull);
-    expect(find.text('🏆 ניצחת בתחרות!'), findsOneWidget);
+    expect(find.text('ניצחת! 🏆'), findsOneWidget);
     expect(find.text('את/ה (את/ה)'), findsOneWidget);
     expect(find.text('עומר'), findsOneWidget);
     expect(find.text('נועה'), findsOneWidget);
+    // מאפשרים לאנימציות הכניסה המדורגות (פודיום, כפתורים) להסתיים.
+    await tester.pump(const Duration(seconds: 3));
+    expect(tester.takeException(), isNull);
   });
 }

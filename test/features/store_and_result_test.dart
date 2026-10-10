@@ -79,7 +79,7 @@ void main() {
     expect(find.text('מקווקו'), findsOneWidget);
   });
 
-  testWidgets('מסך סיום בלי כוכב: בית, שוב, והשלב הבא כבוי', (tester) async {
+  testWidgets('מסך סיום בלי כוכב: בית, מפה, נסו שוב ודילוג - בלי השלב הבא', (tester) async {
     final router = GoRouter(
       initialLocation: '/result',
       routes: [
@@ -119,18 +119,15 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
 
     expect(find.byIcon(Icons.home_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.map_rounded), findsOneWidget);
     expect(find.byIcon(Icons.replay_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+    expect(find.text('נסו שוב'), findsOneWidget);
     expect(find.text('צריך לפחות כוכב אחד כדי לעבור שלב'), findsOneWidget);
-    expect(find.text('2 מתוך 9'), findsOneWidget);
-
-    expect(find.text('השלב הבא'), findsOneWidget);
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is ButtonStyleButton && widget.onPressed == null,
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('יעד נקודות'), findsOneWidget);
+    expect(find.text('9'), findsOneWidget);
+    expect(find.text('דלגו על השלב'), findsOneWidget);
+    // בלי כוכב אין "השלב הבא" בכלל - הפעולה הראשית היא לנסות שוב.
+    expect(find.text('השלב הבא'), findsNothing);
     expect(CampaignLevels.byLevelNumber(1).scoreRequired, 9);
   });
 }
