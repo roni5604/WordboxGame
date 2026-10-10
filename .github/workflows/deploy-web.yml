@@ -27,7 +27,11 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          # אותה גרסה כמו ב-CI (ci.yml), כדי שגרסת stable חדשה לא תשבור את
+          # הפריסה בלי שהבדיקות ראו אותה קודם.
+          flutter-version: '3.35.5'
           channel: stable
+          cache: true
 
       - name: Install dependencies
         run: flutter pub get
