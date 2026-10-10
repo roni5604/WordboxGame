@@ -48,3 +48,29 @@ bool browserCanShare() {
     return false;
   }
 }
+
+/// האם המסך מתחלף עכשיו בעקבות ניווט של הדפדפן (ראו __wbPop ב-index.html).
+bool isBrowserHistoryNavigation() {
+  try {
+    final last = (globalContext['__wbPop'] as JSNumber?)?.toDartDouble ?? 0;
+    if (last <= 0) return false;
+    return web.window.performance.now() - last < 1200;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// מונה חסימות (כמה מסכי משחק פעילים) - ראו __wbGuard ב-index.html.
+void setBrowserBackGuard(bool enabled) {
+  try {
+    final current = (globalContext['__wbGuard'] as JSNumber?)?.toDartInt ?? 0;
+    final next = enabled ? current + 1 : (current - 1).clamp(0, 1 << 20);
+    globalContext['__wbGuard'] = next.toJS;
+  } catch (_) {}
+}
+
+void Function() onBrowserBackBlocked(void Function() callback) {
+  final listener = ((web.Event _) => callback()).toJS;
+  web.window.addEventListener('wb-back-blocked', listener);
+  return () => web.window.removeEventListener('wb-back-blocked', listener);
+}
