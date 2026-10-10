@@ -214,6 +214,21 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
     return DailyChallengeOutcome(score: score, words: words, streak: streak, coins: coins, newBestStreak: newBest);
   }
 
+  /// מסמן שהתחיל ניסיון באתגר של היום (נקרא כשהשעון מתחיל לרוץ).
+  Future<void> markDailyStarted(DailyChallenge challenge) =>
+      _mutate((c) => c.copyWith(dailyChallengeStartedDate: challenge.dateKey));
+
+  /// ניסיון שהתחיל היום ולא הסתיים (האפליקציה נסגרה באמצע) נרשם כ-0, כדי
+  /// שאי אפשר יהיה לנסות שוב. מחזיר true אם נרשם כזה ניסיון עכשיו.
+  Future<bool> forfeitAbandonedDaily(DailyChallenge challenge, {DateTime? now}) async {
+    final current = await ensureLoaded();
+    if (current.dailyChallengeStartedDate != challenge.dateKey || current.playedDailyOn(challenge.dateKey)) {
+      return false;
+    }
+    await recordDailyChallenge(challenge: challenge, score: 0, words: 0, now: now);
+    return true;
+  }
+
   Future<void> resetProgress() async {
     await _mutate((_) => const PlayerProfile());
   }

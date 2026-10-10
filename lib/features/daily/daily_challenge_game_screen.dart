@@ -61,9 +61,12 @@ class _DailyChallengeGameScreenState extends ConsumerState<DailyChallengeGameScr
   }
 
   Future<void> _init() async {
-    final profile = await ref.read(playerProfileProvider.notifier).ensureLoaded();
+    final notifier = ref.read(playerProfileProvider.notifier);
+    await notifier.forfeitAbandonedDaily(_challenge);
+    final profile = await notifier.ensureLoaded();
     if (!mounted) return;
-    // כבר שוחק היום (למשל חזרה בכפתור "אחורה" של הדפדפן) - חוזרים למסך האתגר.
+    // כבר שוחק היום (למשל חזרה בכפתור "אחורה" של הדפדפן, או ניסיון שננטש
+    // באמצע) - חוזרים למסך האתגר.
     if (profile.playedDailyOn(_challenge.dateKey)) {
       context.go('/daily');
       return;
@@ -106,6 +109,7 @@ class _DailyChallengeGameScreenState extends ConsumerState<DailyChallengeGameScr
   void _onCountdownDone() {
     if (!mounted) return;
     setState(() => _countingDown = false);
+    ref.read(playerProfileProvider.notifier).markDailyStarted(_challenge);
     _startTimer();
   }
 

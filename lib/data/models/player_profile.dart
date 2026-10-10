@@ -63,6 +63,10 @@ class PlayerProfile extends Equatable {
   final int dailyChallengeStreak;
   final int dailyChallengeBestStreak;
 
+  /// התאריך שבו התחיל ניסיון אתגר יומי. אם התחיל ולא נרשם (האפליקציה
+  /// נסגרה באמצע) - הניסיון נחשב שנוצל, כדי שאי אפשר יהיה "לנסות שוב".
+  final String? dailyChallengeStartedDate;
+
   const PlayerProfile({
     this.levelProgress = const {},
     this.coins = 0,
@@ -89,6 +93,7 @@ class PlayerProfile extends Equatable {
     this.dailyChallengeWords = 0,
     this.dailyChallengeStreak = 0,
     this.dailyChallengeBestStreak = 0,
+    this.dailyChallengeStartedDate,
   });
 
   /// האם האתגר של [dateKey] כבר שוחק.
@@ -127,6 +132,7 @@ class PlayerProfile extends Equatable {
     int? dailyChallengeWords,
     int? dailyChallengeStreak,
     int? dailyChallengeBestStreak,
+    String? dailyChallengeStartedDate,
   }) {
     return PlayerProfile(
       levelProgress: levelProgress ?? this.levelProgress,
@@ -155,6 +161,7 @@ class PlayerProfile extends Equatable {
       dailyChallengeWords: dailyChallengeWords ?? this.dailyChallengeWords,
       dailyChallengeStreak: dailyChallengeStreak ?? this.dailyChallengeStreak,
       dailyChallengeBestStreak: dailyChallengeBestStreak ?? this.dailyChallengeBestStreak,
+      dailyChallengeStartedDate: dailyChallengeStartedDate ?? this.dailyChallengeStartedDate,
     );
   }
 
@@ -196,5 +203,6 @@ class PlayerProfile extends Equatable {
         dailyChallengeWords,
         dailyChallengeStreak,
         dailyChallengeBestStreak,
+        dailyChallengeStartedDate,
       ];
 }

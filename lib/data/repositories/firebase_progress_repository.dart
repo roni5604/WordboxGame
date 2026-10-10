@@ -86,6 +86,7 @@ class FirebaseProgressRepository implements ProgressRepository {
       dailyChallengeWords: (data['dailyChallengeWords'] as num?)?.toInt() ?? 0,
       dailyChallengeStreak: (data['dailyChallengeStreak'] as num?)?.toInt() ?? 0,
       dailyChallengeBestStreak: (data['dailyChallengeBestStreak'] as num?)?.toInt() ?? 0,
+      dailyChallengeStartedDate: data['dailyChallengeStartedDate'] as String?,
     );
   }
 
@@ -127,6 +128,7 @@ class FirebaseProgressRepository implements ProgressRepository {
       'dailyChallengeWords': profile.dailyChallengeWords,
       'dailyChallengeStreak': profile.dailyChallengeStreak,
       'dailyChallengeBestStreak': profile.dailyChallengeBestStreak,
+      'dailyChallengeStartedDate': profile.dailyChallengeStartedDate,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

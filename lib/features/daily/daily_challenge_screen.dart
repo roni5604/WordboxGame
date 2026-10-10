@@ -47,6 +47,10 @@ class _DailyChallengeScreenState extends ConsumerState<DailyChallengeScreen> {
     _clock = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
+    // ניסיון שננטש באמצע (האפליקציה נסגרה) נרשם כנוצל.
+    if (widget.args?.outcome == null) {
+      ref.read(playerProfileProvider.notifier).forfeitAbandonedDaily(DailyChallenge.forDate(DateTime.now()));
+    }
     if (widget.args?.outcome != null) {
       Future.delayed(const Duration(milliseconds: 350), () {
         if (mounted) _confetti.play();

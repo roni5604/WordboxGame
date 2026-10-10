@@ -66,4 +66,20 @@ void main() {
     expect(again, isNull, reason: 'only the first attempt of the day counts');
     expect(repo.profile.dailyChallengeScore, 40);
   });
+
+  test('an attempt abandoned mid-game counts as used (score 0) - no retry', () async {
+    final repo = _Memory(const PlayerProfile());
+    final notifier = PlayerProfileNotifier(repo);
+    await notifier.ensureLoaded();
+    final today = DateTime(2026, 10, 12, 10);
+    final challenge = DailyChallenge.forDate(today);
+
+    expect(await notifier.forfeitAbandonedDaily(challenge, now: today), isFalse, reason: 'nothing started yet');
+    await notifier.markDailyStarted(challenge);
+    // האפליקציה "נסגרה" באמצע - בכניסה הבאה הניסיון נרשם כ-0.
+    expect(await notifier.forfeitAbandonedDaily(challenge, now: today), isTrue);
+    expect(repo.profile.playedDailyOn('2026-10-12'), isTrue);
+    expect(repo.profile.dailyChallengeScore, 0);
+    expect(await notifier.recordDailyChallenge(challenge: challenge, score: 80, words: 12, now: today), isNull);
+  });
 }

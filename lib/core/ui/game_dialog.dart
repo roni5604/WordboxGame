@@ -205,8 +205,8 @@ Future<bool> showConfirmDialog(
 }
 
 /// הודעה צפה קצרה מלמעלה (בסגנון התראות משחק) - לא חוסמת את המסך.
-/// נכנסת בקפיץ ויוצאת בהחלקה למעלה; אפשר להחליק אותה למעלה כדי לסגור,
-/// ואם יש [onTap] - לחיצה עליה מבצעת פעולה (למשל "פתיחת בקשות החברות").
+/// נכנסת בקפיץ ויוצאת בהחלקה למעלה. אם יש [onTap] - לחיצה עליה מבצעת
+/// פעולה (למשל "פתיחת בקשות החברות") ואפשר להחליק אותה למעלה כדי לסגור.
 class GameToast {
   GameToast._();
 
@@ -386,19 +386,22 @@ class _ToastViewState extends State<_ToastView> with SingleTickerProviderStateMi
             child: Transform.translate(offset: Offset(0, -40 * (1 - v) + _drag), child: child),
           );
         },
-        child: GestureDetector(
-          onTap: widget.onTap,
-          // החלקה למעלה סוגרת את ההודעה.
-          onVerticalDragUpdate: (d) => setState(() => _drag = (_drag + d.delta.dy).clamp(-80.0, 12.0)),
-          onVerticalDragEnd: (d) {
-            if (_drag < -24 || d.velocity.pixelsPerSecond.dy < -300) {
-              dismiss(widget.onDismissed);
-            } else {
-              setState(() => _drag = 0);
-            }
-          },
-          child: card,
-        ),
+        // הודעה בלי פעולה לא חוסמת לחיצות על מה שמתחתיה (למשל כפתור
+        // החזרה בכותרת). הודעה עם פעולה - לחיצה מבצעת, והחלקה למעלה סוגרת.
+        child: widget.onTap == null
+            ? IgnorePointer(child: card)
+            : GestureDetector(
+                onTap: widget.onTap,
+                onVerticalDragUpdate: (d) => setState(() => _drag = (_drag + d.delta.dy).clamp(-80.0, 12.0)),
+                onVerticalDragEnd: (d) {
+                  if (_drag < -24 || d.velocity.pixelsPerSecond.dy < -300) {
+                    dismiss(widget.onDismissed);
+                  } else {
+                    setState(() => _drag = 0);
+                  }
+                },
+                child: card,
+              ),
       ),
     );
   }

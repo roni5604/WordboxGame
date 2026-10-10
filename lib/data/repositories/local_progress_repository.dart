@@ -80,6 +80,7 @@ class LocalProgressRepository implements ProgressRepository {
       dailyChallengeWords: box.get('daily_challenge_words', defaultValue: 0) as int,
       dailyChallengeStreak: box.get('daily_challenge_streak', defaultValue: 0) as int,
       dailyChallengeBestStreak: box.get('daily_challenge_best_streak', defaultValue: 0) as int,
+      dailyChallengeStartedDate: box.get('daily_challenge_started_date') as String?,
     );
   }
 
@@ -126,6 +127,7 @@ class LocalProgressRepository implements ProgressRepository {
       'daily_challenge_words': profile.dailyChallengeWords,
       'daily_challenge_streak': profile.dailyChallengeStreak,
       'daily_challenge_best_streak': profile.dailyChallengeBestStreak,
+      'daily_challenge_started_date': profile.dailyChallengeStartedDate,
     });
   }
 }
