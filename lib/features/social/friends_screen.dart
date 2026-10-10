@@ -120,7 +120,7 @@ class _MyCard extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(26),
@@ -134,7 +134,7 @@ class _MyCard extends ConsumerWidget {
                   avatarId: profile?.avatarId ?? 'detective',
                   photoUrl: auth?.photoUrl,
                   status: PresenceStatus.online,
-                  size: 62,
+                  size: 54,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -151,85 +151,96 @@ class _MyCard extends ConsumerWidget {
                               child: Text(
                                 profile?.displayName ?? '',
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.textDark),
+                                style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.textDark),
                               ),
                             ),
                             const SizedBox(width: 6),
-                            const Icon(Icons.edit_rounded, size: 18, color: Color(0xFF9D8FC4)),
+                            const Icon(Icons.edit_rounded, size: 17, color: Color(0xFF9D8FC4)),
                           ],
                         ),
                       ),
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          const Icon(Icons.star_rounded, color: AppColors.star, size: 18),
+                          const Icon(Icons.star_rounded, color: AppColors.star, size: 17),
                           const SizedBox(width: 3),
-                          Text(
-                            '${profile?.totalStars ?? 0} כוכבים · שלב ${profile?.highestUnlockedLevel ?? 1}',
-                            style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF6B5E8F)),
+                          Flexible(
+                            child: Text(
+                              '${profile?.totalStars ?? 0} כוכבים · שלב ${profile?.highestUnlockedLevel ?? 1}',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF6B5E8F), fontSize: 13),
+                            ),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 122,
+                  child: CandyButton(
+                    label: 'הוספה',
+                    icon: Icons.person_add_alt_1_rounded,
+                    palette: CandyPalette.purple,
+                    height: 44,
+                    fontSize: 15,
+                    radius: 16,
+                    onPressed: () => showAddFriendDialog(context),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+              padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
               decoration: BoxDecoration(
                 color: const Color(0xFFF4EFFF),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFDCD0FF), width: 1.5),
               ),
               child: Row(
                 children: [
+                  const Text(
+                    'הקוד שלי',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF7B6CA8)),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('קוד החבר שלי', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF7B6CA8))),
-                        Directionality(
-                          textDirection: TextDirection.ltr,
-                          child: Text(
-                            code,
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 4,
-                              color: Color(0xFF5B2EC9),
-                            ),
+                    child: Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          code,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 3,
+                            color: Color(0xFF5B2EC9),
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                  CandyIconButton(
-                    icon: Icons.copy_rounded,
-                    size: 40,
-                    tooltip: 'העתקה',
-                    onPressed: uid == null ? null : () => SocialActions.copyFriendCode(context, code),
                   ),
                   const SizedBox(width: 8),
                   CandyIconButton(
+                    icon: Icons.copy_rounded,
+                    size: 38,
+                    tooltip: 'העתקה',
+                    onPressed: uid == null ? null : () => SocialActions.copyFriendCode(context, code),
+                  ),
+                  const SizedBox(width: 6),
+                  CandyIconButton(
                     icon: Icons.share_rounded,
-                    size: 40,
+                    size: 38,
                     palette: CandyPalette.green,
                     tooltip: 'שליחה בוואטסאפ',
                     onPressed: uid == null ? null : () => SocialActions.shareMyFriendCode(context, ref),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 12),
-            CandyButton(
-              label: 'הוספת חבר',
-              icon: Icons.person_add_alt_1_rounded,
-              palette: CandyPalette.purple,
-              height: 52,
-              fontSize: 18,
-              onPressed: () => showAddFriendDialog(context),
             ),
             if (isGuest) ...[
               const SizedBox(height: 10),
@@ -380,8 +391,13 @@ class _FriendsTab extends ConsumerWidget {
             final seenB = b.profile.lastActive ?? DateTime(2000);
             return seenB.compareTo(seenA);
           });
+        final online = [
+          for (final f in sorted)
+            if (f.profile.effectiveStatus(now) == PresenceStatus.online) f,
+        ];
         return Column(
           children: [
+            if (online.length >= 2) _OnlineNowStrip(friends: online),
             for (int i = 0; i < sorted.length; i++)
               _FriendTile(entry: sorted[i])
                   .animate()
@@ -391,6 +407,93 @@ class _FriendsTab extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+/// "מחוברים עכשיו": שורת אוואטארים של חברים מחוברים, עם טבעת ירוקה
+/// פועמת - לחיצה פותחת מיד הזמנה למשחק.
+class _OnlineNowStrip extends StatelessWidget {
+  final List<FriendEntry> friends;
+  const _OnlineNowStrip({required this.friends});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: const BoxDecoration(color: Color(0xFF3BE37A), shape: BoxShape.circle),
+              )
+                  .animate(onPlay: (c) => c.repeat(reverse: true))
+                  .fade(begin: 1, end: 0.35, duration: 800.ms),
+              const SizedBox(width: 6),
+              Text(
+                'מחוברים עכשיו (${friends.length})',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
+              ),
+              const Spacer(),
+              Text(
+                'לחצו כדי להזמין',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontWeight: FontWeight.w700, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 78,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: friends.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, i) {
+                final p = friends[i].profile;
+                return Pressable(
+                  onTap: () => SocialActions.inviteToNewRoom(context, uid: p.uid, name: p.displayName),
+                  semanticLabel: 'הזמנת ${p.displayName} למשחק',
+                  child: SizedBox(
+                    width: 60,
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(2.5),
+                          decoration: const BoxDecoration(color: Color(0xFF3BE37A), shape: BoxShape.circle),
+                          child: PresenceAvatar(
+                            avatarId: p.avatarId,
+                            photoUrl: p.photoUrl,
+                            status: PresenceStatus.online,
+                            size: 48,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          p.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ).animate().fadeIn(delay: (60 * i).ms).scale(begin: const Offset(0.6, 0.6), curve: Curves.easeOutBack);
+              },
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 250.ms);
   }
 }
 
@@ -507,21 +610,24 @@ Future<void> _showFriendCard(BuildContext context, FriendEntry entry) {
             Text(p.presenceLabel(), style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF6B5E8F))),
           ],
         ),
-        body: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Row(
-            children: [
-              _StatBox(label: 'כוכבים', value: '${p.totalStars}', icon: Icons.star_rounded, color: AppColors.star),
-              _StatBox(label: 'שלב', value: '${p.highestLevel}', icon: Icons.flag_rounded, color: const Color(0xFF3A7BFF)),
-              _StatBox(label: 'ניצחונות', value: '${p.mpWins}', icon: Icons.emoji_events_rounded, color: const Color(0xFFFF7A45)),
-              _StatBox(
-                label: 'ראש בראש',
-                value: '${r.wins}-${r.losses}',
-                icon: Icons.sports_kabaddi_rounded,
-                color: const Color(0xFF7B3FF2),
+        body: Builder(
+          builder: (context) {
+            final me = ref.watch(playerProfileProvider).valueOrNull;
+            final myStars = me?.totalStars ?? 0;
+            final myLevel = me?.highestUnlockedLevel ?? 1;
+            return Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Column(
+                children: [
+                  _HeadToHead(myWins: r.wins, theirWins: r.losses, games: r.games, theirName: p.displayName),
+                  const SizedBox(height: 12),
+                  _VsRow(label: 'כוכבים', icon: Icons.star_rounded, mine: myStars, theirs: p.totalStars),
+                  _VsRow(label: 'שלב', icon: Icons.flag_rounded, mine: myLevel, theirs: p.highestLevel),
+                  _VsRow(label: 'ניצחונות בתחרויות', icon: Icons.emoji_events_rounded, mine: null, theirs: p.mpWins),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
         actions: [
           CandyButton(
@@ -557,39 +663,166 @@ Future<void> _showFriendCard(BuildContext context, FriendEntry entry) {
   );
 }
 
-class _StatBox extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-  const _StatBox({required this.label, required this.value, required this.icon, required this.color});
+/// מאזן "ראש בראש" גדול: אני מול החבר/ה.
+class _HeadToHead extends StatelessWidget {
+  final int myWins;
+  final int theirWins;
+  final int games;
+  final String theirName;
+
+  const _HeadToHead({required this.myWins, required this.theirWins, required this.games, required this.theirName});
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 3),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 22),
-            FittedBox(
-              child: Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: AppColors.textDark)),
-            ),
-            FittedBox(
-              child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF7B6CA8))),
-            ),
-          ],
-        ),
+    final leading = myWins == theirWins ? null : myWins > theirWins;
+    Widget side(String name, int wins, bool highlight) => Expanded(
+          child: Column(
+            children: [
+              Text(
+                '$wins',
+                style: TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                  color: highlight ? const Color(0xFF33C24D) : const Color(0xFF4A3F6B),
+                ),
+              ),
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF6B5E8F)),
+              ),
+            ],
+          ),
+        );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4EFFF),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'ראש בראש',
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF7B3FF2)),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              side('אני', myWins, leading == true),
+              const Text(':', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFFB9AEDB))),
+              side(theirName, theirWins, leading == false),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            games == 0
+                ? 'עוד לא שיחקתם יחד - זה הזמן להזמין!'
+                : leading == null
+                    ? 'שוויון אחרי $games משחקים'
+                    : leading
+                        ? 'את/ה מוביל/ה אחרי $games משחקים 💪'
+                        : '$theirName מוביל/ה - הגיע הזמן לנקמה!',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF6B5E8F)),
+          ),
+        ],
       ),
     );
   }
 }
 
-// -----------------------------------------------------------------------------
-// טאב הבקשות
-// -----------------------------------------------------------------------------
+/// שורת השוואה "אני מול החבר/ה" עם פס מפוצל: החלק הירוק שלי, הסגול שלו/ה.
+class _VsRow extends StatelessWidget {
+  final String label;
+  final IconData icon;
+
+  /// null = אין נתון מקומי עבורי (מוצג רק הערך של החבר/ה).
+  final int? mine;
+  final int theirs;
+
+  const _VsRow({required this.label, required this.icon, required this.mine, required this.theirs});
+
+  @override
+  Widget build(BuildContext context) {
+    final m = mine;
+    const green = Color(0xFF2FB34A);
+    const purple = Color(0xFF8B5CF6);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 44,
+                child: Text(
+                  m == null ? '' : '$m',
+                  textAlign: TextAlign.start,
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: green),
+                ),
+              ),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 15, color: const Color(0xFF9D8FC4)),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        label,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF4A3F6B)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 44,
+                child: Text(
+                  '$theirs',
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: purple),
+                ),
+              ),
+            ],
+          ),
+          if (m != null) ...[
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                height: 9,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.5, end: (m + theirs) == 0 ? 0.5 : m / (m + theirs)),
+                  duration: const Duration(milliseconds: 700),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, share, _) => Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        flex: (share * 1000).round().clamp(1, 999),
+                        child: const ColoredBox(color: green),
+                      ),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        flex: ((1 - share) * 1000).round().clamp(1, 999),
+                        child: const ColoredBox(color: purple),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 class _RequestsTab extends ConsumerWidget {
   const _RequestsTab({super.key});

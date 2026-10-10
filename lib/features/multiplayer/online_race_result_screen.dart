@@ -57,7 +57,10 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
       if (!mounted) return;
       setState(() => _myUid = uid);
       final room = _room;
-      if (room != null) _maybeAwardPot(room);
+      if (room != null) {
+        _maybeAwardPot(room);
+        _maybeRecordMatch(room);
+      }
     });
     _roomSub = _repo.watchRoom(widget.roomCode).listen(_onRoomUpdate, onError: (_) {});
 
@@ -75,6 +78,7 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
   void _onRoomUpdate(GameRoom room) {
     setState(() => _room = room);
     _maybeAwardPot(room);
+    _maybeRecordMatch(room);
 
     if (_navigatedAway) return;
 
@@ -92,6 +96,21 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
         if (mounted) context.pushReplacement('/multiplayer/online/room/${widget.roomCode}');
       });
     }
+  }
+
+  bool _matchRecorded = false;
+
+  /// רושם את תוצאת הסבב בסטטיסטיקה החברתית: ניצחונות/משחקים בפרופיל
+  /// הציבורי, ומאזן "ראש בראש" מול כל חבר/ה שהשתתף/ה. כל משתתף/ת רושם/ת
+  /// את הצד שלו/ה, פעם אחת לכל מסך תוצאות.
+  void _maybeRecordMatch(GameRoom room) {
+    final myUid = _myUid;
+    if (_matchRecorded || myUid == null || room.status != RoomStatus.finished || room.players.length < 2) return;
+    _matchRecorded = true;
+    final scores = {for (final p in room.players) p.uid: p.score};
+    ref.read(socialRepositoryProvider).recordMatch(scores: scores, myUid: myUid).catchError((Object e) {
+      debugPrint('recordMatch failed: $e');
+    });
   }
 
   List<_Standing> _standingsFor(GameRoom room) {

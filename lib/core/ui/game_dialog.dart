@@ -205,10 +205,13 @@ Future<bool> showConfirmDialog(
 }
 
 /// הודעה צפה קצרה מלמעלה (בסגנון התראות משחק) - לא חוסמת את המסך.
+/// נכנסת בקפיץ ויוצאת בהחלקה למעלה; אפשר להחליק אותה למעלה כדי לסגור,
+/// ואם יש [onTap] - לחיצה עליה מבצעת פעולה (למשל "פתיחת בקשות החברות").
 class GameToast {
   GameToast._();
 
   static OverlayEntry? _current;
+  static GlobalKey<_ToastViewState>? _currentKey;
   static Timer? _timer;
 
   static void show(
@@ -217,71 +220,184 @@ class GameToast {
     IconData icon = Icons.check_circle_rounded,
     Color color = const Color(0xFF33C24D),
     Duration duration = const Duration(milliseconds: 2400),
+    VoidCallback? onTap,
+    String? actionLabel,
   }) {
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
     if (overlay == null) return;
     _timer?.cancel();
     _current?.remove();
-    final entry = OverlayEntry(
-      builder: (context) => _ToastView(message: message, icon: icon, color: color),
-    );
-    _current = entry;
-    overlay.insert(entry);
-    _timer = Timer(duration, () {
+    final key = GlobalKey<_ToastViewState>();
+    late final OverlayEntry entry;
+    void remove() {
       if (_current == entry) {
         entry.remove();
         _current = null;
+        _currentKey = null;
+      }
+    }
+
+    entry = OverlayEntry(
+      builder: (context) => _ToastView(
+        key: key,
+        message: message,
+        icon: icon,
+        color: color,
+        actionLabel: actionLabel,
+        onTap: onTap == null
+            ? null
+            : () {
+                _timer?.cancel();
+                key.currentState?.dismiss(remove);
+                onTap();
+              },
+        onDismissed: remove,
+      ),
+    );
+    _current = entry;
+    _currentKey = key;
+    overlay.insert(entry);
+    _timer = Timer(duration, () {
+      final state = key.currentState;
+      if (state != null) {
+        state.dismiss(remove);
+      } else {
+        remove();
       }
     });
   }
+
+  /// סוגר את ההודעה המוצגת (אם יש) באנימציה.
+  static void hide() {
+    _timer?.cancel();
+    final entry = _current;
+    final state = _currentKey?.currentState;
+    if (entry == null) return;
+    void remove() {
+      if (_current == entry) {
+        entry.remove();
+        _current = null;
+        _currentKey = null;
+      }
+    }
+
+    if (state != null) {
+      state.dismiss(remove);
+    } else {
+      remove();
+    }
+  }
 }
 
-class _ToastView extends StatelessWidget {
+class _ToastView extends StatefulWidget {
   final String message;
   final IconData icon;
   final Color color;
-  const _ToastView({required this.message, required this.icon, required this.color});
+  final VoidCallback? onTap;
+  final String? actionLabel;
+  final VoidCallback onDismissed;
+
+  const _ToastView({
+    super.key,
+    required this.message,
+    required this.icon,
+    required this.color,
+    required this.onDismissed,
+    this.onTap,
+    this.actionLabel,
+  });
+
+  @override
+  State<_ToastView> createState() => _ToastViewState();
+}
+
+class _ToastViewState extends State<_ToastView> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 450),
+    reverseDuration: const Duration(milliseconds: 240),
+  )..forward();
+  double _drag = 0;
+  bool _dismissing = false;
+
+  void dismiss(VoidCallback done) {
+    if (_dismissing) return;
+    _dismissing = true;
+    _controller.reverse().whenComplete(done);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.viewPaddingOf(context).top + 10;
+    final card = Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: widget.color, width: 2.5),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 16, offset: Offset(0, 6))],
+        ),
+        child: Row(
+          children: [
+            Icon(widget.icon, color: widget.color, size: 26),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                widget.message,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF2B2440)),
+              ),
+            ),
+            if (widget.actionLabel != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: widget.color, borderRadius: BorderRadius.circular(14)),
+                child: Text(
+                  widget.actionLabel!,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+
     return Positioned(
       top: top,
       left: 16,
       right: 16,
-      child: IgnorePointer(
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: 1),
-          duration: const Duration(milliseconds: 450),
-          curve: Curves.easeOutBack,
-          builder: (context, v, child) => Opacity(
-            opacity: v.clamp(0, 1),
-            child: Transform.translate(offset: Offset(0, -30 * (1 - v)), child: child),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: color, width: 2.5),
-                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 16, offset: Offset(0, 6))],
-              ),
-              child: Row(
-                children: [
-                  Icon(icon, color: color, size: 26),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      message,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF2B2440)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final v = _controller.status == AnimationStatus.reverse
+              ? Curves.easeInCubic.transform(_controller.value)
+              : Curves.easeOutBack.transform(_controller.value);
+          return Opacity(
+            opacity: _controller.value.clamp(0.0, 1.0),
+            child: Transform.translate(offset: Offset(0, -40 * (1 - v) + _drag), child: child),
+          );
+        },
+        child: GestureDetector(
+          onTap: widget.onTap,
+          // החלקה למעלה סוגרת את ההודעה.
+          onVerticalDragUpdate: (d) => setState(() => _drag = (_drag + d.delta.dy).clamp(-80.0, 12.0)),
+          onVerticalDragEnd: (d) {
+            if (_drag < -24 || d.velocity.pixelsPerSecond.dy < -300) {
+              dismiss(widget.onDismissed);
+            } else {
+              setState(() => _drag = 0);
+            }
+          },
+          child: card,
         ),
       ),
     );

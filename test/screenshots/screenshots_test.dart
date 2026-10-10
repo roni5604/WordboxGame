@@ -95,7 +95,7 @@ FakeSocialRepository _social() {
     friends: [
       FriendEntry(profile: p('a', 'נועה', PresenceStatus.online, 41, 12), record: const FriendRecord(uid: 'a', games: 7, wins: 4, losses: 3)),
       FriendEntry(profile: p('b', 'איתי', PresenceStatus.playing, 18, 5), record: const FriendRecord(uid: 'b', games: 2, wins: 1, losses: 1)),
-      FriendEntry(profile: p('c', 'מאיה', PresenceStatus.offline, 55, 20, ago: const Duration(hours: 3)), record: const FriendRecord(uid: 'c')),
+      FriendEntry(profile: p('c', 'מאיה', PresenceStatus.online, 55, 20), record: const FriendRecord(uid: 'c', games: 3, wins: 2, losses: 1)),
       FriendEntry(profile: p('d', 'יובל', PresenceStatus.offline, 9, 1, ago: const Duration(days: 2)), record: const FriendRecord(uid: 'd')),
     ],
     incoming: [
@@ -234,6 +234,15 @@ void main() {
   final shots = <String, Future<void> Function(WidgetTester)>{
     'home': (t) => _shoot(t, 'home', () => const HomeScreen()),
     'friends': (t) => _shoot(t, 'friends', () => const FriendsScreen()),
+    'friend_card': (t) => _shoot(
+          t,
+          'friend_card',
+          () => const FriendsScreen(),
+          interact: (tester) async {
+            await tester.tap(find.text('נועה').last);
+            await tester.pump(const Duration(milliseconds: 600));
+          },
+        ),
     'friends_requests': (t) => _shoot(t, 'friends_requests', () => const FriendsScreen(initialTab: 1)),
     'friends_leaderboard': (t) => _shoot(t, 'friends_leaderboard', () => const FriendsScreen(initialTab: 2)),
     'play_friends': (t) => _shoot(t, 'play_friends', () => const PlayWithFriendsScreen()),

@@ -126,6 +126,10 @@ class FakeSocialRepository implements SocialRepository {
     responses.add((invite: invite, accept: accept));
   }
 
+  final List<Map<String, int>> recordedMatches = [];
+
   @override
-  Future<void> recordMatch({required Map<String, int> scores, required String myUid}) async {}
+  Future<void> recordMatch({required Map<String, int> scores, required String myUid}) async {
+    recordedMatches.add(scores);
+  }
 }

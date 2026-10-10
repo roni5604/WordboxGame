@@ -172,6 +172,9 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
               : 'יש לך ${fresh.length} בקשות חברות חדשות 💌',
           icon: Icons.person_add_alt_1_rounded,
           color: const Color(0xFF7B3FF2),
+          duration: const Duration(seconds: 4),
+          actionLabel: 'לצפייה',
+          onTap: () => widget.router.push('/friends?tab=1'),
         );
       }
     }
