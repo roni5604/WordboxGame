@@ -122,6 +122,32 @@
       ensureCover();
     })();
   </script>
+  <!--
+    ניווט אחורה של הדפדפן (החלקה מהקצה באייפון / כפתור "אחורה"):
+    * __wbPop: מתי היה הניווט האחרון של הדפדפן. כשהדפדפן כבר הנפיש את
+      החזרה בעצמו, Flutter מחליף מסך מיד בלי אנימציה נוספת (בלי "קפיצה").
+    * __wbGuard: באמצע משחק הניווט אחורה מבוטל (חוזרים קדימה לאותו מסך)
+      ונשלח אירוע wb-back-blocked - המשחק פותח את תפריט ההשהיה.
+    נרשם לפני ש-Flutter נטען, בשלב ה-capture, כדי לרוץ לפני המאזין שלו.
+  -->
+  <script>
+    (function () {
+      window.__wbPop = 0;
+      window.__wbGuard = 0;
+      var swallowNext = false;
+      window.addEventListener('popstate', function (e) {
+        if (swallowNext) { swallowNext = false; e.stopImmediatePropagation(); return; }
+        if (window.__wbGuard > 0) {
+          e.stopImmediatePropagation();
+          swallowNext = true;
+          history.go(1);
+          window.dispatchEvent(new Event('wb-back-blocked'));
+          return;
+        }
+        window.__wbPop = performance.now();
+      }, true);
+    })();
+  </script>
   <link rel="manifest" href="manifest.json">
 
   <!--

@@ -29,6 +29,7 @@ import 'models/race_config.dart';
 import 'models/race_result.dart';
 import 'widgets/live_scoreboard.dart';
 import '../../core/platform/top_bar_tint.dart';
+import '../../core/platform/browser_back_guard.dart';
 
 class RaceGameScreen extends ConsumerStatefulWidget {
   final RaceConfig config;
@@ -293,147 +294,153 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
     final letterSkin = CosmeticCatalog.letterById(profile?.letterSkinId);
     final markerSkin = CosmeticCatalog.markerById(profile?.markerSkinId);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _pause();
-      },
-      child: TopBarTint(
-        color: const Color(0xFF6A11CB),
-        child: Scaffold(
-          body: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+    return BrowserBackGuard(
+      onBlocked: _pause,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _pause();
+        },
+        child: TopBarTint(
+          color: const Color(0xFF6A11CB),
+          child: Scaffold(
+            body: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+                ),
               ),
-            ),
-            child: SafeArea(
-              child: session == null
-                  ? const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+              child: SafeArea(
+                child: session == null
+                    ? const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            MascotWidget(mood: MascotMood.idle, size: 100),
+                            SizedBox(height: 16),
+                            CircularProgressIndicator(color: Colors.white),
+                            SizedBox(height: 12),
+                            Text('בונים זירת תחרות...', style: TextStyle(color: Colors.white)),
+                          ],
+                        ),
+                      )
+                    : Column(
                         children: [
-                          MascotWidget(mood: MascotMood.idle, size: 100),
-                          SizedBox(height: 16),
-                          CircularProgressIndicator(color: Colors.white),
-                          SizedBox(height: 12),
-                          Text('בונים זירת תחרות...', style: TextStyle(color: Colors.white)),
-                        ],
-                      ),
-                    )
-                  : Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: Row(
-                            children: [
-                              CandyIconButton(
-                                icon: Icons.pause_rounded,
-                                tooltip: 'השהיה',
-                                size: 42,
-                                onPressed: _countingDown ? null : _pause,
-                              ),
-                              const SizedBox(width: 10),
-                              const Text(
-                                'תחרות מקומית',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
-                              ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-                                child: Text(
-                                  '${session.score} נק׳',
-                                  style: const TextStyle(fontWeight: FontWeight.w800),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: Row(
+                              children: [
+                                CandyIconButton(
+                                  icon: Icons.pause_rounded,
+                                  tooltip: 'השהיה',
+                                  size: 42,
+                                  onPressed: _countingDown ? null : _pause,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 10),
+                                const Text(
+                                  'תחרות מקומית',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '${session.score} נק׳',
+                                    style: const TextStyle(fontWeight: FontWeight.w800),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: LiveScoreboard(entries: _buildScoreboard()),
-                        ),
-                        const SizedBox(height: 8),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: TimerBar(
-                            progress: _remaining.inMilliseconds / widget.config.timeLimit.inMilliseconds,
-                            urgent: _remaining.inSeconds < (widget.config.timeLimit.inSeconds * 0.2),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: LiveScoreboard(entries: _buildScoreboard()),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        CurrentWordBadge(word: _draggingWord),
-                        const SizedBox(height: 4),
-                        Expanded(
-                          child: Stack(
-                            alignment: Alignment.topCenter,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    final side = constraints.maxWidth < constraints.maxHeight
-                                        ? constraints.maxWidth
-                                        : constraints.maxHeight;
-                                    return Center(
-                                      child: SizedBox(
-                                        width: side,
-                                        height: side,
-                                        child: PausableBoard(
-                                          paused: _paused || _countingDown,
-                                          child: GridBoard(
-                                            key: _boardKey,
-                                            letters: session.board.letters,
-                                            onPathSubmitted: _onPathSubmitted,
-                                            isPathAcceptable: session.wouldAccept,
-                                            onWordChanged: _onWordChanging,
-                                            enabled: !_countingDown && !_paused,
-                                            boardSkin: boardSkin,
-                                            letterSkin: letterSkin,
-                                            markerSkin: markerSkin,
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: TimerBar(
+                              progress: _remaining.inMilliseconds / widget.config.timeLimit.inMilliseconds,
+                              urgent: _remaining.inSeconds < (widget.config.timeLimit.inSeconds * 0.2),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          CurrentWordBadge(word: _draggingWord),
+                          const SizedBox(height: 4),
+                          Expanded(
+                            child: Stack(
+                              alignment: Alignment.topCenter,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final side = constraints.maxWidth < constraints.maxHeight
+                                          ? constraints.maxWidth
+                                          : constraints.maxHeight;
+                                      return Center(
+                                        child: SizedBox(
+                                          width: side,
+                                          height: side,
+                                          child: PausableBoard(
+                                            paused: _paused || _countingDown,
+                                            child: GridBoard(
+                                              key: _boardKey,
+                                              letters: session.board.letters,
+                                              onPathSubmitted: _onPathSubmitted,
+                                              isPathAcceptable: session.wouldAccept,
+                                              onWordChanged: _onWordChanging,
+                                              enabled: !_countingDown && !_paused,
+                                              boardSkin: boardSkin,
+                                              letterSkin: letterSkin,
+                                              markerSkin: markerSkin,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    );
-                                  },
+                                      );
+                                    },
+                                  ),
                                 ),
-                              ),
-                              if (_countingDown) Positioned.fill(child: StartCountdown(onDone: _onCountdownDone)),
-                              if (_bannerText != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: _bannerIsError ? AppColors.error : Colors.white,
-                                      borderRadius: BorderRadius.circular(20),
-                                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
-                                    ),
-                                    child: Text(
-                                      _bannerText!,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 15,
-                                        color: _bannerIsError ? Colors.white : AppColors.success,
+                                if (_countingDown) Positioned.fill(child: StartCountdown(onDone: _onCountdownDone)),
+                                if (_bannerText != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: _bannerIsError ? AppColors.error : Colors.white,
+                                        borderRadius: BorderRadius.circular(20),
+                                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
                                       ),
-                                    ),
-                                  ).animate(key: ValueKey(_bannerText)).fadeIn().moveY(begin: 10, end: 0),
-                                ),
-                            ],
+                                      child: Text(
+                                        _bannerText!,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 15,
+                                          color: _bannerIsError ? Colors.white : AppColors.success,
+                                        ),
+                                      ),
+                                    ).animate(key: ValueKey(_bannerText)).fadeIn().moveY(begin: 10, end: 0),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: FoundWordsPanel(
-                            words: session.foundNormalizedWords.map((w) => HebrewTrie.toDisplayWord(w)).toList(),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: FoundWordsPanel(
+                              words: session.foundNormalizedWords.map((w) => HebrewTrie.toDisplayWord(w)).toList(),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                    ),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+              ),
             ),
           ),
         ),

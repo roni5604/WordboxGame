@@ -38,6 +38,7 @@ import 'widgets/pause_menu.dart';
 import 'widgets/timer_bar.dart';
 import 'widgets/words_goal_panel.dart';
 import '../../core/platform/top_bar_tint.dart';
+import '../../core/platform/browser_back_guard.dart';
 
 /// תוצאת שלב שהושלם - מועברת למסך התוצאה דרך go_router `extra`.
 class GameScreenResult extends Equatable {
@@ -636,148 +637,151 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     final letterSkin = CosmeticCatalog.letterById(profile?.letterSkinId);
     final markerSkin = CosmeticCatalog.markerById(profile?.markerSkinId);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        // "חזרה" של המערכת (החלקה מהקצה / כפתור אחורה) פותחת השהיה במקום
-        // לצאת מהשלב בטעות.
-        if (!didPop) _pause();
-      },
-      child: TopBarTint(
-        color: AppColors.gradientForWorldIndex(CampaignLevels.byLevelNumber(widget.levelNumber).tier.index).first,
-        child: Scaffold(
-          body: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: AppColors.gradientForWorldIndex(worldIndex),
+    return BrowserBackGuard(
+      onBlocked: _pause,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          // "חזרה" של המערכת (החלקה מהקצה / כפתור אחורה) פותחת השהיה במקום
+          // לצאת מהשלב בטעות.
+          if (!didPop) _pause();
+        },
+        child: TopBarTint(
+          color: AppColors.gradientForWorldIndex(CampaignLevels.byLevelNumber(widget.levelNumber).tier.index).first,
+          child: Scaffold(
+            body: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: AppColors.gradientForWorldIndex(worldIndex),
+                ),
               ),
-            ),
-            child: SafeArea(
-              child: session == null
-                  ? const _LoadingBoard()
-                  : Column(
-                      children: [
-                        _GameHeader(
-                          levelNumber: widget.levelNumber,
-                          score: session.score,
-                          onPause: _pause,
-                          onHint: _useHint,
-                        ),
-                        const SizedBox(height: 8),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: TimerBar(
-                            progress: _remaining.inMilliseconds / _config.timeLimit.inMilliseconds,
-                            urgent: _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2),
-                            secondsLeft: _remaining.inSeconds,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: WordsGoalPanel(
+              child: SafeArea(
+                child: session == null
+                    ? const _LoadingBoard()
+                    : Column(
+                        children: [
+                          _GameHeader(
+                            levelNumber: widget.levelNumber,
                             score: session.score,
-                            required: _config.scoreRequired,
-                            stars: session.currentStars,
+                            onPause: _pause,
+                            onHint: _useHint,
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: _PowerRow(
-                            onReveal: _revealLetter,
-                            onShuffle: _shuffleBoard,
-                            onSkip: _confirmSkip,
-                            skipCost: CoinCosts.skipLevel(widget.levelNumber),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: TimerBar(
+                              progress: _remaining.inMilliseconds / _config.timeLimit.inMilliseconds,
+                              urgent: _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2),
+                              secondsLeft: _remaining.inSeconds,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        CurrentWordBadge(word: _draggingWord),
-                        const SizedBox(height: 4),
-                        Expanded(
-                          child: Stack(
-                            alignment: Alignment.topCenter,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    // ריבוע גדול ככל האפשר שעדיין נכנס לגמרי
-                                    // בשטח הפנוי - כך כל השורות תמיד גלויות.
-                                    final side = constraints.maxWidth < constraints.maxHeight
-                                        ? constraints.maxWidth
-                                        : constraints.maxHeight;
-                                    return Center(
-                                      child: SizedBox(
-                                        width: side,
-                                        height: side,
-                                        child: PausableBoard(
-                                          paused: _paused,
-                                          child: GridBoard(
-                                            key: _boardKey,
-                                            enabled: !_paused,
-                                            letters: session.board.letters,
-                                            onPathSubmitted: _onPathSubmitted,
-                                            isPathAcceptable: session.wouldAccept,
-                                            onWordChanged: _onWordChanging,
-                                            boardSkin: boardSkin,
-                                            letterSkin: letterSkin,
-                                            markerSkin: markerSkin,
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: WordsGoalPanel(
+                              score: session.score,
+                              required: _config.scoreRequired,
+                              stars: session.currentStars,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: _PowerRow(
+                              onReveal: _revealLetter,
+                              onShuffle: _shuffleBoard,
+                              onSkip: _confirmSkip,
+                              skipCost: CoinCosts.skipLevel(widget.levelNumber),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          CurrentWordBadge(word: _draggingWord),
+                          const SizedBox(height: 4),
+                          Expanded(
+                            child: Stack(
+                              alignment: Alignment.topCenter,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      // ריבוע גדול ככל האפשר שעדיין נכנס לגמרי
+                                      // בשטח הפנוי - כך כל השורות תמיד גלויות.
+                                      final side = constraints.maxWidth < constraints.maxHeight
+                                          ? constraints.maxWidth
+                                          : constraints.maxHeight;
+                                      return Center(
+                                        child: SizedBox(
+                                          width: side,
+                                          height: side,
+                                          child: PausableBoard(
+                                            paused: _paused,
+                                            child: GridBoard(
+                                              key: _boardKey,
+                                              enabled: !_paused,
+                                              letters: session.board.letters,
+                                              onPathSubmitted: _onPathSubmitted,
+                                              isPathAcceptable: session.wouldAccept,
+                                              onWordChanged: _onWordChanging,
+                                              boardSkin: boardSkin,
+                                              letterSkin: letterSkin,
+                                              markerSkin: markerSkin,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              if (_bannerText != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child:
-                                      Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                            decoration: BoxDecoration(
-                                              color: _bannerIsError ? AppColors.error : Colors.white,
-                                              borderRadius: BorderRadius.circular(20),
-                                              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
-                                            ),
-                                            child: Text(
-                                              _bannerText!,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w800,
-                                                fontSize: 18,
-                                                color: _bannerIsError ? Colors.white : AppColors.success,
-                                              ),
-                                            ),
-                                          )
-                                          .animate(key: ValueKey(_bannerText))
-                                          .fadeIn()
-                                          .moveY(begin: 10, end: 0, duration: 200.ms),
-                                ),
-                              if (_showTutorialOverlay && _tutorialWord != null)
-                                Positioned(
-                                  left: 12,
-                                  right: 12,
-                                  bottom: 8,
-                                  child: _TutorialCard(
-                                    word: HebrewTrie.toDisplayWord(_tutorialWord!),
-                                    onStart: _dismissTutorial,
+                                      );
+                                    },
                                   ),
                                 ),
-                            ],
+                                if (_bannerText != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child:
+                                        Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                              decoration: BoxDecoration(
+                                                color: _bannerIsError ? AppColors.error : Colors.white,
+                                                borderRadius: BorderRadius.circular(20),
+                                                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                                              ),
+                                              child: Text(
+                                                _bannerText!,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 18,
+                                                  color: _bannerIsError ? Colors.white : AppColors.success,
+                                                ),
+                                              ),
+                                            )
+                                            .animate(key: ValueKey(_bannerText))
+                                            .fadeIn()
+                                            .moveY(begin: 10, end: 0, duration: 200.ms),
+                                  ),
+                                if (_showTutorialOverlay && _tutorialWord != null)
+                                  Positioned(
+                                    left: 12,
+                                    right: 12,
+                                    bottom: 8,
+                                    child: _TutorialCard(
+                                      word: HebrewTrie.toDisplayWord(_tutorialWord!),
+                                      onStart: _dismissTutorial,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: FoundWordsPanel(
-                            words: session.foundNormalizedWords.map((w) => HebrewTrie.toDisplayWord(w)).toList(),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: FoundWordsPanel(
+                              words: session.foundNormalizedWords.map((w) => HebrewTrie.toDisplayWord(w)).toList(),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                    ),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+              ),
             ),
           ),
         ),
