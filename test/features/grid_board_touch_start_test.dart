@@ -53,7 +53,7 @@ void main() {
     ('up-right diagonal', const GridPosition(4, 4), const GridPosition(2, 2)),
     ('anti-diagonal', const GridPosition(2, 4), const GridPosition(4, 2)),
   ]) {
-    for (final competing in [false, true])
+    for (final competing in [false, true]) {
       testWidgets('7x7 $name starts on the touched letter${competing ? ' (competing ancestor gesture)' : ''}', (
         tester,
       ) async {
@@ -73,6 +73,7 @@ void main() {
         final dc = (to.col - from.col).sign;
         expect(submitted, [from, GridPosition(from.row + dr, from.col + dc), to]);
       });
+    }
   }
 
   testWidgets('a single tap shows the letter as selected immediately', (tester) async {

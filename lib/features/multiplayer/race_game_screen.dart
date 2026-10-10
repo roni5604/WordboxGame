@@ -43,6 +43,10 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
   Timer? _ticker;
   final _boardKey = GlobalKey<GridBoardState>();
 
+  /// לכל משתתף/ת: (מונה אירועי ניקוד, נקודות באירוע האחרון) - לאנימציית
+  /// "+N" בלוח התוצאות החי.
+  final Map<String, (int, int)> _gains = {};
+
   String? _bannerText;
   bool _bannerIsError = false;
   Timer? _bannerTimer;
@@ -111,9 +115,11 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
         for (final bot in _bots) {
           final found = bot.tick(tickDuration);
           if (found != null) {
-            _showBanner(
-              '${bot.name} מצא/ה מילה! (${HebrewTrie.toDisplayWord(found.normalizedWord)})',
-            );
+            // לא חושפים איזו מילה הבוט מצא (זה היה "רמז" חינם) - רק הכרטיס
+            // שלו בלוח התוצאות פועם עם +N.
+            final gain = scoreForWordLength(found.normalizedWord.length);
+            final prev = _gains[bot.name];
+            _gains[bot.name] = ((prev?.$1 ?? 0) + 1, gain);
           }
         }
 
@@ -151,6 +157,8 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
       case WordSubmitStatus.accepted:
         ref.read(soundServiceProvider).playSuccess();
         _showBanner('${result.displayWord}  +${result.pointsAwarded}');
+        final prev = _gains['\u0000me'];
+        _gains['\u0000me'] = ((prev?.$1 ?? 0) + 1, result.pointsAwarded);
         setState(() {});
         break;
       case WordSubmitStatus.duplicate:
@@ -219,9 +227,18 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
         isHuman: true,
         avatarId: profile?.avatarId ?? 'detective',
         photoUrl: authUser?.photoUrl,
+        isMe: true,
+        gainToken: _gains['\u0000me']?.$1 ?? 0,
+        lastGain: _gains['\u0000me']?.$2 ?? 0,
       ),
       for (final bot in _bots)
-        ScoreboardEntry(name: bot.name, score: bot.score, isHuman: false),
+        ScoreboardEntry(
+          name: bot.name,
+          score: bot.score,
+          isHuman: false,
+          gainToken: _gains[bot.name]?.$1 ?? 0,
+          lastGain: _gains[bot.name]?.$2 ?? 0,
+        ),
     ]..sort((a, b) => b.score.compareTo(a.score));
     return entries;
   }

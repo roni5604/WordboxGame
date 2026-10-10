@@ -72,6 +72,10 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
   // _notifyOpponentScoreChanges).
   final Map<String, int> _lastSeenOpponentScores = {};
 
+  /// לכל שחקן/ית: (מונה אירועי ניקוד, נקודות באירוע האחרון) - לאנימציית
+  /// "+N" בלוח התוצאות החי.
+  final Map<String, (int, int)> _gains = {};
+
   @override
   void initState() {
     super.initState();
@@ -108,15 +112,10 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
       if (previousScore == null) continue; // תפיסה ראשונית - לא "עלייה" אמיתית.
 
       final delta = player.score - previousScore;
-      if (delta > 0 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('🎯 ${player.displayName} הרוויח/ה +$delta נק׳!'),
-            duration: const Duration(milliseconds: 1400),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: AppColors.primaryDark,
-          ),
-        );
+      if (delta > 0) {
+        // בלי לחשוף איזו מילה נמצאה: רק הכרטיס של היריב/ה פועם עם +N.
+        final prev = _gains[player.uid];
+        _gains[player.uid] = ((prev?.$1 ?? 0) + 1, delta);
       }
     }
   }
@@ -201,6 +200,10 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
       case WordSubmitStatus.accepted:
         ref.read(soundServiceProvider).playSuccess();
         _showBanner('${result.displayWord}  +${result.pointsAwarded}');
+        if (_myUid != null) {
+          final prev = _gains[_myUid!];
+          _gains[_myUid!] = ((prev?.$1 ?? 0) + 1, result.pointsAwarded);
+        }
         setState(() {});
         _repo
             .updateMyScore(
@@ -306,11 +309,13 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
               ? '${player.displayName} (את/ה)'
               : player.displayName,
           score: player.uid == _myUid ? session.score : player.score,
-          isHuman: player.uid == _myUid,
+          isHuman: true,
           isMe: player.uid == _myUid,
-          avatarId: player.uid == _myUid ? (profile?.avatarId ?? 'detective') : null,
-          photoUrl: player.uid == _myUid ? authUser?.photoUrl : null,
+          avatarId: player.uid == _myUid ? (profile?.avatarId ?? 'detective') : (player.avatarId ?? 'detective'),
+          photoUrl: player.uid == _myUid ? authUser?.photoUrl : player.photoUrl,
           wins: room.isSeries ? (room.wins[player.uid] ?? 0) : null,
+          gainToken: _gains[player.uid]?.$1 ?? 0,
+          lastGain: _gains[player.uid]?.$2 ?? 0,
         ),
     ]..sort((a, b) => b.score.compareTo(a.score));
     return entries;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../game/widgets/mascot_widget.dart';
@@ -28,6 +29,13 @@ class ScoreboardEntry {
   /// ממשחקון אחד). לא בשימוש במצב מול המחשב.
   final int? wins;
 
+  /// עולה ב-1 בכל פעם שהמשתתף/ת צבר/ה נקודות - מפעיל "פעימה" ו-+N מעל
+  /// הכרטיס. כך רואים שהיריב מצא מילה **בלי** לחשוף איזו מילה.
+  final int gainToken;
+
+  /// כמה נקודות נוספו באירוע האחרון (מוצג כ-+N).
+  final int lastGain;
+
   const ScoreboardEntry({
     required this.name,
     required this.score,
@@ -36,6 +44,8 @@ class ScoreboardEntry {
     this.avatarId,
     this.photoUrl,
     this.wins,
+    this.gainToken = 0,
+    this.lastGain = 0,
   });
 }
 
@@ -49,15 +59,17 @@ class LiveScoreboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 64,
+      height: 76,
       child: ListView.separated(
+        padding: const EdgeInsets.only(top: 12),
+        clipBehavior: Clip.none,
         scrollDirection: Axis.horizontal,
         itemCount: entries.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final entry = entries[index];
           final isLeader = index == 0;
-          return AnimatedContainer(
+          final card = AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             padding: EdgeInsets.symmetric(horizontal: entry.isMe ? 12 : 10, vertical: entry.isMe ? 8 : 6),
             decoration: BoxDecoration(
@@ -66,9 +78,7 @@ class LiveScoreboard extends StatelessWidget {
               border: entry.isMe
                   ? Border.all(color: AppColors.accent, width: 2.5)
                   : (isLeader ? Border.all(color: AppColors.star, width: 2) : null),
-              boxShadow: entry.isMe
-                  ? [BoxShadow(color: AppColors.accent.withValues(alpha: 0.4), blurRadius: 8)]
-                  : null,
+              boxShadow: entry.isMe ? [BoxShadow(color: AppColors.accent.withValues(alpha: 0.4), blurRadius: 8)] : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -103,9 +113,7 @@ class LiveScoreboard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      entry.wins == null
-                          ? '${entry.score} נק׳'
-                          : '${entry.score} נק׳ · ${entry.wins}נ׳',
+                      entry.wins == null ? '${entry.score} נק׳' : '${entry.score} נק׳ · ${entry.wins}נ׳',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: entry.isMe ? 16 : 13,
@@ -116,6 +124,42 @@ class LiveScoreboard extends StatelessWidget {
                 ),
               ],
             ),
+          );
+          if (entry.gainToken == 0) return card;
+          // פעימה + "+N" צף בכל פעם שהמשתתף/ת צובר/ת נקודות.
+          return Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              card
+                  .animate(key: ValueKey('pulse-${entry.name}-${entry.gainToken}'))
+                  .scaleXY(begin: 1, end: 1.12, duration: 140.ms, curve: Curves.easeOut)
+                  .then()
+                  .scaleXY(begin: 1.12, end: 1, duration: 260.ms, curve: Curves.elasticOut),
+              Positioned(
+                top: -6,
+                child: IgnorePointer(
+                  child:
+                      Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: entry.isMe ? AppColors.success : AppColors.star,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
+                            ),
+                            child: Text(
+                              '+${entry.lastGain}',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
+                            ),
+                          )
+                          .animate(key: ValueKey('gain-${entry.name}-${entry.gainToken}'))
+                          .fadeIn(duration: 120.ms)
+                          .moveY(begin: 6, end: -14, duration: 900.ms, curve: Curves.easeOutCubic)
+                          .then(delay: 150.ms)
+                          .fadeOut(duration: 300.ms),
+                ),
+              ),
+            ],
           );
         },
       ),
