@@ -6,9 +6,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../providers/multiplayer_repository_provider.dart';
 import '../../core/ui/candy_button.dart';
+import '../../core/ui/game_form.dart';
 import '../../core/ui/game_backdrop.dart';
 import '../../core/ui/game_dialog.dart';
-import '../../core/ui/pressable.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/social_provider.dart';
@@ -205,7 +205,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
             ),
             const SizedBox(height: 18),
           ],
-          _SectionCard(
+          GameSectionCard(
             title: 'שם/כינוי שלך',
             child: TextField(
               controller: _nameController,
@@ -224,9 +224,9 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          _SectionCard(
+          GameSectionCard(
             title: 'גודל לוח',
-            child: _ChipRow<int>(
+            child: GameChipRow<int>(
               values: const [4, 5, 6, 7],
               selected: _gridSize,
               labelBuilder: (v) => '$v×$v',
@@ -234,7 +234,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          _SettingSlider(
+          GameSlider(
             title: 'כמה זמן לכל תור (סבב)?',
             valueLabel: '$_roundSeconds שנ׳',
             value: _roundSeconds.toDouble(),
@@ -244,7 +244,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
             onChanged: (v) => setState(() => _roundSeconds = v.round()),
           ),
           const SizedBox(height: 14),
-          _SettingSlider(
+          GameSlider(
             title: 'עד כמה נקודות המשחק? (ניקוד יעד לניצחון מוקדם)',
             valueLabel: _targetScore == 0 ? 'ללא יעד' : '$_targetScore נק׳',
             value: _targetScore.toDouble(),
@@ -254,7 +254,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
             onChanged: (v) => setState(() => _targetScore = (v / 25).round() * 25),
           ),
           const SizedBox(height: 14),
-          _SettingSlider(
+          GameSlider(
             title: 'כמה משחקונים בסדרה?',
             valueLabel: _totalRounds == 1 ? 'משחקון אחד' : '$_totalRounds משחקונים',
             value: _totalRounds.toDouble(),
@@ -264,11 +264,11 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
             onChanged: (v) => setState(() => _totalRounds = v.round()),
           ),
           const SizedBox(height: 14),
-          _SectionCard(
+          GameSectionCard(
             title: 'דמי כניסה (נגבים מכל מי שנכנס, כולל אותך)',
             child: Column(
               children: [
-                _ChipRow<int>(
+                GameChipRow<int>(
                   values: GameRoom.allowedEntryFees,
                   selected: _entryFee,
                   labelBuilder: (v) => '$v מטבעות',
@@ -300,9 +300,9 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          _SectionCard(
+          GameSectionCard(
             title: 'כמה זמן ניתן להצטרף עם הקוד?',
-            child: _ChipRow<int>(
+            child: GameChipRow<int>(
               values: const [5, 10, 20],
               selected: _joinWindowMinutes,
               labelBuilder: (v) => '$v דק׳',
@@ -311,142 +311,6 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SettingSlider extends StatelessWidget {
-  final String title;
-  final String valueLabel;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
-
-  const _SettingSlider({
-    required this.title,
-    required this.valueLabel,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: title,
-      child: Column(
-        children: [
-          Text(
-            valueLabel,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 22,
-              color: Color(0xFF5B2EC9),
-            ),
-          ),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: const Color(0xFF7B3FF2),
-              inactiveTrackColor: const Color(0xFF7B3FF2).withValues(alpha: 0.18),
-              thumbColor: const Color(0xFF5B2EC9),
-              overlayColor: const Color(0xFF7B3FF2).withValues(alpha: 0.16),
-              trackHeight: 6,
-            ),
-            child: Slider(
-              value: value.clamp(min, max),
-              min: min,
-              max: max,
-              divisions: divisions,
-              onChanged: onChanged,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  final String title;
-  final Widget child;
-
-  const _SectionCard({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 5))],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF4A2F8F))),
-            const SizedBox(height: 12),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ChipRow<T> extends StatelessWidget {
-  final List<T> values;
-  final T selected;
-  final String Function(T) labelBuilder;
-  final ValueChanged<T> onSelected;
-
-  const _ChipRow({
-    required this.values,
-    required this.selected,
-    required this.labelBuilder,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      alignment: WrapAlignment.center,
-      children: values.map((v) {
-        final isSelected = v == selected;
-        return Pressable(
-          onTap: () => onSelected(v),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutBack,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            decoration: BoxDecoration(
-              gradient: isSelected
-                  ? const LinearGradient(colors: [Color(0xFFB57BFF), Color(0xFF7B3FF2)])
-                  : null,
-              color: isSelected ? null : const Color(0xFFF1ECFF),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: isSelected
-                  ? const [BoxShadow(color: Color(0xFF4F1FB0), offset: Offset(0, 3))]
-                  : null,
-            ),
-            child: Text(
-              labelBuilder(v),
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                color: isSelected ? Colors.white : const Color(0xFF4A2F8F),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 }
