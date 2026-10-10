@@ -37,7 +37,8 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final name = ref.read(playerProfileProvider).valueOrNull?.displayName ?? '';
+      final profile = await ref.read(playerProfileProvider.notifier).ensureLoaded();
+      final name = profile.displayName;
       final repo = ref.read(socialRepositoryProvider);
       if (repo.isAvailable && (name.trim().isEmpty || name == 'שחקן/ית') && mounted) {
         await SocialActions.editDisplayName(context, ref);
@@ -470,13 +471,12 @@ class _FriendTile extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               SizedBox(
-                width: 96,
+                width: 88,
                 child: CandyButton(
                   label: 'הזמנה',
-                  icon: Icons.sports_esports_rounded,
                   palette: canInvite ? CandyPalette.green : CandyPalette.white,
                   height: 42,
-                  fontSize: 14,
+                  fontSize: 15,
                   radius: 16,
                   onPressed: canInvite
                       ? () => SocialActions.inviteToNewRoom(context, uid: profile.uid, name: profile.displayName)

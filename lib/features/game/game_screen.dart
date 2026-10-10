@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui' show ImageFilter;
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/ads/ads_runtime.dart';
 import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/ui/candy_button.dart';
+import '../../core/ui/game_dialog.dart';
+import '../../core/ui/pressable.dart';
 import '../ads/rewarded_hint_dialog.dart';
 import '../../game_engine/board_generator.dart';
 import '../../game_engine/dictionary/hebrew_trie.dart';
@@ -31,6 +35,7 @@ import 'widgets/current_word_badge.dart';
 import 'widgets/found_words_panel.dart';
 import 'widgets/grid_board.dart';
 import 'widgets/mascot_widget.dart';
+import 'widgets/pause_menu.dart';
 import 'widgets/timer_bar.dart';
 import 'widgets/words_goal_panel.dart';
 
@@ -130,7 +135,7 @@ class GameScreen extends ConsumerStatefulWidget {
   ConsumerState<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends ConsumerState<GameScreen> {
+class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObserver {
   GameSession? _session;
   late LevelConfig _config;
   Duration _remaining = Duration.zero;
@@ -142,6 +147,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   Timer? _bannerTimer;
 
   bool _finished = false;
+  bool _paused = false;
   bool _adHintBusy = false;
   int? _lastWarningSecond;
   int _lastCelebratedStars = 0;
@@ -159,7 +165,42 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     super.initState();
     _config = CampaignLevels.byLevelNumber(widget.levelNumber);
     _remaining = _config.timeLimit;
+    WidgetsBinding.instance.addObserver(this);
     _initSession();
+  }
+
+  /// יציאה מהאפליקציה באמצע שלב (שיחה נכנסת, מעבר לאפליקציה אחרת) -
+  /// עוצרים את השעון ומציגים את תפריט ההשהיה כשחוזרים.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _pause();
+    }
+  }
+
+  Future<void> _pause() async {
+    if (_paused || _finished || _session == null || _adHintBusy) return;
+    final wasRunning = _ticker != null;
+    _ticker?.cancel();
+    _ticker = null;
+    setState(() => _paused = true);
+    final choice = await showPauseMenu(
+      context,
+      subtitle: 'שלב ${widget.levelNumber} · ${_session?.score ?? 0} נקודות',
+      exitWarning: 'יציאה עכשיו לא תשמור את ההתקדמות בשלב הזה.',
+    );
+    if (!mounted) return;
+    switch (choice) {
+      case PauseChoice.resume:
+        setState(() => _paused = false);
+        if (wasRunning && !_finished && _remaining > Duration.zero) _startTimer();
+      case PauseChoice.restart:
+        _finished = true;
+        context.pushReplacement('/level/${widget.levelNumber}/play');
+      case PauseChoice.exit:
+        _finished = true;
+        context.go('/campaign');
+    }
   }
 
   Future<void> _initSession() async {
@@ -194,11 +235,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       possibleWords: possibleWords,
       size: _config.gridSize,
     );
-    final session = GameSession(
-      config: _config,
-      board: board,
-      trie: dictionary.trie,
-    );
+    final session = GameSession(config: _config, board: board, trie: dictionary.trie);
 
     if (!mounted) return;
     setState(() => _session = session);
@@ -216,9 +253,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       return;
     }
 
-    final profile = await ref
-        .read(playerProfileProvider.notifier)
-        .ensureLoaded();
+    final profile = await ref.read(playerProfileProvider.notifier).ensureLoaded();
     if (profile.level1TutorialSeen) {
       _startTimer();
       return;
@@ -239,6 +274,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   void _startTimer() {
+    _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       if (!mounted) return;
       setState(() {
@@ -251,8 +287,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           // "טיק" אזהרה בכל שנייה שלמה כשנשארו פחות מ-20% מהזמן (אותו סף
           // כמו "urgent" בפס הטיימר) - כך שהאפקט מתאים גם לשלבים קצרים.
           final secondsLeft = _remaining.inSeconds;
-          final urgent =
-              _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2);
+          final urgent = _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2);
           if (urgent && secondsLeft != _lastWarningSecond) {
             _lastWarningSecond = secondsLeft;
             ref.read(soundServiceProvider).playTimerWarning();
@@ -288,9 +323,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final starsText = '⭐' * stars;
     Future.delayed(const Duration(milliseconds: 950), () {
       if (!mounted || _finished) return;
-      _showBanner(
-        '$starsText ${stars >= 3 ? "מושלם! כל הכבוד!" : "כוכב חדש!"}',
-      );
+      _showBanner('$starsText ${stars >= 3 ? "מושלם! כל הכבוד!" : "כוכב חדש!"}');
     });
   }
 
@@ -360,22 +393,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         title: const Text('לדלג על השלב?'),
         content: Text('הדילוג עולה $cost מטבעות, נותן כוכב אחד ופותח את השלב הבא.'),
         actions: [
-          TextButton(
-            onPressed: () => dialogContext.pop(false),
-            child: const Text('ביטול'),
-          ),
-          FilledButton(
-            onPressed: () => dialogContext.pop(true),
-            child: const Text('דילוג'),
-          ),
+          TextButton(onPressed: () => dialogContext.pop(false), child: const Text('ביטול')),
+          FilledButton(onPressed: () => dialogContext.pop(true), child: const Text('דילוג')),
         ],
       ),
     );
     if (confirmed != true || !mounted || _finished) return;
-    final ok = await ref.read(playerProfileProvider.notifier).skipLevel(
-          levelNumber: widget.levelNumber,
-          cost: cost,
-        );
+    final ok = await ref
+        .read(playerProfileProvider.notifier)
+        .skipLevel(levelNumber: widget.levelNumber, cost: cost);
     if (!ok || !mounted) {
       _showNeedCoins();
       return;
@@ -426,10 +452,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     final isGuest = authUser == null || authUser.isAnonymous;
 
     if (!ads.isSupported) {
-      _showBanner(
-        isGuest ? 'נגמרו הרמזים' : 'נגמרו הרמזים - אפשר לקנות עוד בחנות',
-        isError: true,
-      );
+      _showBanner(isGuest ? 'נגמרו הרמזים' : 'נגמרו הרמזים - אפשר לקנות עוד בחנות', isError: true);
       return false;
     }
 
@@ -457,10 +480,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         return false;
       }
 
-      final watch = await showRewardedHintDialog(
-        context,
-        remainingToday: ads.adHintsRemaining,
-      );
+      final watch = await showRewardedHintDialog(context, remainingToday: ads.adHintsRemaining);
       if (!mounted || !watch) return false;
 
       final earned = await ads.showRewarded();
@@ -476,11 +496,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       return true;
     } finally {
       _adHintBusy = false;
-      if (wasRunning &&
-          mounted &&
-          !_finished &&
-          _remaining > Duration.zero &&
-          _ticker == null) {
+      if (wasRunning && mounted && !_finished && _remaining > Duration.zero && _ticker == null) {
         _startTimer();
       }
     }
@@ -583,9 +599,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     FortuneWheelPrize? wheelPrize;
     int wheelPrizeIndex = 0;
     if (isFirstCompletion && isWorldFinale) {
-      final (index, prize) = RewardTables.rollWheelPrize(
-        worldIndex: worldIndex,
-      );
+      final (index, prize) = RewardTables.rollWheelPrize(worldIndex: worldIndex);
       wheelPrize = prize;
       wheelPrizeIndex = index;
       await notifier.grantWheelPrize(prize);
@@ -615,10 +629,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       secondsLeftWhenFinished: secondsLeftWhenFinished,
     );
 
-    context.pushReplacement(
-      '/level/${widget.levelNumber}/result',
-      extra: result,
-    );
+    context.pushReplacement('/level/${widget.levelNumber}/result', extra: result);
   }
 
   /// שם/גודל העולם הבא (לצורך "עולם חדש נפתח!" בסיום שלב פינאלה) - השלב
@@ -635,6 +646,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _bannerTimer?.cancel();
     super.dispose();
@@ -652,7 +664,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) context.go('/campaign');
+        // "חזרה" של המערכת (החלקה מהקצה / כפתור אחורה) פותחת השהיה במקום
+        // לצאת מהשלב בטעות.
+        if (!didPop) _pause();
       },
       child: Scaffold(
         body: Container(
@@ -671,19 +685,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                       _GameHeader(
                         levelNumber: widget.levelNumber,
                         score: session.score,
-                        onExit: () => context.go('/campaign'),
+                        onPause: _pause,
                         onHint: _useHint,
                       ),
                       const SizedBox(height: 8),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: TimerBar(
-                          progress:
-                              _remaining.inMilliseconds /
-                              _config.timeLimit.inMilliseconds,
-                          urgent:
-                              _remaining.inSeconds <
-                              (_config.timeLimit.inSeconds * 0.2),
+                          progress: _remaining.inMilliseconds / _config.timeLimit.inMilliseconds,
+                          urgent: _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2),
                           secondsLeft: _remaining.inSeconds,
                         ),
                       ),
@@ -719,24 +729,26 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                 builder: (context, constraints) {
                                   // ריבוע גדול ככל האפשר שעדיין נכנס לגמרי
                                   // בשטח הפנוי - כך כל השורות תמיד גלויות.
-                                  final side =
-                                      constraints.maxWidth <
-                                          constraints.maxHeight
+                                  final side = constraints.maxWidth < constraints.maxHeight
                                       ? constraints.maxWidth
                                       : constraints.maxHeight;
                                   return Center(
                                     child: SizedBox(
                                       width: side,
                                       height: side,
-                                      child: GridBoard(
-                                        key: _boardKey,
-                                        letters: session.board.letters,
-                                        onPathSubmitted: _onPathSubmitted,
-                                        isPathAcceptable: session.wouldAccept,
-                                        onWordChanged: _onWordChanging,
-                                        boardSkin: boardSkin,
-                                        letterSkin: letterSkin,
-                                        markerSkin: markerSkin,
+                                      child: _PausableBoard(
+                                        paused: _paused,
+                                        child: GridBoard(
+                                          key: _boardKey,
+                                          enabled: !_paused,
+                                          letters: session.board.letters,
+                                          onPathSubmitted: _onPathSubmitted,
+                                          isPathAcceptable: session.wouldAccept,
+                                          onWordChanged: _onWordChanging,
+                                          boardSkin: boardSkin,
+                                          letterSkin: letterSkin,
+                                          markerSkin: markerSkin,
+                                        ),
                                       ),
                                     ),
                                   );
@@ -753,17 +765,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                             vertical: 10,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: _bannerIsError
-                                                ? AppColors.error
-                                                : Colors.white,
-                                            borderRadius: BorderRadius.circular(
-                                              20,
-                                            ),
+                                            color: _bannerIsError ? AppColors.error : Colors.white,
+                                            borderRadius: BorderRadius.circular(20),
                                             boxShadow: const [
-                                              BoxShadow(
-                                                color: Colors.black26,
-                                                blurRadius: 10,
-                                              ),
+                                              BoxShadow(color: Colors.black26, blurRadius: 10),
                                             ],
                                           ),
                                           child: Text(
@@ -779,11 +784,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                         )
                                         .animate(key: ValueKey(_bannerText))
                                         .fadeIn()
-                                        .moveY(
-                                          begin: 10,
-                                          end: 0,
-                                          duration: 200.ms,
-                                        ),
+                                        .moveY(begin: 10, end: 0, duration: 200.ms),
                               ),
                             if (_showTutorialOverlay && _tutorialWord != null)
                               Positioned(
@@ -791,9 +792,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                 right: 12,
                                 bottom: 8,
                                 child: _TutorialCard(
-                                  word: HebrewTrie.toDisplayWord(
-                                    _tutorialWord!,
-                                  ),
+                                  word: HebrewTrie.toDisplayWord(_tutorialWord!),
                                   onStart: _dismissTutorial,
                                 ),
                               ),
@@ -801,10 +800,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: FoundWordsPanel(
                           words: session.foundNormalizedWords
                               .map((w) => HebrewTrie.toDisplayWord(w))
@@ -871,36 +867,37 @@ class _PowerButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
 
-  const _PowerButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
+  const _PowerButton({required this.icon, required this.label, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.92),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 16, color: AppColors.primaryDark),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+    return Pressable(
+      onTap: onPressed,
+      semanticLabel: label,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [BoxShadow(color: Color(0x33000000), offset: Offset(0, 3))],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 17, color: AppColors.primaryDark),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12.5,
+                  color: AppColors.textDark,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -910,38 +907,43 @@ class _PowerButton extends StatelessWidget {
 class _GameHeader extends ConsumerWidget {
   final int levelNumber;
   final int score;
-  final VoidCallback onExit;
+  final VoidCallback onPause;
   final VoidCallback onHint;
 
   const _GameHeader({
     required this.levelNumber,
     required this.score,
-    required this.onExit,
+    required this.onPause,
     required this.onHint,
   });
 
   /// רמזים שמורים לחשבונות אמיתיים - לאורח/ת מציגים הזמנה להירשם במקום
   /// לצרוך רמז, כדי לא לתת לאורח/ת גישה ל"אפשרות רמזים" בכלל.
   void _showGuestHintPrompt(BuildContext context) {
-    showDialog<void>(
+    showGameDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('רמזים שמורים למי שנרשם/ת'),
-        content: const Text(
-          'הרשמו בחינם עם Google, Apple, Facebook או מייל וקבלו רמזי מתנה '
-          'מיד ובונוס יומי - בלי לאבד את ההתקדמות הנוכחית שלכם.',
-        ),
+      builder: (dialogContext) => GameDialog(
+        title: 'רמזים שמורים לרשומים',
+        ribbon: CandyPalette.gold,
+        message:
+            'הרשמו בחינם עם Google, Apple, Facebook או מייל וקבלו רמזי מתנה '
+            'מיד ובונוס יומי - בלי לאבד את ההתקדמות הנוכחית שלכם.',
         actions: [
-          TextButton(
-            onPressed: () => dialogContext.pop(),
-            child: const Text('אחר כך'),
-          ),
-          FilledButton(
+          CandyButton(
+            label: 'הרשמה',
+            palette: CandyPalette.green,
+            height: 54,
             onPressed: () {
-              dialogContext.pop();
+              Navigator.of(dialogContext).pop();
               context.push('/auth');
             },
-            child: const Text('הרשמה'),
+          ),
+          CandyButton(
+            label: 'אחר כך',
+            palette: CandyPalette.white,
+            height: 48,
+            fontSize: 16,
+            onPressed: () => Navigator.of(dialogContext).pop(),
           ),
         ],
       ),
@@ -955,66 +957,103 @@ class _GameHeader extends ConsumerWidget {
     final isGuest = authUser == null || authUser.isAnonymous;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 4),
       child: Row(
         children: [
-          IconButton(
-            onPressed: onExit,
-            icon: const Icon(Icons.close_rounded, color: Colors.white),
+          CandyIconButton(
+            icon: Icons.pause_rounded,
+            size: 42,
+            tooltip: 'השהיה',
+            onPressed: onPause,
           ),
+          const SizedBox(width: 10),
           Text(
             'שלב $levelNumber',
             style: const TextStyle(
               color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              fontSize: 19,
+              shadows: [Shadow(color: Colors.black26, offset: Offset(0, 2), blurRadius: 4)],
             ),
           ),
           const Spacer(),
-          Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: isGuest ? () => _showGuestHintPrompt(context) : onHint,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+          Pressable(
+            onTap: isGuest ? () => _showGuestHintPrompt(context) : onHint,
+            semanticLabel: 'רמז',
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFFFE27A), Color(0xFFFFB700)],
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isGuest
-                          ? Icons.lock_outline_rounded
-                          : Icons.lightbulb_rounded,
-                      color: isGuest ? Colors.black45 : AppColors.star,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      isGuest ? 'הרשמה' : '$hints',
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ],
-                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: const [BoxShadow(color: Color(0xFFC77F00), offset: Offset(0, 3))],
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isGuest ? Icons.lock_outline_rounded : Icons.lightbulb_rounded,
+                    color: const Color(0xFF5A3300),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isGuest ? 'הרשמה' : '$hints',
+                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF5A3300)),
+                  ),
+                ],
               ),
             ),
           ),
           const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
+              boxShadow: const [BoxShadow(color: Colors.black26, offset: Offset(0, 3))],
             ),
-            child: Text(
-              '$score נק׳',
-              style: const TextStyle(fontWeight: FontWeight.w800),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, animation) => ScaleTransition(
+                scale: CurvedAnimation(parent: animation, curve: Curves.elasticOut),
+                child: child,
+              ),
+              child: Text(
+                '$score נק׳',
+                key: ValueKey(score),
+                style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.textDark),
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// מסתיר את הלוח מאחורי טשטוש כשהמשחק מושהה.
+class _PausableBoard extends StatelessWidget {
+  final bool paused;
+  final Widget child;
+  const _PausableBoard({required this.paused, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: paused ? 1 : 0),
+      duration: const Duration(milliseconds: 250),
+      builder: (context, t, child) {
+        if (t == 0) return child!;
+        return ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 14 * t, sigmaY: 14 * t),
+          child: Opacity(opacity: 1 - 0.4 * t, child: child),
+        );
+      },
+      child: child,
     );
   }
 }
@@ -1047,10 +1086,7 @@ class _TutorialCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   'גררו אצבע בין האותיות המסומנות בזהב ליצירת המילה "$word"',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
               ),
             ],
@@ -1058,10 +1094,7 @@ class _TutorialCard extends StatelessWidget {
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: onStart,
-              child: const Text('הבנתי, בואו נתחיל!'),
-            ),
+            child: ElevatedButton(onPressed: onStart, child: const Text('הבנתי, בואו נתחיל!')),
           ),
         ],
       ),
