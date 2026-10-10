@@ -19,6 +19,7 @@ import 'package:wordbox_hebrew/data/models/level_progress.dart';
 import 'package:wordbox_hebrew/data/models/player_profile.dart';
 import 'package:wordbox_hebrew/data/repositories/progress_repository.dart';
 import 'package:wordbox_hebrew/features/game/game_screen.dart';
+import 'package:wordbox_hebrew/features/onboarding/onboarding_screen.dart';
 import 'package:wordbox_hebrew/features/game/level_result_screen.dart';
 import 'package:wordbox_hebrew/features/share/share_achievement_sheet.dart';
 import 'package:wordbox_hebrew/features/home/campaign_map_screen.dart';
@@ -355,6 +356,7 @@ void main() {
           ),
           settle: const Duration(seconds: 3),
         ),
+    'onboarding': (t) => _shoot(t, 'onboarding', () => const OnboardingScreen(standalone: true)),
     'settings': (t) => _shoot(t, 'settings', () => const SettingsScreen()),
     'profile': (t) => _shoot(t, 'profile', () => const ProfileScreen()),
     'rules': (t) => _shoot(t, 'rules', () => const RulesScreen()),

@@ -389,7 +389,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                 flex: 3,
                 child: CandyButton(
                   label: 'השלב הבא',
-                  icon: Icons.arrow_back_rounded,
+                  icon: Icons.arrow_forward_rounded,
                   palette: CandyPalette.green,
                   height: 58,
                   fontSize: 20,

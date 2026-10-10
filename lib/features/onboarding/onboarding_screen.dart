@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/ui/candy_button.dart';
+import '../../core/ui/pressable.dart';
 import '../../providers/player_profile_provider.dart';
 import 'widgets/mini_grid_demo.dart';
 
@@ -14,8 +16,7 @@ class _OnboardingPage {
   final WidgetBuilder? demoBuilder;
   final String? guideImage;
 
-  const _OnboardingPage(this.emoji, this.title, this.description,
-      {this.demoBuilder, this.guideImage});
+  const _OnboardingPage(this.emoji, this.title, this.description, {this.demoBuilder, this.guideImage});
 }
 
 final List<_OnboardingPage> _pages = [
@@ -30,11 +31,8 @@ final List<_OnboardingPage> _pages = [
     '🔤',
     'חברו אותיות שכנות',
     'גררו אצבע בין אותיות סמוכות - אופקי, אנכי או באלכסון - כדי להרכיב מילים.',
-    demoBuilder: (context) => const AnimatedMiniGridDemo(
-      letters: ['ל', 'ב', 'י', 'ז', 'ת', 'ק'],
-      columns: 3,
-      path: [1, 2, 4],
-    ),
+    demoBuilder: (context) =>
+        const AnimatedMiniGridDemo(letters: ['ל', 'ב', 'י', 'ז', 'ת', 'ק'], columns: 3, path: [1, 2, 4]),
   ),
   const _OnboardingPage(
     '⭐',
@@ -51,8 +49,8 @@ final List<_OnboardingPage> _pages = [
   const _OnboardingPage(
     '👥',
     'תחרו נגד חברים',
-    'במצב רב-משתתפים (2-4 שחקנים) כולם פותרים את אותו לוח - מי שמוצא/ת\n'
-        'הכי הרבה מילים או צובר/ת הכי הרבה נקודות עד תום הזמן מנצח/ת!',
+    'הזמינו חברים בוואטסאפ או מרשימת החברים, ושחקו על אותו לוח בזמן אמת -\n'
+        'או התאמנו נגד המחשב. מי שצובר/ת הכי הרבה נקודות מנצח/ת!',
   ),
 ];
 
@@ -85,7 +83,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final isLast = _index == _pages.length - 1;
 
     return Scaffold(
-      body: Container(
+      body: AnimatedContainer(
+        // הרקע מתחלף בהדרגה בין העמודים (ולא "קופץ").
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOut,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -100,11 +101,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 alignment: Alignment.topLeft,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: TextButton(
-                    onPressed: _finish,
-                    child: Text(
-                      widget.standalone ? 'סגירה' : 'דלג',
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                  child: Pressable(
+                    onTap: _finish,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Text(
+                        widget.standalone ? 'סגירה' : 'דלג',
+                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800),
+                      ),
                     ),
                   ),
                 ),
@@ -112,6 +120,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               Expanded(
                 child: PageView.builder(
                   controller: _controller,
+                  physics: const BouncingScrollPhysics(),
                   itemCount: _pages.length,
                   onPageChanged: (i) => setState(() => _index = i),
                   itemBuilder: (context, i) {
@@ -130,28 +139,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           else if (page.demoBuilder != null)
                             page.demoBuilder!(context).animate(key: ValueKey('demo-$i')).fadeIn()
                           else
-                            Text(page.emoji, style: const TextStyle(fontSize: 96))
-                                .animate(key: ValueKey('emoji-$i'))
-                                .scale(duration: 400.ms, curve: Curves.elasticOut),
+                            Text(
+                              page.emoji,
+                              style: const TextStyle(fontSize: 96),
+                            ).animate(key: ValueKey('emoji-$i')).scale(duration: 400.ms, curve: Curves.elasticOut),
                           const SizedBox(height: 32),
                           Text(
                             page.title,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                            ),
+                            style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800),
                           ).animate(key: ValueKey('title-$i')).fadeIn().slideY(begin: 0.2, end: 0),
                           const SizedBox(height: 16),
                           Text(
                             page.description,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 16,
-                              height: 1.5,
-                            ),
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 16, height: 1.5),
                           ).animate(key: ValueKey('desc-$i')).fadeIn(delay: 100.ms),
                         ],
                       ),
@@ -177,27 +179,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.all(24),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.primaryDark,
-                    ),
-                    onPressed: () {
-                      if (isLast) {
-                        _finish();
-                      } else {
-                        _controller.nextPage(
-                          duration: const Duration(milliseconds: 350),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    },
-                    child: Text(isLast
-                        ? (widget.standalone ? 'הבנתי, סגירה' : 'בואו נתחיל!')
-                        : 'הבא'),
-                  ),
+                child: CandyButton(
+                  label: isLast ? (widget.standalone ? 'הבנתי!' : 'בואו נתחיל!') : 'הבא',
+                  icon: isLast ? Icons.play_arrow_rounded : Icons.arrow_forward_rounded,
+                  palette: isLast ? CandyPalette.green : CandyPalette.white,
+                  height: 60,
+                  fontSize: 21,
+                  onPressed: () {
+                    if (isLast) {
+                      _finish();
+                    } else {
+                      _controller.nextPage(duration: const Duration(milliseconds: 420), curve: Curves.easeOutCubic);
+                    }
+                  },
                 ),
               ),
             ],
