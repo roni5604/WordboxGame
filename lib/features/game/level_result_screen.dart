@@ -7,6 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../../core/ads/ads_runtime.dart';
 import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/ui/candy_button.dart';
+import '../../core/ui/game_backdrop.dart';
+import '../../core/ui/pressable.dart';
+import '../share/share_achievement_sheet.dart';
 import '../../providers/player_profile_provider.dart';
 import '../ads/double_coins_cta.dart';
 import '../../game_engine/models/level_config.dart';
@@ -24,18 +28,12 @@ class _CelebrationCharacter extends StatelessWidget {
   final int stars;
   final bool isBigCelebration;
 
-  const _CelebrationCharacter({
-    required this.stars,
-    this.isBigCelebration = false,
-  });
+  const _CelebrationCharacter({required this.stars, this.isBigCelebration = false});
 
   @override
   Widget build(BuildContext context) {
     if (stars >= 2 || isBigCelebration) {
-      return Image.asset(
-            'assets/avatar/detective_celebrate.png',
-            height: isBigCelebration ? 170 : 130,
-          )
+      return Image.asset('assets/avatar/detective_celebrate.png', height: isBigCelebration ? 170 : 130)
           .animate(onPlay: (c) => c.repeat(reverse: true))
           .scaleXY(
             begin: 1,
@@ -70,9 +68,7 @@ class _MilestoneBanner extends StatelessWidget {
     return Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppColors.star, Color(0xFFFF9A56)],
-            ),
+            gradient: const LinearGradient(colors: [AppColors.star, Color(0xFFFF9A56)]),
             borderRadius: BorderRadius.circular(24),
             boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 16)],
           ),
@@ -80,34 +76,20 @@ class _MilestoneBanner extends StatelessWidget {
             children: [
               const Text(
                 '🎉 עולם חדש נפתח!',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white),
               ),
               const SizedBox(height: 4),
               Text(
                 '$tierTitle - לוח $gridSize×$gridSize',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
               ),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _PrizeChip(
-                    icon: Icons.monetization_on_rounded,
-                    label: '+$bonusCoins מטבעות',
-                  ),
+                  _PrizeChip(icon: Icons.monetization_on_rounded, label: '+$bonusCoins מטבעות'),
                   const SizedBox(width: 12),
-                  _PrizeChip(
-                    icon: Icons.lightbulb_rounded,
-                    label: '+$bonusHints רמזים',
-                  ),
+                  _PrizeChip(icon: Icons.lightbulb_rounded, label: '+$bonusHints רמזים'),
                 ],
               ),
             ],
@@ -115,11 +97,7 @@ class _MilestoneBanner extends StatelessWidget {
         )
         .animate()
         .fadeIn(delay: 200.ms)
-        .scale(
-          begin: const Offset(0.85, 0.85),
-          curve: Curves.elasticOut,
-          duration: 700.ms,
-        );
+        .scale(begin: const Offset(0.85, 0.85), curve: Curves.elasticOut, duration: 700.ms);
   }
 }
 
@@ -134,9 +112,7 @@ class _MasterBanner extends StatelessWidget {
     return Container(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFFA000), Color(0xFFFF7A45)],
-            ),
+            gradient: const LinearGradient(colors: [Color(0xFFFFA000), Color(0xFFFF7A45)]),
             borderRadius: BorderRadius.circular(20),
             boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 14)],
           ),
@@ -147,22 +123,14 @@ class _MasterBanner extends StatelessWidget {
               SizedBox(width: 8),
               Text(
                 'שלב מאסטר - מטבעות כפולות! ⚡',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
               ),
             ],
           ),
         )
         .animate()
         .fadeIn(delay: 200.ms)
-        .scale(
-          begin: const Offset(0.85, 0.85),
-          curve: Curves.elasticOut,
-          duration: 600.ms,
-        );
+        .scale(begin: const Offset(0.85, 0.85), curve: Curves.elasticOut, duration: 600.ms);
   }
 }
 
@@ -190,21 +158,14 @@ class _EarlyFinishBadge extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 'סיימת לפני הזמן עם עוד $secondsLeft שניות בשעון! ⏱️',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
               ),
             ],
           ),
         )
         .animate()
         .fadeIn(delay: 250.ms)
-        .scale(
-          begin: const Offset(0.85, 0.85),
-          curve: Curves.elasticOut,
-          duration: 600.ms,
-        );
+        .scale(begin: const Offset(0.85, 0.85), curve: Curves.elasticOut, duration: 600.ms);
   }
 }
 
@@ -218,19 +179,13 @@ class _PrizeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 18, color: AppColors.primaryDark),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-          ),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
         ],
       ),
     );
@@ -243,11 +198,7 @@ class LevelResultScreen extends ConsumerStatefulWidget {
   final int levelNumber;
   final GameScreenResult result;
 
-  const LevelResultScreen({
-    super.key,
-    required this.levelNumber,
-    required this.result,
-  });
+  const LevelResultScreen({super.key, required this.levelNumber, required this.result});
 
   @override
   ConsumerState<LevelResultScreen> createState() => _LevelResultScreenState();
@@ -261,13 +212,9 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
   @override
   void initState() {
     super.initState();
-    _levelRecorded = ref
-        .read(adsGatewayProvider)
-        .recordCampaignLevelFinished(widget.levelNumber);
+    _levelRecorded = ref.read(adsGatewayProvider).recordCampaignLevelFinished(widget.levelNumber);
     final isWorldFinale = widget.result.isWorldFinale;
-    _confetti = ConfettiController(
-      duration: Duration(seconds: isWorldFinale ? 4 : 2),
-    );
+    _confetti = ConfettiController(duration: Duration(seconds: isWorldFinale ? 4 : 2));
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted) return;
       ref.read(soundServiceProvider).playLevelComplete();
@@ -287,11 +234,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
     final luckyBox = widget.result.luckyBoxReward;
 
     if (wheelPrize != null) {
-      await FortuneWheelDialog.show(
-        context,
-        prizeIndex: widget.result.wheelPrizeIndex,
-        prize: wheelPrize,
-      );
+      await FortuneWheelDialog.show(context, prizeIndex: widget.result.wheelPrizeIndex, prize: wheelPrize);
     }
     if (!mounted || _leaving) return;
     if (luckyBox != null) {
@@ -301,10 +244,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
 
   Future<void> _skipFromResult() async {
     final cost = CoinCosts.skipLevel(widget.levelNumber);
-    final ok = await ref.read(playerProfileProvider.notifier).skipLevel(
-          levelNumber: widget.levelNumber,
-          cost: cost,
-        );
+    final ok = await ref.read(playerProfileProvider.notifier).skipLevel(levelNumber: widget.levelNumber, cost: cost);
     if (!mounted) return;
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -341,9 +281,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
     try {
       await _levelRecorded;
       if (showAd && mounted) {
-        await ref
-            .read(adsGatewayProvider)
-            .showInterstitialIfAllowed(levelNumber: widget.levelNumber);
+        await ref.read(adsGatewayProvider).showInterstitialIfAllowed(levelNumber: widget.levelNumber);
       }
     } finally {
       if (mounted) go();
@@ -356,21 +294,112 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
     super.dispose();
   }
 
+  void _goNext() {
+    _exit(
+      showAd: true,
+      go: () {
+        final next = widget.levelNumber + 1;
+        if (next > CampaignLevels.totalLevels) {
+          context.go('/campaign');
+        } else {
+          context.pushReplacement('/level/$next/intro');
+        }
+      },
+    );
+  }
+
+  void _replay() => _exit(showAd: false, go: () => context.pushReplacement('/level/${widget.levelNumber}/intro'));
+
+  void _share() {
+    final config = CampaignLevels.byLevelNumber(widget.levelNumber);
+    final result = widget.result;
+    showShareAchievementSheet(
+      context,
+      ShareAchievement.level(
+        levelNumber: widget.levelNumber,
+        stars: result.stars,
+        score: result.score,
+        words: result.foundWordsCount,
+        colors: AppColors.gradientForWorldIndex(config.tier.index),
+        newWorld: result.isWorldFinale,
+        worldTitle: result.newTierTitle,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final config = CampaignLevels.byLevelNumber(widget.levelNumber);
     final result = widget.result;
+    final passed = result.stars > 0;
 
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: AppColors.gradientForWorldIndex(config.tier.index),
+    // "חזרה" של המערכת (כפתור באנדרואיד / החלקה) לא מחזירה לשלב שהסתיים
+    // אלא למפת השלבים - בדיוק כמו כפתור הבית.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _exit(showAd: false, go: () => context.go('/campaign'));
+      },
+      child: GameScaffold(
+        colors: AppColors.gradientForWorldIndex(config.tier.index),
+        header: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(
+            children: [
+              CandyIconButton(
+                icon: Icons.map_rounded,
+                tooltip: 'מפת השלבים',
+                onPressed: () => _exit(showAd: false, go: () => context.go('/campaign')),
+              ),
+              const Spacer(),
+              Text(
+                'שלב ${widget.levelNumber}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  shadows: [Shadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2))],
+                ),
+              ),
+              const Spacer(),
+              CandyIconButton(
+                icon: Icons.home_rounded,
+                tooltip: 'תפריט ראשי',
+                onPressed: () => _exit(showAd: false, go: () => context.go('/home')),
+              ),
+            ],
           ),
         ),
-        child: Stack(
+        bottomBar: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: CandyButton(
+                label: passed ? 'שחקו שוב' : 'נסו שוב',
+                icon: Icons.replay_rounded,
+                palette: passed ? CandyPalette.white : CandyPalette.green,
+                height: 58,
+                fontSize: 18,
+                onPressed: _replay,
+              ),
+            ),
+            if (passed) ...[
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 3,
+                child: CandyButton(
+                  label: 'השלב הבא',
+                  icon: Icons.arrow_forward_rounded,
+                  palette: CandyPalette.green,
+                  height: 58,
+                  fontSize: 20,
+                  onPressed: _goNext,
+                ),
+              ),
+            ],
+          ],
+        ).animate().fadeIn(delay: 1100.ms, duration: 300.ms).slideY(begin: 0.4, end: 0, curve: Curves.easeOutBack),
+        body: Stack(
           children: [
             Align(
               alignment: Alignment.topCenter,
@@ -380,229 +409,235 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                 shouldLoop: false,
                 numberOfParticles: result.isWorldFinale ? 60 : 24,
                 gravity: 0.25,
-                colors: const [
-                  AppColors.star,
-                  AppColors.primary,
-                  AppColors.success,
-                  Colors.white,
-                ],
+                colors: const [AppColors.star, AppColors.primary, AppColors.success, Colors.white],
               ),
             ),
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: IntrinsicHeight(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            children: [
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: IconButton(
-                                  tooltip: 'תפריט ראשי',
-                                  onPressed: () => _exit(
-                                    showAd: false,
-                                    go: () => context.go('/home'),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.home_rounded,
-                                    color: Colors.white,
-                                    size: 28,
-                                  ),
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
                                 result.finishedEarly
                                     ? 'סיימת לפני הזמן! 🎉'
-                                    : (result.stars > 0
-                                          ? 'כל הכבוד!'
-                                          : 'כמעט הצלחת!'),
+                                    : (passed ? (result.stars >= 3 ? 'מושלם!' : 'כל הכבוד!') : 'כמעט הצלחת!'),
+                                textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 30,
+                                  fontSize: 34,
                                   fontWeight: FontWeight.w900,
+                                  shadows: [Shadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 3))],
                                 ),
-                              ).animate().fadeIn().slideY(begin: -0.2, end: 0),
-                              if (result.finishedEarly) ...[
-                                const SizedBox(height: 10),
-                                _EarlyFinishBadge(
-                                  secondsLeft: result.secondsLeftWhenFinished,
-                                ),
-                              ],
-                              const SizedBox(height: 12),
-                              _CelebrationCharacter(
-                                stars: result.stars,
-                                isBigCelebration: result.isWorldFinale,
+                              )
+                              .animate()
+                              .fadeIn(duration: 300.ms)
+                              .scale(begin: const Offset(0.6, 0.6), curve: Curves.elasticOut, duration: 800.ms),
+                          if (result.finishedEarly) ...[
+                            const SizedBox(height: 10),
+                            _EarlyFinishBadge(secondsLeft: result.secondsLeftWhenFinished),
+                          ],
+                          const SizedBox(height: 8),
+                          _CelebrationCharacter(stars: result.stars, isBigCelebration: result.isWorldFinale),
+                          if (result.isWorldFinale) ...[
+                            const SizedBox(height: 14),
+                            _MilestoneBanner(
+                              tierTitle: result.newTierTitle ?? '',
+                              gridSize: result.newGridSize ?? config.gridSize,
+                              bonusCoins: result.bonusCoins,
+                              bonusHints: result.bonusHints,
+                            ),
+                          ] else if (result.isMasterLevel) ...[
+                            const SizedBox(height: 14),
+                            const _MasterBanner(),
+                          ],
+                          const SizedBox(height: 14),
+                          _StarsArc(stars: result.stars),
+                          const SizedBox(height: 18),
+                          _ResultCard(
+                            result: result,
+                            scoreRequired: config.scoreRequired,
+                          ).animate().fadeIn(delay: 900.ms).slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic),
+                          if (passed) ...[
+                            const SizedBox(height: 14),
+                            _ShareAchievementButton(onTap: _share)
+                                .animate()
+                                .fadeIn(delay: 1300.ms)
+                                .scale(begin: const Offset(0.8, 0.8), curve: Curves.easeOutBack),
+                          ] else ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              'צריך לפחות כוכב אחד כדי לעבור שלב',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.95),
+                                fontWeight: FontWeight.w800,
                               ),
-                              if (result.isWorldFinale) ...[
-                                const SizedBox(height: 16),
-                                _MilestoneBanner(
-                                  tierTitle: result.newTierTitle ?? '',
-                                  gridSize:
-                                      result.newGridSize ?? config.gridSize,
-                                  bonusCoins: result.bonusCoins,
-                                  bonusHints: result.bonusHints,
-                                ),
-                              ] else if (result.isMasterLevel) ...[
-                                const SizedBox(height: 16),
-                                const _MasterBanner(),
-                              ],
-                              const SizedBox(height: 20),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: List.generate(3, (i) {
-                                  final filled = i < result.stars;
-                                  return Icon(
-                                        Icons.star_rounded,
-                                        size: 56,
-                                        color: filled
-                                            ? AppColors.star
-                                            : AppColors.starEmpty,
-                                      )
-                                      .animate(delay: (300 + i * 200).ms)
-                                      .scale(
-                                        begin: const Offset(0, 0),
-                                        end: const Offset(1, 1),
-                                        curve: Curves.elasticOut,
-                                        duration: 600.ms,
-                                      )
-                                      .then()
-                                      .shake(
-                                        hz: filled ? 3 : 0,
-                                        curve: Curves.easeInOut,
-                                      );
-                                }),
-                              ),
-                              const SizedBox(height: 24),
-                              Card(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(20),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          _StatRow(
-                                            label: 'ניקוד',
-                                            value: '${result.score}',
-                                          ),
-                                          const Divider(height: 20),
-                                          _StatRow(
-                                            label: 'יעד נקודות',
-                                            value:
-                                                '${result.score} מתוך ${config.scoreRequired}',
-                                          ),
-                                          const Divider(height: 20),
-                                          _StatRow(
-                                            label: 'סה"כ מילים בלוח',
-                                            value:
-                                                '${result.foundWordsCount} מתוך ${result.totalPossibleWords}',
-                                          ),
-                                          const Divider(height: 20),
-                                          _StatRow(
-                                            label: 'מטבעות שהורווחו',
-                                            value: '+${result.coinsEarned}',
-                                            valueColor: Colors.amber.shade800,
-                                          ),
-                                          if (result.stars > 0)
-                                            DoubleCoinsCta(
-                                              coins: result.coinsEarned,
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  )
-                                  .animate()
-                                  .fadeIn(delay: 900.ms)
-                                  .slideY(begin: 0.15, end: 0),
-                              const Spacer(),
-                              if (result.stars == 0) ...[
-                                Text(
-                                  'צריך לפחות כוכב אחד כדי לעבור שלב',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    side: const BorderSide(color: Colors.white),
-                                  ),
-                                  onPressed: _skipFromResult,
-                                  icon: const Icon(Icons.skip_next_rounded),
-                                  label: Text(
-                                    'דלגו על השלב · ${CoinCosts.skipLevel(widget.levelNumber)} מטבעות',
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                              ],
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.white,
-                                        side: const BorderSide(
-                                          color: Colors.white,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 16,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            24,
-                                          ),
-                                        ),
-                                      ),
-                                      onPressed: () => _exit(
-                                        showAd: false,
-                                        go: () => context.pushReplacement(
-                                          '/level/${widget.levelNumber}/intro',
-                                        ),
-                                      ),
-                                      icon: const Icon(Icons.replay_rounded),
-                                      label: const Text('שחקו שוב'),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: result.stars > 0
-                                          ? () => _exit(
-                                                showAd: true,
-                                                go: () {
-                                                  final next = widget.levelNumber + 1;
-                                                  if (next > CampaignLevels.totalLevels) {
-                                                    context.go('/campaign');
-                                                  } else {
-                                                    context.pushReplacement(
-                                                      '/level/$next/intro',
-                                                    );
-                                                  }
-                                                },
-                                              )
-                                          : null,
-                                      icon: const Icon(Icons.arrow_back_rounded),
-                                      label: const Text('השלב הבא'),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                            ),
+                            const SizedBox(height: 10),
+                            CandyButton(
+                              label: 'דלגו על השלב',
+                              subtitle: '${CoinCosts.skipLevel(widget.levelNumber)} מטבעות',
+                              icon: Icons.skip_next_rounded,
+                              palette: CandyPalette.gold,
+                              height: 54,
+                              fontSize: 17,
+                              onPressed: _skipFromResult,
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                  );
-                },
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// שלושה כוכבים בקשת (האמצעי גדול ומורם), שנחשפים בזה אחר זה בקפיצה -
+/// הרגע הכי "מתגמל" במסך התוצאות.
+class _StarsArc extends StatelessWidget {
+  final int stars;
+  const _StarsArc({required this.stars});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget star(int i, double size, double lift) {
+      final filled = i < stars;
+      return Transform.translate(
+            offset: Offset(0, -lift),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(Icons.star_rounded, size: size, color: Colors.black.withValues(alpha: 0.12)),
+                Icon(
+                  Icons.star_rounded,
+                  size: size * 0.94,
+                  color: filled ? AppColors.star : Colors.white.withValues(alpha: 0.45),
+                  shadows: filled ? const [Shadow(color: Color(0xAAFFC107), blurRadius: 18)] : null,
+                ),
+              ],
+            ),
+          )
+          .animate(delay: (350 + i * 260).ms)
+          .scale(begin: const Offset(0, 0), end: const Offset(1, 1), curve: Curves.elasticOut, duration: 700.ms)
+          .rotate(begin: filled ? -0.15 : 0, end: 0, duration: 500.ms, curve: Curves.easeOut)
+          .then()
+          .shimmer(duration: filled ? 900.ms : 1.ms, color: Colors.white70);
+    }
+
+    // סדר התצוגה: ימין->שמאל ב-RTL, כך שהכוכב הראשון נחשף מימין.
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [star(0, 62, 0), const SizedBox(width: 6), star(1, 80, 14), const SizedBox(width: 6), star(2, 62, 0)],
+    );
+  }
+}
+
+class _ResultCard extends StatelessWidget {
+  final GameScreenResult result;
+  final int scoreRequired;
+
+  const _ResultCard({required this.result, required this.scoreRequired});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 18, offset: Offset(0, 8))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // הניקוד "רץ" מ-0 עד התוצאה - מרגיש כמו ספירת נקודות במשחק.
+          TweenAnimationBuilder<int>(
+            tween: IntTween(begin: 0, end: result.score),
+            duration: const Duration(milliseconds: 1100),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) => Column(
+              children: [
+                Text(
+                  '$value',
+                  style: const TextStyle(
+                    fontSize: 44,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primaryDark,
+                    height: 1,
+                  ),
+                ),
+                const Text(
+                  'נקודות',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black45),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 22),
+          _StatRow(label: 'יעד נקודות', value: '$scoreRequired'),
+          const SizedBox(height: 8),
+          _StatRow(label: 'מילים שמצאת', value: '${result.foundWordsCount} מתוך ${result.totalPossibleWords}'),
+          const SizedBox(height: 8),
+          _StatRow(label: 'מטבעות שהורווחו', value: '+${result.coinsEarned}', valueColor: Colors.amber.shade800),
+          if (result.stars > 0) DoubleCoinsCta(coins: result.coinsEarned),
+        ],
+      ),
+    );
+  }
+}
+
+/// כפתור "שתפו את ההישג" - גלולה לבנה עם סמלי פייסבוק ווואטסאפ.
+class _ShareAchievementButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ShareAchievementButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget dot(Color c, Widget child) => Container(
+      width: 30,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+      child: child,
+    );
+    return Pressable(
+      onTap: onTap,
+      semanticLabel: 'שיתוף ההישג',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 5))],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            dot(
+              const Color(0xFF1877F2),
+              const Text(
+                'f',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
               ),
+            ),
+            const SizedBox(width: 4),
+            dot(const Color(0xFF25D366), const Icon(Icons.chat_rounded, color: Colors.white, size: 16)),
+            const SizedBox(width: 10),
+            const Text(
+              'שתפו את ההישג',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF2D2250)),
             ),
           ],
         ),
@@ -622,18 +657,13 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 15, color: Colors.black54),
+        Expanded(
+          child: Text(label, style: const TextStyle(fontSize: 15, color: Colors.black54)),
         ),
-        const Spacer(),
+        const SizedBox(width: 8),
         Text(
           value,
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 16,
-            color: valueColor,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: valueColor),
         ),
       ],
     );

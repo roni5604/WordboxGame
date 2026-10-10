@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../game_engine/rewards/reward_tables.dart';
+import '../../../core/ui/candy_button.dart';
 
 /// דיאלוג "תיבת מזל" - נפתח אוטומטית כל 7 שלבים (ראו
 /// [RewardTables.luckyBoxLevelInterval] ו-lib/features/game/level_result_screen.dart).
@@ -126,16 +127,11 @@ class _LuckyBoxDialogState extends State<LuckyBoxDialog> {
                         duration: 600.ms,
                       ),
                   const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primaryDark,
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('מעולה!'),
-                    ),
+                  CandyButton(
+                    label: 'מעולה!',
+                    palette: CandyPalette.green,
+                    height: 56,
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ],

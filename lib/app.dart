@@ -1,13 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/platform/web_safe_area.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/ui/pressable.dart';
+import 'features/social/social_host.dart';
+import 'providers/sound_provider.dart';
 
 /// ה-App Widget הראשי: עברית כברירת מחדל, כיווניות RTL, ו-go_router
 /// כמנוע הניווט המשותף לנייד ולאתר.
-class WordboxApp extends StatelessWidget {
+class WordboxApp extends ConsumerStatefulWidget {
   const WordboxApp({super.key});
+
+  @override
+  ConsumerState<WordboxApp> createState() => _WordboxAppState();
+}
+
+class _WordboxAppState extends ConsumerState<WordboxApp> {
+  @override
+  void initState() {
+    super.initState();
+    // כל לחיצה על כפתור באפליקציה משמיעה את אותו "טאפ" עדין.
+    PressFeedback.onPress = () => ref.read(soundServiceProvider).playButtonTap();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,9 +41,15 @@ class WordboxApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       builder: (context, child) {
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: child ?? const SizedBox.shrink(),
+        return WebSafeArea(
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: SocialHost(
+              router: appRouter,
+              navigatorKey: rootNavigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
         );
       },
     );

@@ -7,7 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/ui/candy_button.dart';
+import '../../core/ui/game_backdrop.dart';
 import '../../providers/multiplayer_repository_provider.dart';
+import '../../providers/social_provider.dart';
+import '../profile/widgets/avatar_widget.dart';
+import '../share/share_achievement_sheet.dart';
+import '../social/social_actions.dart';
+import 'widgets/race_podium.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
 import '../game/widgets/mascot_widget.dart';
@@ -50,7 +57,10 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
       if (!mounted) return;
       setState(() => _myUid = uid);
       final room = _room;
-      if (room != null) _maybeAwardPot(room);
+      if (room != null) {
+        _maybeAwardPot(room);
+        _maybeRecordMatch(room);
+      }
     });
     _roomSub = _repo.watchRoom(widget.roomCode).listen(_onRoomUpdate, onError: (_) {});
 
@@ -68,6 +78,7 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
   void _onRoomUpdate(GameRoom room) {
     setState(() => _room = room);
     _maybeAwardPot(room);
+    _maybeRecordMatch(room);
 
     if (_navigatedAway) return;
 
@@ -87,10 +98,23 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
     }
   }
 
+  bool _matchRecorded = false;
+
+  /// רושם את תוצאת הסבב בסטטיסטיקה החברתית: ניצחונות/משחקים בפרופיל
+  /// הציבורי, ומאזן "ראש בראש" מול כל חבר/ה שהשתתף/ה. כל משתתף/ת רושם/ת
+  /// את הצד שלו/ה, פעם אחת לכל מסך תוצאות.
+  void _maybeRecordMatch(GameRoom room) {
+    final myUid = _myUid;
+    if (_matchRecorded || myUid == null || room.status != RoomStatus.finished || room.players.length < 2) return;
+    _matchRecorded = true;
+    final scores = {for (final p in room.players) p.uid: p.score};
+    ref.read(socialRepositoryProvider).recordMatch(scores: scores, myUid: myUid).catchError((Object e) {
+      debugPrint('recordMatch failed: $e');
+    });
+  }
+
   List<_Standing> _standingsFor(GameRoom room) {
-    final byName = {
-      for (final p in widget.result.rankedParticipants) p.name: p,
-    };
+    final byName = {for (final p in widget.result.rankedParticipants) p.name: p};
     return [
       for (final player in room.players)
         _Standing(
@@ -99,10 +123,10 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
           lastScore: byName[player.displayName]?.score ?? player.score,
         ),
     ]..sort((a, b) {
-        final winCompare = b.wins.compareTo(a.wins);
-        if (winCompare != 0) return winCompare;
-        return b.lastScore.compareTo(a.lastScore);
-      });
+      final winCompare = b.wins.compareTo(a.wins);
+      if (winCompare != 0) return winCompare;
+      return b.lastScore.compareTo(a.lastScore);
+    });
   }
 
   void _maybeAwardPot(GameRoom room) {
@@ -112,9 +136,7 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
     final standings = _standingsFor(room);
     if (standings.isEmpty) return;
     final first = standings.first;
-    final tied = standings
-        .where((s) => s.wins == first.wins && s.lastScore == first.lastScore)
-        .toList();
+    final tied = standings.where((s) => s.wins == first.wins && s.lastScore == first.lastScore).toList();
     if (!tied.any((s) => s.player.uid == _myUid)) {
       _potCredited = true;
       if (tied.length == 1) {
@@ -132,9 +154,7 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
       ref.read(playerProfileProvider.notifier).addCoins(share);
     }
     setState(() {
-      _potBanner = tied.length == 1
-          ? 'הזוכה מקבל/ת ${room.pot} מטבעות!'
-          : 'תיקו — $share מטבעות לכל אחד';
+      _potBanner = tied.length == 1 ? 'הזוכה מקבל/ת ${room.pot} מטבעות!' : 'תיקו — $share מטבעות לכל אחד';
     });
     _confetti.play();
   }
@@ -172,6 +192,23 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
     super.dispose();
   }
 
+  void _share(GameRoom? room) {
+    final result = widget.result;
+    final me = result.rankedParticipants.firstWhere((p) => p.isHuman, orElse: () => result.rankedParticipants.first);
+    showShareAchievementSheet(
+      context,
+      ShareAchievement.raceWin(
+        score: me.score,
+        opponents: [
+          for (final p in result.rankedParticipants)
+            if (!p.isHuman) p.name,
+        ],
+        vsFriends: true,
+        seriesLabel: room != null && room.isSeries ? '${room.wins[_myUid] ?? 0} ניצחונות בסדרה' : null,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final result = widget.result;
@@ -179,17 +216,94 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
     final isHost = room != null && _myUid != null && _myUid == room.hostUid;
     final isFinale = room == null || room.isLastRound;
     final isSeriesFinale = room != null && room.isSeries && room.isLastRound;
+    final iWonSeries = isSeriesFinale && _standingsFor(room).first.player.uid == _myUid;
+    final canShare = result.humanWon || iWonSeries;
+    final social = ref.watch(socialRepositoryProvider);
+    final friendIds = {for (final f in ref.watch(friendsProvider).valueOrNull ?? const []) f.profile.uid};
+    final strangers = [
+      if (room != null && social.isAvailable)
+        for (final p in room.players)
+          if (p.uid != _myUid && !friendIds.contains(p.uid)) p,
+    ];
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
-          ),
+    PlayerInRoom? playerNamed(String name) {
+      if (room == null) return null;
+      for (final p in room.players) {
+        if (p.displayName == name) return p;
+      }
+      return null;
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_isLeaving) _exitToHome();
+      },
+      child: GameScaffold(
+        colors: const [Color(0xFF8B5CF6), Color(0xFF3B82F6)],
+        header: GameHeader(
+          title: _titleFor(result, room),
+          subtitle: room != null && room.isSeries && !isSeriesFinale ? room.roundLabel : null,
+          backIcon: Icons.home_rounded,
+          onBack: _isLeaving ? null : _exitToHome,
+          trailing: canShare
+              ? CandyIconButton(icon: Icons.ios_share_rounded, tooltip: 'שיתוף', onPressed: () => _share(room))
+              : null,
         ),
-        child: Stack(
+        bottomBar: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_actionError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                  _actionError!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+              ),
+            if (!isFinale && isHost)
+              CandyButton(
+                label: 'הסבב הבא',
+                icon: Icons.rocket_launch_rounded,
+                palette: CandyPalette.green,
+                loading: _isAdvancing,
+                onPressed: _isAdvancing ? null : _nextRound,
+              ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.4, end: 0, curve: Curves.easeOutBack)
+            else if (!isFinale)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'ממתינים לסבב הבא...',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (isFinale)
+              CandyButton(
+                label: 'יציאה לתפריט הראשי',
+                icon: Icons.home_rounded,
+                palette: CandyPalette.white,
+                height: 56,
+                fontSize: 18,
+                loading: _isLeaving,
+                onPressed: _isLeaving ? null : _exitToHome,
+              ).animate().fadeIn(delay: 1000.ms).slideY(begin: 0.4, end: 0, curve: Curves.easeOutBack),
+          ],
+        ),
+        body: Stack(
           children: [
             Align(
               alignment: Alignment.topCenter,
@@ -201,95 +315,48 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
                 colors: const [AppColors.star, AppColors.primary, Colors.white],
               ),
             ),
-            SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  Text(
-                    _titleFor(result, room),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900),
-                  ).animate().fadeIn().slideY(begin: -0.2, end: 0),
-                  if (room != null && room.isSeries) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      room.roundLabel,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Center(
-                    child: result.humanWon || isSeriesFinale
-                        ? Image.asset('assets/avatar/detective_celebrate.png', height: 120)
+            ListView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+              children: [
+                Center(
+                  child: result.humanWon || iWonSeries
+                      ? Image.asset('assets/avatar/detective_celebrate.png', height: 104)
                             .animate(onPlay: (c) => c.repeat(reverse: true))
                             .scaleXY(begin: 1, end: 1.06, duration: 500.ms, curve: Curves.easeInOut)
-                        : const MascotWidget(mood: MascotMood.sad, size: 100),
+                      : const MascotWidget(mood: MascotMood.sad, size: 88),
+                ),
+                const SizedBox(height: 14),
+                if (isSeriesFinale)
+                  ..._championsTable(room)
+                else
+                  RacePodium(
+                    entries: [
+                      for (final p in result.rankedParticipants)
+                        PodiumEntry(
+                          name: p.name,
+                          score: p.score,
+                          wordsFound: p.wordsFound,
+                          isMe: p.isHuman,
+                          avatarId: playerNamed(p.name)?.avatarId ?? 'detective',
+                          photoUrl: playerNamed(p.name)?.photoUrl,
+                          wins: room != null && room.isSeries ? (room.wins[playerNamed(p.name)?.uid] ?? 0) : null,
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  if (isSeriesFinale)
-                    ..._championsTable(room)
-                  else
-                    for (int i = 0; i < result.rankedParticipants.length; i++)
-                      _RankRow(rank: i + 1, participant: result.rankedParticipants[i])
-                          .animate(delay: (150 * i).ms)
-                          .fadeIn()
-                          .slideX(begin: 0.2, end: 0),
-                  if (room != null && room.wins.isNotEmpty && room.players.length >= 2 && !isSeriesFinale) ...[
-                    const SizedBox(height: 20),
-                    _HeadToHeadCard(room: room, myUid: _myUid)
-                        .animate(delay: 300.ms)
-                        .fadeIn()
-                        .slideY(begin: 0.1, end: 0),
-                  ],
-                  if (_potBanner != null) ...[
-                    const SizedBox(height: 16),
-                    _PotBanner(text: _potBanner!),
-                  ],
-                  const SizedBox(height: 32),
-                  if (_actionError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        _actionError!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  if (!isFinale && isHost)
-                    ElevatedButton(
-                      onPressed: _isAdvancing ? null : _nextRound,
-                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                      child: _isAdvancing
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
-                            )
-                          : const Text('הסבב הבא 🚀'),
-                    ).animate().fadeIn(delay: 200.ms)
-                  else if (!isFinale)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text(
-                        'ממתינים לסבב הבא...',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                    ),
-                    onPressed: _isLeaving ? null : _exitToHome,
-                    child: const Text('יציאה לתפריט הראשי'),
-                  ),
+                if (room != null && room.wins.isNotEmpty && room.players.length >= 2 && !isSeriesFinale) ...[
+                  const SizedBox(height: 20),
+                  _HeadToHeadCard(room: room, myUid: _myUid).animate(delay: 300.ms).fadeIn().slideY(begin: 0.1, end: 0),
                 ],
-              ),
+                if (_potBanner != null) ...[const SizedBox(height: 16), _PotBanner(text: _potBanner!)],
+                if (strangers.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  _AddPlayersCard(
+                    players: strangers,
+                    onAdd: (p) => SocialActions.sendFriendRequest(context, ref, uid: p.uid, name: p.displayName),
+                  ).animate(delay: 1200.ms).fadeIn().slideY(begin: 0.15, end: 0),
+                ],
+              ],
             ),
           ],
         ),
@@ -307,10 +374,11 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
     final standings = _standingsFor(room);
     return [
       for (int i = 0; i < standings.length; i++)
-        _ChampionRow(rank: i + 1, standing: standings[i], isMe: standings[i].player.uid == _myUid)
-            .animate(delay: (150 * i).ms)
-            .fadeIn()
-            .slideX(begin: 0.2, end: 0),
+        _ChampionRow(
+          rank: i + 1,
+          standing: standings[i],
+          isMe: standings[i].player.uid == _myUid,
+        ).animate(delay: (150 * i).ms).fadeIn().slideX(begin: 0.2, end: 0),
     ];
   }
 }
@@ -321,66 +389,6 @@ class _Standing {
   final int lastScore;
 
   const _Standing({required this.player, required this.wins, required this.lastScore});
-}
-
-class _RankRow extends StatelessWidget {
-  final int rank;
-  final RaceParticipantResult participant;
-
-  const _RankRow({required this.rank, required this.participant});
-
-  Color get _medalColor {
-    switch (rank) {
-      case 1:
-        return AppColors.star;
-      case 2:
-        return const Color(0xFFC0C0C0);
-      case 3:
-        return const Color(0xFFCD7F32);
-      default:
-        return Colors.transparent;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      color: participant.isHuman ? Colors.white : Colors.white.withValues(alpha: 0.85),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: _medalColor == Colors.transparent ? Colors.grey.shade300 : _medalColor,
-              child: Text('$rank', style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                participant.isHuman ? '${participant.name} (את/ה)' : participant.name,
-                style: TextStyle(
-                  fontWeight: participant.isHuman ? FontWeight.w900 : FontWeight.w700,
-                  fontSize: participant.isHuman ? 16 : 15,
-                  color: participant.isHuman ? AppColors.accent : Colors.black87,
-                ),
-              ),
-            ),
-            Text('${participant.wordsFound} מילים', style: const TextStyle(color: Colors.black45, fontSize: 12)),
-            const SizedBox(width: 10),
-            Text(
-              '${participant.score} נק׳',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: participant.isHuman ? 18 : 16,
-                color: participant.isHuman ? AppColors.accent : Colors.black,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _ChampionRow extends StatelessWidget {
@@ -415,7 +423,10 @@ class _ChampionRow extends StatelessWidget {
           children: [
             CircleAvatar(
               backgroundColor: _medalColor,
-              child: Text('$rank', style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+              child: Text(
+                '$rank',
+                style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -431,14 +442,8 @@ class _ChampionRow extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  '${standing.wins} ניצחונות',
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
-                ),
-                Text(
-                  '${standing.lastScore} נק׳ בסבב',
-                  style: const TextStyle(color: Colors.black45, fontSize: 11),
-                ),
+                Text('${standing.wins} ניצחונות', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                Text('${standing.lastScore} נק׳ בסבב', style: const TextStyle(color: Colors.black45, fontSize: 11)),
               ],
             ),
           ],
@@ -512,13 +517,99 @@ class _HeadToHeadCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Row(
                   children: [
-                    Expanded(child: Text(row.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                    Expanded(
+                      child: Text(row.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
                     Text('${row.wins} ניצחונות', style: const TextStyle(color: Colors.black54)),
                   ],
                 ),
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// "שיחקתם יחד - רוצים להיות חברים?": כרטיס עם השחקנים מהחדר שעדיין לא
+/// ברשימת החברים, וכפתור שליחת בקשה לכל אחד/ת.
+class _AddPlayersCard extends StatefulWidget {
+  final List<PlayerInRoom> players;
+  final Future<void> Function(PlayerInRoom player) onAdd;
+
+  const _AddPlayersCard({required this.players, required this.onAdd});
+
+  @override
+  State<_AddPlayersCard> createState() => _AddPlayersCardState();
+}
+
+class _AddPlayersCardState extends State<_AddPlayersCard> {
+  final Set<String> _sent = {};
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 14, offset: Offset(0, 6))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'שיחקתם יחד - רוצים להיות חברים?',
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF4A2F8F)),
+          ),
+          const SizedBox(height: 8),
+          for (final p in widget.players)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  AvatarWidget(avatarId: p.avatarId ?? 'detective', photoUrl: p.photoUrl, size: 38, ring: false),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(p.displayName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                  ),
+                  SizedBox(
+                    width: 112,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      transitionBuilder: (child, a) => ScaleTransition(scale: a, child: child),
+                      child: _sent.contains(p.uid)
+                          ? const Row(
+                              key: ValueKey('sent'),
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+                                SizedBox(width: 4),
+                                Text(
+                                  'נשלח',
+                                  style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.success),
+                                ),
+                              ],
+                            )
+                          : CandyButton(
+                              key: const ValueKey('add'),
+                              label: 'הוספה',
+                              icon: Icons.person_add_alt_1_rounded,
+                              palette: CandyPalette.purple,
+                              height: 40,
+                              fontSize: 14,
+                              radius: 14,
+                              onPressed: () async {
+                                await widget.onAdd(p);
+                                if (mounted) setState(() => _sent.add(p.uid));
+                              },
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

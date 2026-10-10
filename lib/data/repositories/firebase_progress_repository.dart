@@ -81,6 +81,12 @@ class FirebaseProgressRepository implements ProgressRepository {
       ownedBoardSkins: _stringList(data['ownedBoardSkins']),
       ownedLetterSkins: _stringList(data['ownedLetterSkins']),
       ownedMarkerSkins: _stringList(data['ownedMarkerSkins']),
+      dailyChallengeDate: data['dailyChallengeDate'] as String?,
+      dailyChallengeScore: (data['dailyChallengeScore'] as num?)?.toInt() ?? 0,
+      dailyChallengeWords: (data['dailyChallengeWords'] as num?)?.toInt() ?? 0,
+      dailyChallengeStreak: (data['dailyChallengeStreak'] as num?)?.toInt() ?? 0,
+      dailyChallengeBestStreak: (data['dailyChallengeBestStreak'] as num?)?.toInt() ?? 0,
+      dailyChallengeStartedDate: data['dailyChallengeStartedDate'] as String?,
     );
   }
 
@@ -117,6 +123,12 @@ class FirebaseProgressRepository implements ProgressRepository {
       'ownedBoardSkins': profile.ownedBoardSkins,
       'ownedLetterSkins': profile.ownedLetterSkins,
       'ownedMarkerSkins': profile.ownedMarkerSkins,
+      'dailyChallengeDate': profile.dailyChallengeDate,
+      'dailyChallengeScore': profile.dailyChallengeScore,
+      'dailyChallengeWords': profile.dailyChallengeWords,
+      'dailyChallengeStreak': profile.dailyChallengeStreak,
+      'dailyChallengeBestStreak': profile.dailyChallengeBestStreak,
+      'dailyChallengeStartedDate': profile.dailyChallengeStartedDate,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

@@ -39,6 +39,20 @@ class GameSession {
 
   bool get isFullyCompleted => _foundNormalizedWords.length >= board.possibleWords.length;
 
+  /// בודק - בלי לשנות שום מצב - אם הגשת [path] תתקבל כמילה חדשה. משמש את
+  /// הלוח כדי לבחור בין נתיב גולמי לנתיב "מתוקן" אחרי החלקה רשלנית (ראו
+  /// SwipePathTracker.candidatePaths).
+  bool wouldAccept(List<GridPosition> path) {
+    if (path.length < config.minWordLength) return false;
+    final seen = <GridPosition>{};
+    for (int i = 0; i < path.length; i++) {
+      if (!seen.add(path[i])) return false;
+      if (i > 0 && !path[i].isAdjacentTo(path[i - 1])) return false;
+    }
+    final word = path.map((p) => board.letters[p.row][p.col]).join();
+    return trie.isWord(word) && !_foundNormalizedWords.contains(word);
+  }
+
   /// מאמת נתיב שנבחר על ידי השחקן (רשימת מיקומים ברצף) ומעדכן ניקוד בהתאם.
   WordSubmitResult submitPath(List<GridPosition> path) {
     if (path.length < config.minWordLength) {

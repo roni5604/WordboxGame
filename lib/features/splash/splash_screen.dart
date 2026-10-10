@@ -110,7 +110,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.2, end: 0),
                   const SizedBox(height: 8),
                   Text(
-                    'משחקה של ליאן רודן',
+                    'משחקו של רוני מיכאלי',
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 16),
                   ).animate().fadeIn(delay: 200.ms, duration: 500.ms),
                   const SizedBox(height: 44),

@@ -54,6 +54,19 @@ class PlayerProfile extends Equatable {
   final List<String> ownedLetterSkins;
   final List<String> ownedMarkerSkins;
 
+  /// האתגר היומי (ראו lib/game_engine/daily_challenge.dart): התאריך
+  /// (yyyy-MM-dd) שבו שוחק לאחרונה, הניקוד ומספר המילים באותו יום, ורצף
+  /// הימים הרצופים שבהם שוחק.
+  final String? dailyChallengeDate;
+  final int dailyChallengeScore;
+  final int dailyChallengeWords;
+  final int dailyChallengeStreak;
+  final int dailyChallengeBestStreak;
+
+  /// התאריך שבו התחיל ניסיון אתגר יומי. אם התחיל ולא נרשם (האפליקציה
+  /// נסגרה באמצע) - הניסיון נחשב שנוצל, כדי שאי אפשר יהיה "לנסות שוב".
+  final String? dailyChallengeStartedDate;
+
   const PlayerProfile({
     this.levelProgress = const {},
     this.coins = 0,
@@ -75,7 +88,16 @@ class PlayerProfile extends Equatable {
     this.ownedBoardSkins = const ['classic'],
     this.ownedLetterSkins = const ['classic'],
     this.ownedMarkerSkins = const ['classic'],
+    this.dailyChallengeDate,
+    this.dailyChallengeScore = 0,
+    this.dailyChallengeWords = 0,
+    this.dailyChallengeStreak = 0,
+    this.dailyChallengeBestStreak = 0,
+    this.dailyChallengeStartedDate,
   });
+
+  /// האם האתגר של [dateKey] כבר שוחק.
+  bool playedDailyOn(String dateKey) => dailyChallengeDate == dateKey;
 
   int get totalStars => levelProgress.values.fold(0, (sum, p) => sum + p.stars);
 
@@ -105,6 +127,12 @@ class PlayerProfile extends Equatable {
     List<String>? ownedBoardSkins,
     List<String>? ownedLetterSkins,
     List<String>? ownedMarkerSkins,
+    String? dailyChallengeDate,
+    int? dailyChallengeScore,
+    int? dailyChallengeWords,
+    int? dailyChallengeStreak,
+    int? dailyChallengeBestStreak,
+    String? dailyChallengeStartedDate,
   }) {
     return PlayerProfile(
       levelProgress: levelProgress ?? this.levelProgress,
@@ -128,6 +156,12 @@ class PlayerProfile extends Equatable {
       ownedBoardSkins: ownedBoardSkins ?? this.ownedBoardSkins,
       ownedLetterSkins: ownedLetterSkins ?? this.ownedLetterSkins,
       ownedMarkerSkins: ownedMarkerSkins ?? this.ownedMarkerSkins,
+      dailyChallengeDate: dailyChallengeDate ?? this.dailyChallengeDate,
+      dailyChallengeScore: dailyChallengeScore ?? this.dailyChallengeScore,
+      dailyChallengeWords: dailyChallengeWords ?? this.dailyChallengeWords,
+      dailyChallengeStreak: dailyChallengeStreak ?? this.dailyChallengeStreak,
+      dailyChallengeBestStreak: dailyChallengeBestStreak ?? this.dailyChallengeBestStreak,
+      dailyChallengeStartedDate: dailyChallengeStartedDate ?? this.dailyChallengeStartedDate,
     );
   }
 
@@ -164,5 +198,11 @@ class PlayerProfile extends Equatable {
         ownedBoardSkins,
         ownedLetterSkins,
         ownedMarkerSkins,
+        dailyChallengeDate,
+        dailyChallengeScore,
+        dailyChallengeWords,
+        dailyChallengeStreak,
+        dailyChallengeBestStreak,
+        dailyChallengeStartedDate,
       ];
 }

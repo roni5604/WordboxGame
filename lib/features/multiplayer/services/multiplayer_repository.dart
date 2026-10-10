@@ -17,12 +17,19 @@ abstract class MultiplayerRepository {
     required Duration joinWindow,
     int totalRounds = 1,
     int entryFee = 5,
+    String? avatarId,
+    String? photoUrl,
   });
 
   /// קריאת חדר בלי להצטרף - לתצוגת דמי כניסה/קופה במסך ההצטרפות.
   Future<GameRoom> fetchRoom(String roomCode);
 
-  Future<GameRoom> joinRoom({required String roomCode, required String displayName});
+  Future<GameRoom> joinRoom({
+    required String roomCode,
+    required String displayName,
+    String? avatarId,
+    String? photoUrl,
+  });
 
   Stream<GameRoom> watchRoom(String roomCode);
 
@@ -73,6 +80,8 @@ class UnimplementedMultiplayerRepository implements MultiplayerRepository {
     required Duration joinWindow,
     int totalRounds = 1,
     int entryFee = 5,
+    String? avatarId,
+    String? photoUrl,
   }) =>
       _unavailable();
 
@@ -80,7 +89,12 @@ class UnimplementedMultiplayerRepository implements MultiplayerRepository {
   Future<GameRoom> fetchRoom(String roomCode) => _unavailable();
 
   @override
-  Future<GameRoom> joinRoom({required String roomCode, required String displayName}) =>
+  Future<GameRoom> joinRoom({
+    required String roomCode,
+    required String displayName,
+    String? avatarId,
+    String? photoUrl,
+  }) =>
       _unavailable();
 
   @override

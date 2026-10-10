@@ -40,7 +40,10 @@ void main() {
       routes: [
         GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
         GoRoute(path: '/campaign', builder: (context, state) => const SizedBox()),
-        GoRoute(path: '/multiplayer', builder: (context, state) => const SizedBox()),
+        GoRoute(path: '/multiplayer/setup', builder: (context, state) => const SizedBox()),
+        GoRoute(path: '/play/friends', builder: (context, state) => const SizedBox()),
+        GoRoute(path: '/friends', builder: (context, state) => const SizedBox()),
+        GoRoute(path: '/store', builder: (context, state) => const SizedBox()),
         GoRoute(path: '/how-to-play', builder: (context, state) => const SizedBox()),
         GoRoute(path: '/rules', builder: (context, state) => const SizedBox()),
         GoRoute(path: '/settings', builder: (context, state) => const SizedBox()),
@@ -71,8 +74,9 @@ void main() {
     // אם היה RenderFlex overflow, הבדיקה הזו הייתה נכשלת עם exception.
     expect(tester.takeException(), isNull);
     expect(find.text('שחקו!'), findsOneWidget);
-    expect(find.text('רב-משתתפים (2-4)'), findsOneWidget);
-    expect(find.text('איך משחקים'), findsOneWidget);
+    expect(find.text('שחק נגד המחשב'), findsOneWidget);
+    expect(find.text('שחק נגד חברים'), findsOneWidget);
+    expect(find.text('אתגר יומי'), findsOneWidget);
     expect(find.text('חוקי המשחק'), findsOneWidget);
   });
 }

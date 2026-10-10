@@ -137,6 +137,8 @@ void main() {
     await tester.pump();
 
     expect(find.textContaining('הכפילו'), findsOneWidget);
+    await tester.ensureVisible(find.textContaining('הכפילו'));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.textContaining('הכפילו'));
     await tester.pump();
     await tester.pump();

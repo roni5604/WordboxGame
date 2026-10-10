@@ -12,6 +12,9 @@ import 'package:wordbox_hebrew/providers/multiplayer_repository_provider.dart';
 import 'package:wordbox_hebrew/providers/player_profile_provider.dart';
 import 'package:wordbox_hebrew/providers/repository_providers.dart';
 
+import 'package:wordbox_hebrew/providers/social_provider.dart';
+
+import '../social/fake_social_repository.dart';
 import 'fake_multiplayer_repository.dart';
 
 class _FakeProgressRepository implements ProgressRepository {
@@ -72,6 +75,7 @@ void main() {
     required FakeMultiplayerRepository fakeRepo,
     required String myUid,
     RaceResult result = _defaultResult,
+    FakeSocialRepository? social,
   }) async {
     fakeRepo.myUid = myUid;
     final router = GoRouter(
@@ -105,6 +109,7 @@ void main() {
             ),
           ),
           multiplayerRepositoryProvider.overrideWithValue(fakeRepo),
+          if (social != null) socialRepositoryProvider.overrideWithValue(social),
         ],
         child: MaterialApp.router(
           routerConfig: router,
@@ -159,10 +164,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('הסבב הבא 🚀'), findsOneWidget);
+    expect(find.text('הסבב הבא'), findsOneWidget);
     expect(find.text('טבלת האלופים'), findsNothing);
 
-    await tester.tap(find.text('הסבב הבא 🚀'));
+    await tester.tap(find.text('הסבב הבא'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -190,7 +195,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('ממתינים לסבב הבא...'), findsOneWidget);
-    expect(find.text('הסבב הבא 🚀'), findsNothing);
+    expect(find.text('הסבב הבא'), findsNothing);
   });
 
   testWidgets('מציג יחס ניצחונות X : Y כשקיים מונה wins בחדר', (tester) async {
@@ -237,7 +242,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('טבלת האלופים'), findsOneWidget);
-    expect(find.text('הסבב הבא 🚀'), findsNothing);
+    expect(find.text('הסבב הבא'), findsNothing);
     expect(find.textContaining('ניצחונות'), findsWidgets);
   });
 
@@ -276,5 +281,32 @@ void main() {
       router.routerDelegate.currentConfiguration.uri.toString(),
       '/multiplayer/online/room/12345',
     );
+  });
+
+  testWidgets('תוצאת הסבב נרשמת פעם אחת למאזן מול חברים', (tester) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    addTearDown(() => tester.pumpWidget(const SizedBox()));
+
+    final fakeRepo = FakeMultiplayerRepository();
+    final social = FakeSocialRepository(myUid: 'host-uid');
+    await pumpResultScreen(tester, fakeRepo: fakeRepo, myUid: 'host-uid', social: social);
+
+    final room = _finishedRoom(players: [
+      const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
+      const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
+    ]);
+    fakeRepo.pushRoomUpdate(room);
+    await tester.pump();
+    fakeRepo.pushRoomUpdate(room);
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(social.recordedMatches, [
+      {'host-uid': 40, 'guest-uid': 30},
+    ]);
+    // עומר עוד לא חבר - מוצעת הוספה.
+    expect(find.text('שיחקתם יחד - רוצים להיות חברים?'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
   });
 }

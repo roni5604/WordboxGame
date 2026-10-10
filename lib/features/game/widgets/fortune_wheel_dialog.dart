@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../game_engine/rewards/reward_tables.dart';
+import '../../../core/ui/candy_button.dart';
 
 /// דיאלוג "גלגל מזל" - נפתח פעם אחת בסיום כל שלב פינאלה (סיום עולם, ראו
 /// [LevelConfig.isWorldFinale] ו-lib/features/game/level_result_screen.dart).
@@ -163,16 +164,12 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog>
                 ),
                 const SizedBox(height: 20),
                 if (!_revealed)
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primaryDark,
-                      ),
-                      onPressed: _spinning ? null : _spin,
-                      child: Text(_spinning ? 'מסתובב...' : 'סובבו!'),
-                    ),
+                  CandyButton(
+                    label: _spinning ? 'מסתובב...' : 'סובבו!',
+                    icon: Icons.refresh_rounded,
+                    palette: CandyPalette.gold,
+                    height: 58,
+                    onPressed: _spinning ? null : _spin,
                   )
                 else ...[
                   Container(
@@ -191,16 +188,11 @@ class _FortuneWheelDialogState extends State<FortuneWheelDialog>
                         duration: 600.ms,
                       ),
                   const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primaryDark,
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('מעולה!'),
-                    ),
+                  CandyButton(
+                    label: 'מעולה!',
+                    palette: CandyPalette.green,
+                    height: 56,
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ],

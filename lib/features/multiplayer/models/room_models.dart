@@ -20,16 +20,23 @@ class PlayerInRoom extends Equatable {
   final int wordsFound;
   final bool isHost;
 
+  /// האוואטאר / תמונת הפרופיל של השחקן/ית - כדי שבלובי ובלוח התוצאות
+  /// יופיעו פנים אמיתיות ולא קמע כללי.
+  final String? avatarId;
+  final String? photoUrl;
+
   const PlayerInRoom({
     required this.uid,
     required this.displayName,
     this.score = 0,
     this.wordsFound = 0,
     this.isHost = false,
+    this.avatarId,
+    this.photoUrl,
   });
 
   @override
-  List<Object?> get props => [uid, displayName, score, wordsFound, isHost];
+  List<Object?> get props => [uid, displayName, score, wordsFound, isHost, avatarId, photoUrl];
 }
 
 class GameRoom extends Equatable {

@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'race_config.dart';
+
 class RaceParticipantResult extends Equatable {
   final String name;
   final int score;
@@ -20,7 +22,11 @@ class RaceParticipantResult extends Equatable {
 class RaceResult extends Equatable {
   final List<RaceParticipantResult> rankedParticipants; // ממוין מהניקוד הגבוה לנמוך
 
-  const RaceResult({required this.rankedParticipants});
+  /// ההגדרות שבהן שוחקה התחרות (מול המחשב) - לכפתור "עוד סיבוב" עם אותם
+  /// יריבים בדיוק. null במשחק מול חברים.
+  final RaceConfig? config;
+
+  const RaceResult({required this.rankedParticipants, this.config});
 
   int get humanRank => rankedParticipants.indexWhere((p) => p.isHuman) + 1;
   bool get humanWon => humanRank == 1;

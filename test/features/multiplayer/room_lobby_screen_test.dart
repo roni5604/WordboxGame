@@ -43,7 +43,7 @@ void main() {
           path: '/multiplayer/online/race/:roomCode',
           builder: (context, state) => const SizedBox(),
         ),
-        GoRoute(path: '/multiplayer', builder: (context, state) => const SizedBox()),
+        GoRoute(path: '/play/friends', builder: (context, state) => const SizedBox()),
       ],
     );
 

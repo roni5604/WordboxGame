@@ -2,16 +2,26 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'app.dart';
 import 'core/ads/ads_runtime.dart';
 import 'core/config/app_config.dart';
+import 'core/ui/game_backdrop.dart';
 import 'data/services/firebase_bootstrap.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // מסך מלא "מקצה לקצה": הרקע של המשחק ממשיך מאחורי שורת הסטטוס וה-notch
+  // / Dynamic Island למעלה, ומאחורי פס הבית / כפתורי הניווט למטה. התוכן
+  // עצמו נשאר באזור הבטוח (SafeArea / GameScaffold).
+  if (!kIsWeb) {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(kLightSystemBars);
+  }
 
   await Hive.initFlutter();
 
