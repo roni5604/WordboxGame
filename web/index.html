@@ -86,6 +86,18 @@
     @keyframes boot-glow { 50% { transform: scale(1.08); box-shadow: 0 0 22px rgba(255,226,122,.9); } }
     @keyframes boot-bar { 0% { transform: translateX(160%); } 100% { transform: translateX(-260%); } }
     @media (prefers-reduced-motion: reduce) { #boot * { animation: none !important; } }
+    /* פס צבע צמוד לראש המסך, בגובה אזור השעה/הסוללה באייפון. ב-iOS 26
+       Safari כבר לא משתמש ב-theme-color - הוא צובע את אזור השעה לפי אלמנט
+       fixed שנוגע בקצה העליון (או לפי רקע הדף). האפליקציה צובעת את הפס הזה
+       בצבע העליון של כל מסך (lib/core/platform/browser_chrome_web.dart),
+       ובאפליקציה שנוספה למסך הבית הוא ממש מצייר את האזור הזה. */
+    #top-tint {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: env(safe-area-inset-top, 0px);
+      background-color: #FF8A3D;
+      z-index: 2147483000; pointer-events: none;
+      transition: background-color .25s ease;
+    }
     #safe-area-probe {
       position: fixed; top: 0; left: 0; width: 0; height: 0;
       visibility: hidden; pointer-events: none;
@@ -202,6 +214,7 @@
 </head>
 <body dir="rtl">
   <div id="safe-area-probe"></div>
+  <div id="top-tint"></div>
   <div id="boot" aria-label="טוען את מצא ת׳מילה">
     <div class="tiles">
       <div class="tile lit" style="animation-delay:.05s">מ</div><div class="tile" style="animation-delay:.1s">צ</div><div class="tile" style="animation-delay:.15s">א</div>
