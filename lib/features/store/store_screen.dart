@@ -14,6 +14,7 @@ import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
 import '../ads/native_ad_card.dart';
 import '../ads/store_ad_gift_card.dart';
+import '../../core/ui/candy_button.dart';
 
 class _HintPack {
   final int hints;
@@ -98,13 +99,12 @@ class StoreScreen extends ConsumerWidget {
                     ),
                     child: Row(
                       children: [
-                        IconButton(
-                          onPressed: () => context.pop(),
-                          icon: const Icon(
-                            Icons.arrow_forward_rounded,
-                            color: Colors.white,
-                          ),
+                        CandyIconButton(
+                          icon: Icons.arrow_back_rounded,
+                          tooltip: 'חזרה',
+                          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
                         ),
+                        const SizedBox(width: 10),
                         const Text(
                           'חנות',
                           style: TextStyle(

@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../data/models/auth_user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
+import '../../core/ui/candy_button.dart';
 
 /// מסך התחברות/הרשמה: Google, Apple, Facebook, מייל+סיסמה, או המשך
 /// כאורח/ת. נגיש דרך מסך הפרופיל. עובד תמיד (גם בלי Firebase מוגדר) -
@@ -115,9 +116,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               if (!widget.isInitial)
                 Row(
                   children: [
-                    IconButton(
-                      onPressed: () => context.pop(),
-                      icon: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                    CandyIconButton(
+                      icon: Icons.arrow_back_rounded,
+                      tooltip: 'חזרה',
+                      onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
                     ),
                     const Spacer(),
                   ],
