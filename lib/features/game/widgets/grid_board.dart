@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/cosmetics/cosmetic_catalog.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../game_engine/input/swipe_path_tracker.dart';
 import '../../../game_engine/models/grid_position.dart';
 import 'connector_painter.dart';
 import 'letter_tile.dart';
@@ -21,6 +22,13 @@ class GridBoard extends StatefulWidget {
   /// גרירה פעילה.
   final ValueChanged<String>? onWordChanged;
   final bool showErrorFlash;
+
+  /// בודק (בלי לשנות מצב) אם נתיב הוא מילה חדשה וחוקית - מאפשר ללוח לבחור
+  /// בין הנתיב הגולמי לבין חלופה "מתוקנת" אחרי החלקה רשלנית.
+  final bool Function(List<GridPosition> path)? isPathAcceptable;
+
+  /// false = הלוח לא מגיב למגע (למשל כשהמשחק מושהה).
+  final bool enabled;
   final BoardSkin? boardSkin;
   final LetterSkin? letterSkin;
   final MarkerSkin? markerSkin;
@@ -31,6 +39,8 @@ class GridBoard extends StatefulWidget {
     required this.onPathSubmitted,
     this.onWordChanged,
     this.showErrorFlash = false,
+    this.isPathAcceptable,
+    this.enabled = true,
     this.boardSkin,
     this.letterSkin,
     this.markerSkin,
@@ -46,47 +56,20 @@ class GridBoardState extends State<GridBoard> {
   bool _isError = false;
   List<GridPosition> _hintPath = [];
   Timer? _hintTimer;
+  SwipePathTracker? _tracker;
 
   int get _size => widget.letters.length;
+  bool get _isDragging => _path.isNotEmpty;
 
-  /// מוצא את התא שמרכזו הכי קרוב לנקודת המגע (Voronoi - "השכן הקרוב
-  /// ביותר"), מבין התא שהחלוקה המלבנית הפשוטה (floor) מציעה ושמונת
-  /// שכניו. בניגוד לגישה קודמת שבדקה רק "האם המרחק מהמרכז המועמד קטן
-  /// מסף קבוע" - וכך השאירה "אזור מת" ליד הפינות המשותפות בין 4 תאים,
-  /// במיוחד לאורך אלכסונים (שבהם המרחק בין מרכזי תאים סמוכים גדול פי
-  /// √2 מהמרחק האורתוגונלי) - הגישה הזו תמיד מחזירה תא כלשהו, בלי
-  /// "לדחות" נקודות: כל נקודה בתוך הלוח שייכת בדיוק לתא אחד (התא שמרכזו
-  /// הקרוב ביותר).
-  ///
-  /// בנוסף, לשכנים **אלכסוניים** יש הטיה קלה (_diagonalBias) שמקטינה
-  /// מעט את המרחק האפקטיבי שלהם - כדי לתת לתנועה אלכסונית "יתרון" קטן
-  /// באזור הגבול המשותף בין 4 תאים (המקום שבו משתמשים דיווחו שהמעבר
-  /// לאלכסון עדיין מרגיש פחות נוח מהמעבר האורתוגונלי, כי המרחק הפיזי בין
-  /// מרכזי תאים אלכסוניים גדול יותר) - בלי לפגוע בדיוק ההפרדה בין תאים
-  /// אורתוגונליים (שם אין הטיה כלל).
-  static const double _diagonalBias = 0.82;
-
-  GridPosition _nearestPosition(Offset localOffset, double cellSize) {
-    final col = (localOffset.dx / cellSize).floor().clamp(0, _size - 1);
-    final row = (localOffset.dy / cellSize).floor().clamp(0, _size - 1);
-    final candidate = GridPosition(row, col);
-
-    var best = candidate;
-    var bestDistanceSq =
-        (localOffset - _centerForPosition(candidate, cellSize)).distanceSquared;
-
-    for (final n in candidate.rawNeighbors) {
-      if (n.row < 0 || n.row >= _size || n.col < 0 || n.col >= _size) continue;
-      final isDiagonal = n.row != candidate.row && n.col != candidate.col;
-      var distanceSq =
-          (localOffset - _centerForPosition(n, cellSize)).distanceSquared;
-      if (isDiagonal) distanceSq *= _diagonalBias * _diagonalBias;
-      if (distanceSq < bestDistanceSq) {
-        bestDistanceSq = distanceSq;
-        best = n;
-      }
+  /// כל הלוגיקה של תרגום תנועת האצבע לנתיב (כולל הטיפול באלכסונים) נמצאת
+  /// ב-[SwipePathTracker] - ראו שם הסבר מלא ובדיקות שמדמות אצבע אנושית.
+  SwipePathTracker _trackerFor(double cellSize) {
+    final tracker = _tracker;
+    if (tracker != null && tracker.size == _size) {
+      tracker.cellSize = cellSize;
+      return tracker;
     }
-    return best;
+    return _tracker = SwipePathTracker(size: _size, cellSize: cellSize);
   }
 
   Offset _centerForPosition(GridPosition pos, double cellSize) {
@@ -97,9 +80,11 @@ class GridBoardState extends State<GridBoard> {
   }
 
   void _handleStart(Offset localOffset, double cellSize) {
-    final pos = _nearestPosition(localOffset, cellSize);
+    if (!widget.enabled) return;
+    final tracker = _trackerFor(cellSize);
+    tracker.start(localOffset);
     setState(() {
-      _path = [pos];
+      _path = tracker.path;
       _dragPosition = localOffset;
       _isError = false;
     });
@@ -107,56 +92,46 @@ class GridBoardState extends State<GridBoard> {
     _notifyWordChanged();
   }
 
-  /// מעבד נקודת מגע בודדת: מטפל ב"ביטול תא אחרון" (חזרה לאחור), התעלמות
-  /// מתא שכבר בנתיב, והוספת תא שכן חדש. מחזיר true אם הנתיב השתנה.
-  bool _processPoint(Offset point, double cellSize) {
-    final pos = _nearestPosition(point, cellSize);
-
-    if (_path.length >= 2 && pos == _path[_path.length - 2]) {
-      _path.removeLast();
-      return true;
-    }
-    if (_path.contains(pos)) return false;
-
-    final last = _path.last;
-    if (pos.isAdjacentTo(last)) {
-      _path.add(pos);
-      return true;
-    }
-    return false;
-  }
-
   void _handleUpdate(Offset localOffset, double cellSize) {
-    if (_path.isEmpty) return;
-    final previous = _dragPosition;
-    var changed = false;
-
-    if (previous != null && previous != localOffset) {
-      // דוגמים נקודות ביניים בין עדכון הגרירה הקודם לנוכחי: בגרירה
-      // מהירה (או FPS נמוך) המרחק בין שתי דגימות עוקבות של onPanUpdate
-      // יכול לגדול מ-cellSize, ואז נקודת המגע "מדלגת" מעל תא שכן נדרש
-      // בלי לעבור בו כלל - מה שבעבר היה משתיק את הגרירה עד סוף המחווה
-      // (כי אין נתיב חוקי לתא הרחוק). הדגימה כאן פותרת את זה.
-      final distance = (localOffset - previous).distance;
-      final steps = (distance / (cellSize * 0.4)).ceil().clamp(1, 12);
-      for (int i = 1; i <= steps; i++) {
-        final point = Offset.lerp(previous, localOffset, i / steps)!;
-        if (_processPoint(point, cellSize)) changed = true;
-      }
-    } else {
-      if (_processPoint(localOffset, cellSize)) changed = true;
-    }
-
-    setState(() => _dragPosition = localOffset);
+    final tracker = _tracker;
+    if (tracker == null || !tracker.isActive) return;
+    final previousLength = _path.length;
+    final changed = tracker.move(localOffset);
+    setState(() {
+      _dragPosition = localOffset;
+      if (changed) _path = tracker.path;
+    });
     if (changed) {
-      HapticFeedback.selectionClick();
+      if (_path.length > previousLength) {
+        HapticFeedback.selectionClick();
+      } else {
+        HapticFeedback.lightImpact();
+      }
       _notifyWordChanged();
     }
   }
 
   void _handleEnd() {
-    if (_path.isNotEmpty) {
-      widget.onPathSubmitted(List<GridPosition>.from(_path));
+    final tracker = _tracker;
+    if (tracker != null && tracker.isActive) {
+      final candidates = tracker.candidatePaths();
+      final primary = tracker.end();
+      if (primary.isNotEmpty) {
+        // אם הנתיב הראשי אינו מילה חוקית אבל אחת החלופות (בלי אות
+        // שנתפסה בנגיעה שולית) כן - מגישים את החלופה. ראו
+        // SwipePathTracker.candidatePaths.
+        final accept = widget.isPathAcceptable;
+        var chosen = primary;
+        if (accept != null && !accept(primary)) {
+          for (final candidate in candidates) {
+            if (accept(candidate)) {
+              chosen = candidate;
+              break;
+            }
+          }
+        }
+        widget.onPathSubmitted(List<GridPosition>.from(chosen));
+      }
     }
     setState(() {
       _path = [];
@@ -236,25 +211,60 @@ class GridBoardState extends State<GridBoard> {
           return TileVisualState.idle;
         }
 
+        final candidates = _isDragging ? (_tracker?.candidates ?? const <GridPosition>{}) : const <GridPosition>{};
+
         Widget tileAt(int r, int c) {
+          final state = stateFor(r, c);
+          final pos = GridPosition(r, c);
+          final isCandidate = candidates.contains(pos);
+          // בזמן החלקה האותיות שלא נבחרו "מתכווצות" מעט: זה פותח
+          // ויזואלית את המסדרונות האלכסוניים בין העיגולים, ותואם לאזורי
+          // הפגיעה הקטנים של SwipePathTracker. השכנים שאפשר להמשיך אליהם
+          // נשארים גדולים יותר ומקבלים טבעת עדינה - רמז לאן אפשר להמשיך.
+          final scale = !_isDragging || state != TileVisualState.idle
+              ? 1.0
+              : (isCandidate ? 0.95 : 0.86);
+          final tileSize = cellSize * 0.8;
           return Positioned(
+            key: ValueKey('tile-$r-$c'),
             left: c * cellSize,
             top: r * cellSize,
             width: cellSize,
             height: cellSize,
-            // התא (עיגול) קטן מ-cellSize כדי שיהיה מרווח נוח וברור בין
-            // עיגול לעיגול (בהשראת עיצוב משחקי חיבור-אותיות מוכרים - ראו
-            // letter_tile.dart) - אבל אזור המגע/הזיהוי (ב-_nearestPosition)
-            // נשאר מבוסס על cellSize המלא, בלי שום שינוי, כך שהמרווח
-            // הוויזואלי לא פוגע בדיוק הגרירה, כולל באלכסונים.
             child: Center(
-              child: LetterTile(
-                letter: widget.letters[r][c],
-                size: cellSize * 0.8,
-                paletteIndex: (r * 31 + c * 17) % 4,
-                state: stateFor(r, c),
-                letterSkin: widget.letterSkin,
-                boardTileColor: widget.boardSkin?.tileColor,
+              child: AnimatedScale(
+                scale: scale,
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOutCubic,
+                child: Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    AnimatedOpacity(
+                      opacity: isCandidate && state == TileVisualState.idle ? 1 : 0,
+                      duration: const Duration(milliseconds: 160),
+                      child: Container(
+                        width: tileSize + 8,
+                        height: tileSize + 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.75),
+                            width: 2.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    LetterTile(
+                      letter: widget.letters[r][c],
+                      size: tileSize,
+                      paletteIndex: (r * 31 + c * 17) % 4,
+                      state: state,
+                      letterSkin: widget.letterSkin,
+                      boardTileColor: widget.boardSkin?.tileColor,
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -265,6 +275,8 @@ class GridBoardState extends State<GridBoard> {
           width: boardSize,
           height: boardSize,
           child: GestureDetector(
+            // מונע מהגלילה/ההחלקה של המסך שמתחת "לגנוב" את המחווה.
+            behavior: HitTestBehavior.opaque,
             onPanStart: (details) =>
                 _handleStart(details.localPosition, cellSize),
             onPanUpdate: (details) =>

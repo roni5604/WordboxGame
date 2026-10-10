@@ -356,6 +356,7 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
                                         key: _boardKey,
                                         letters: session.board.letters,
                                         onPathSubmitted: _onPathSubmitted,
+                                        isPathAcceptable: session.wouldAccept,
                                         onWordChanged: _onWordChanging,
                                         boardSkin: boardSkin,
                                         letterSkin: letterSkin,
