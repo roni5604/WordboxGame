@@ -16,6 +16,7 @@ import '../profile/widgets/avatar_widget.dart';
 import 'widgets/level_node.dart';
 import 'widgets/path_painter.dart';
 import 'widgets/world_map_backdrop.dart';
+import '../../core/platform/top_bar_tint.dart';
 
 const double _nodeSpacingY = 136;
 const double _amplitude = 90;
@@ -260,42 +261,45 @@ class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> {
             ),
           );
 
-          return Stack(
-            children: [
-              map,
-              // כפתור צף "לשלב שלי" - מופיע רק כשגוללים רחוק מהשלב הנוכחי.
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: MediaQuery.paddingOf(context).bottom + 18,
-                child: Center(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
-                    transitionBuilder: (child, a) => ScaleTransition(
-                      scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack),
-                      child: FadeTransition(opacity: a, child: child),
+          return TopBarTint(
+            color: AppColors.gradientForWorldIndex(headerTier.index).first,
+            child: Stack(
+              children: [
+                map,
+                // כפתור צף "לשלב שלי" - מופיע רק כשגוללים רחוק מהשלב הנוכחי.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: MediaQuery.paddingOf(context).bottom + 18,
+                  child: Center(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 280),
+                      transitionBuilder: (child, a) => ScaleTransition(
+                        scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack),
+                        child: FadeTransition(opacity: a, child: child),
+                      ),
+                      child: _currentOutOfView
+                          ? SizedBox(
+                              key: const ValueKey('jump'),
+                              width: 200,
+                              child: CandyButton(
+                                label: 'לשלב שלי',
+                                subtitle: 'שלב ${profile.highestUnlockedLevel}',
+                                icon: _scrollController.hasClients && (_currentNodeY ?? 0) < _scrollController.offset
+                                    ? Icons.keyboard_arrow_up_rounded
+                                    : Icons.keyboard_arrow_down_rounded,
+                                palette: CandyPalette.green,
+                                height: 54,
+                                fontSize: 17,
+                                onPressed: _scrollToCurrent,
+                              ),
+                            )
+                          : const SizedBox.shrink(key: ValueKey('none')),
                     ),
-                    child: _currentOutOfView
-                        ? SizedBox(
-                            key: const ValueKey('jump'),
-                            width: 200,
-                            child: CandyButton(
-                              label: 'לשלב שלי',
-                              subtitle: 'שלב ${profile.highestUnlockedLevel}',
-                              icon: _scrollController.hasClients && (_currentNodeY ?? 0) < _scrollController.offset
-                                  ? Icons.keyboard_arrow_up_rounded
-                                  : Icons.keyboard_arrow_down_rounded,
-                              palette: CandyPalette.green,
-                              height: 54,
-                              fontSize: 17,
-                              onPressed: _scrollToCurrent,
-                            ),
-                          )
-                        : const SizedBox.shrink(key: ValueKey('none')),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),

@@ -8,6 +8,7 @@ import '../../core/ui/candy_button.dart';
 import '../../core/ui/pressable.dart';
 import '../../providers/player_profile_provider.dart';
 import 'widgets/mini_grid_demo.dart';
+import '../../core/platform/top_bar_tint.dart';
 
 class _OnboardingPage {
   final String emoji;
@@ -82,119 +83,122 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     final isLast = _index == _pages.length - 1;
 
-    return Scaffold(
-      body: AnimatedContainer(
-        // הרקע מתחלף בהדרגה בין העמודים (ולא "קופץ").
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOut,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: AppColors.gradientForWorldIndex(_index),
+    return TopBarTint(
+      color: AppColors.gradientForWorldIndex(_index).first,
+      child: Scaffold(
+        body: AnimatedContainer(
+          // הרקע מתחלף בהדרגה בין העמודים (ולא "קופץ").
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOut,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: AppColors.gradientForWorldIndex(_index),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Align(
-                alignment: Alignment.topLeft,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Pressable(
-                    onTap: _finish,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Text(
-                        widget.standalone ? 'סגירה' : 'דלג',
-                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800),
+          child: SafeArea(
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Pressable(
+                      onTap: _finish,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Text(
+                          widget.standalone ? 'סגירה' : 'דלג',
+                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: PageView.builder(
-                  controller: _controller,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: _pages.length,
-                  onPageChanged: (i) => setState(() => _index = i),
-                  itemBuilder: (context, i) {
-                    final page = _pages[i];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (page.guideImage != null)
-                            Image.asset(page.guideImage!, height: 200)
-                                .animate(key: ValueKey('guide-$i'))
-                                .scale(duration: 500.ms, curve: Curves.elasticOut)
-                                .then()
-                                .shake(hz: 1.5, curve: Curves.easeInOut)
-                          else if (page.demoBuilder != null)
-                            page.demoBuilder!(context).animate(key: ValueKey('demo-$i')).fadeIn()
-                          else
+                Expanded(
+                  child: PageView.builder(
+                    controller: _controller,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: _pages.length,
+                    onPageChanged: (i) => setState(() => _index = i),
+                    itemBuilder: (context, i) {
+                      final page = _pages[i];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (page.guideImage != null)
+                              Image.asset(page.guideImage!, height: 200)
+                                  .animate(key: ValueKey('guide-$i'))
+                                  .scale(duration: 500.ms, curve: Curves.elasticOut)
+                                  .then()
+                                  .shake(hz: 1.5, curve: Curves.easeInOut)
+                            else if (page.demoBuilder != null)
+                              page.demoBuilder!(context).animate(key: ValueKey('demo-$i')).fadeIn()
+                            else
+                              Text(
+                                page.emoji,
+                                style: const TextStyle(fontSize: 96),
+                              ).animate(key: ValueKey('emoji-$i')).scale(duration: 400.ms, curve: Curves.elasticOut),
+                            const SizedBox(height: 32),
                             Text(
-                              page.emoji,
-                              style: const TextStyle(fontSize: 96),
-                            ).animate(key: ValueKey('emoji-$i')).scale(duration: 400.ms, curve: Curves.elasticOut),
-                          const SizedBox(height: 32),
-                          Text(
-                            page.title,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800),
-                          ).animate(key: ValueKey('title-$i')).fadeIn().slideY(begin: 0.2, end: 0),
-                          const SizedBox(height: 16),
-                          Text(
-                            page.description,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 16, height: 1.5),
-                          ).animate(key: ValueKey('desc-$i')).fadeIn(delay: 100.ms),
-                        ],
+                              page.title,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800),
+                            ).animate(key: ValueKey('title-$i')).fadeIn().slideY(begin: 0.2, end: 0),
+                            const SizedBox(height: 16),
+                            Text(
+                              page.description,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 16, height: 1.5),
+                            ).animate(key: ValueKey('desc-$i')).fadeIn(delay: 100.ms),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(_pages.length, (i) {
+                    final active = i == _index;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: active ? 24 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: active ? 1 : 0.4),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                     );
-                  },
+                  }),
                 ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(_pages.length, (i) {
-                  final active = i == _index;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: active ? 24 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: active ? 1 : 0.4),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  );
-                }),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: CandyButton(
-                  label: isLast ? (widget.standalone ? 'הבנתי!' : 'בואו נתחיל!') : 'הבא',
-                  icon: isLast ? Icons.play_arrow_rounded : Icons.arrow_forward_rounded,
-                  palette: isLast ? CandyPalette.green : CandyPalette.white,
-                  height: 60,
-                  fontSize: 21,
-                  onPressed: () {
-                    if (isLast) {
-                      _finish();
-                    } else {
-                      _controller.nextPage(duration: const Duration(milliseconds: 420), curve: Curves.easeOutCubic);
-                    }
-                  },
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: CandyButton(
+                    label: isLast ? (widget.standalone ? 'הבנתי!' : 'בואו נתחיל!') : 'הבא',
+                    icon: isLast ? Icons.play_arrow_rounded : Icons.arrow_forward_rounded,
+                    palette: isLast ? CandyPalette.green : CandyPalette.white,
+                    height: 60,
+                    fontSize: 21,
+                    onPressed: () {
+                      if (isLast) {
+                        _finish();
+                      } else {
+                        _controller.nextPage(duration: const Duration(milliseconds: 420), curve: Curves.easeOutCubic);
+                      }
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

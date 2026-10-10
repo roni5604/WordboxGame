@@ -15,6 +15,7 @@ import '../../providers/sound_provider.dart';
 import '../ads/native_ad_card.dart';
 import '../ads/store_ad_gift_card.dart';
 import '../../core/ui/candy_button.dart';
+import '../../core/platform/top_bar_tint.dart';
 
 class _HintPack {
   final int hints;
@@ -22,12 +23,7 @@ class _HintPack {
   final String label;
   final bool bestValue;
 
-  const _HintPack({
-    required this.hints,
-    required this.cost,
-    required this.label,
-    this.bestValue = false,
-  });
+  const _HintPack({required this.hints, required this.cost, required this.label, this.bestValue = false});
 }
 
 const _packs = [
@@ -41,21 +37,13 @@ class StoreScreen extends ConsumerWidget {
   const StoreScreen({super.key});
 
   Future<void> _buy(BuildContext context, WidgetRef ref, _HintPack pack) async {
-    final ok = await ref
-        .read(playerProfileProvider.notifier)
-        .buyHints(amount: pack.hints, cost: pack.cost);
+    final ok = await ref.read(playerProfileProvider.notifier).buyHints(amount: pack.hints, cost: pack.cost);
     if (!context.mounted) return;
-    ok
-        ? ref.read(soundServiceProvider).playCoin()
-        : ref.read(soundServiceProvider).playError();
+    ok ? ref.read(soundServiceProvider).playCoin() : ref.read(soundServiceProvider).playError();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: ok ? AppColors.success : AppColors.error,
-        content: Text(
-          ok
-              ? 'קניתם ${pack.hints} רמזים חדשים! 💡'
-              : 'אין מספיק מטבעות לחבילה הזו 😕',
-        ),
+        content: Text(ok ? 'קניתם ${pack.hints} רמזים חדשים! 💡' : 'אין מספיק מטבעות לחבילה הזו 😕'),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -68,94 +56,75 @@ class StoreScreen extends ConsumerWidget {
     final isGuest = authUser == null || authUser.isAnonymous;
     final showPlacements = ref.watch(adsGatewayProvider).isSupported;
 
-    return Scaffold(
-      backgroundColor: AppColors.primaryDark,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.primaryDark, AppColors.primary],
+    return TopBarTint(
+      color: AppColors.primaryDark,
+      child: Scaffold(
+        backgroundColor: AppColors.primaryDark,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AppColors.primaryDark, AppColors.primary],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: profileAsync.when(
-            loading: () => const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
-            error: (e, st) => Center(
-              child: Text(
-                'שגיאה: $e',
-                style: const TextStyle(color: Colors.white),
+          child: SafeArea(
+            child: profileAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
+              error: (e, st) => Center(
+                child: Text('שגיאה: $e', style: const TextStyle(color: Colors.white)),
               ),
-            ),
-            data: (profile) {
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        CandyIconButton(
-                          icon: Icons.arrow_back_rounded,
-                          tooltip: 'חזרה',
-                          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
-                        ),
-                        const SizedBox(width: 10),
-                        const Text(
-                          'חנות',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
+              data: (profile) {
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          CandyIconButton(
+                            icon: Icons.arrow_back_rounded,
+                            tooltip: 'חזרה',
+                            onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
                           ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
+                          const SizedBox(width: 10),
+                          const Text(
+                            'חנות',
+                            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.paid_rounded,
-                                color: Colors.amberAccent,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '${profile.coins}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.paid_rounded, color: Colors.amberAccent, size: 18),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${profile.coins}',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: _StoreSections(
-                      profile: profile,
-                      isGuest: isGuest,
-                      showPlacements: showPlacements,
-                      onBuyHints: (pack) => _buy(context, ref, pack),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: _StoreSections(
+                        profile: profile,
+                        isGuest: isGuest,
+                        showPlacements: showPlacements,
+                        onBuyHints: (pack) => _buy(context, ref, pack),
+                      ),
                     ),
-                  ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -211,11 +180,11 @@ class _StoreSectionsState extends ConsumerState<_StoreSections> {
             1 => _CosmeticsTab(profile: widget.profile),
             2 => const _RealMoneyTab(),
             _ => _HintsTab(
-                profile: widget.profile,
-                isGuest: widget.isGuest,
-                showPlacements: widget.showPlacements,
-                onBuyHints: widget.onBuyHints,
-              ),
+              profile: widget.profile,
+              isGuest: widget.isGuest,
+              showPlacements: widget.showPlacements,
+              onBuyHints: widget.onBuyHints,
+            ),
           },
         ),
       ],
@@ -244,10 +213,7 @@ class _TabChip extends StatelessWidget {
             child: Text(
               label,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: selected ? AppColors.primaryDark : Colors.white,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w800, color: selected ? AppColors.primaryDark : Colors.white),
             ),
           ),
         ),
@@ -274,10 +240,7 @@ class _HintsTab extends StatelessWidget {
     if (isGuest) {
       return const Column(
         children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: StoreAdGiftCard(),
-          ),
+          Padding(padding: EdgeInsets.symmetric(horizontal: 20), child: StoreAdGiftCard()),
           SizedBox(height: 12),
           Expanded(child: _GuestHintsCta()),
         ],
@@ -294,11 +257,7 @@ class _HintsTab extends StatelessWidget {
             children: [
               Text(
                 '💡 יש לך כרגע ${profile.hints} רמזים',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 6),
               const Text(
@@ -326,11 +285,7 @@ class _CosmeticsTab extends ConsumerWidget {
   const _CosmeticsTab({required this.profile});
 
   Future<void> _buy(BuildContext context, WidgetRef ref, CosmeticSlot slot, String id, int cost) async {
-    final ok = await ref.read(playerProfileProvider.notifier).buyOrEquipCosmetic(
-          slot: slot,
-          id: id,
-          cost: cost,
-        );
+    final ok = await ref.read(playerProfileProvider.notifier).buyOrEquipCosmetic(slot: slot, id: id, cost: cost);
     if (!context.mounted) return;
     ok ? ref.read(soundServiceProvider).playCoin() : ref.read(soundServiceProvider).playError();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -435,10 +390,7 @@ class _CosmeticCard extends StatelessWidget {
               Expanded(
                 child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               ),
-              FilledButton(
-                onPressed: equipped ? null : onBuy,
-                child: Text(label),
-              ),
+              FilledButton(onPressed: equipped ? null : onBuy, child: Text(label)),
             ],
           ),
         ),
@@ -473,10 +425,7 @@ class _RealMoneyTab extends ConsumerWidget {
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   children: [
-                    Icon(
-                      pack.hints > 0 ? Icons.lightbulb_rounded : Icons.paid_rounded,
-                      color: AppColors.primary,
-                    ),
+                    Icon(pack.hints > 0 ? Icons.lightbulb_rounded : Icons.paid_rounded, color: AppColors.primary),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -529,11 +478,7 @@ class _GuestHintsCta extends StatelessWidget {
             const Text(
               'רמזים שמורים למי שנרשם/ת',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-              ),
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 10),
             const Text(
@@ -541,11 +486,7 @@ class _GuestHintsCta extends StatelessWidget {
               'מתנה מיד, בונוס רמזים חדש בכל יום, ואפשרות לקנות עוד עם המטבעות '
               'שלכם.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                height: 1.5,
-              ),
+              style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -557,10 +498,7 @@ class _GuestHintsCta extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 onPressed: () => context.push('/auth'),
-                child: const Text(
-                  'הרשמה / התחברות',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
+                child: const Text('הרשמה / התחברות', style: TextStyle(fontWeight: FontWeight.w800)),
               ),
             ),
           ],
@@ -595,15 +533,8 @@ class _PackCard extends StatelessWidget {
             Container(
               width: 56,
               height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.lightbulb_rounded,
-                color: AppColors.primary,
-                size: 30,
-              ),
+              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), shape: BoxShape.circle),
+              child: const Icon(Icons.lightbulb_rounded, color: AppColors.primary, size: 30),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -612,40 +543,19 @@ class _PackCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        pack.label,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                        ),
-                      ),
+                      Text(pack.label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                       if (pack.bestValue) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.star,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Text(
-                            'הכי משתלם',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(color: AppColors.star, borderRadius: BorderRadius.circular(10)),
+                          child: const Text('הכי משתלם', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
                         ),
                       ],
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '${pack.hints} רמזים',
-                    style: const TextStyle(color: Colors.black54),
-                  ),
+                  Text('${pack.hints} רמזים', style: const TextStyle(color: Colors.black54)),
                 ],
               ),
             ),

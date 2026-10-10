@@ -1,7 +1,12 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import '../platform/browser_chrome_stub.dart' if (dart.library.js_interop) '../platform/browser_chrome_web.dart'
+    as browser;
+import '../ui/game_dialog.dart';
 
 /// קישורים ציבוריים למשחק. גרסת האתר מתארחת ב-GitHub Pages, וכל קישור
 /// הזמנה פותח אותה ישירות - חבר/ה בלי האפליקציה יכול/ה לשחק מיד בדפדפן.
@@ -52,6 +57,15 @@ class ShareService {
     Uint8List? imagePng,
     String? subject,
   }) async {
+    // דפדפן בלי תפריט שיתוף (בעיקר במחשב): share_plus היה פותח חלון מייל.
+    // במקום זה מעתיקים את הטקסט ומציגים הודעה.
+    if (kIsWeb && !browser.browserCanShare()) {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (context.mounted) {
+        GameToast.show(context, message: 'ההזמנה הועתקה - הדביקו אותה בוואטסאפ או בהודעה 📋', icon: Icons.content_paste_rounded);
+      }
+      return;
+    }
     final box = context.findRenderObject() as RenderBox?;
     final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
     try {

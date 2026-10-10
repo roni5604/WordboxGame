@@ -52,11 +52,11 @@ class _WebSafeAreaState extends State<WebSafeArea> with WidgetsBindingObserver {
     if (!kIsWeb || _insets == EdgeInsets.zero) return widget.child;
     final mq = MediaQuery.of(context);
     EdgeInsets merge(EdgeInsets a) => EdgeInsets.fromLTRB(
-          a.left > _insets.left ? a.left : _insets.left,
-          a.top > _insets.top ? a.top : _insets.top,
-          a.right > _insets.right ? a.right : _insets.right,
-          a.bottom > _insets.bottom ? a.bottom : _insets.bottom,
-        );
+      a.left > _insets.left ? a.left : _insets.left,
+      a.top > _insets.top ? a.top : _insets.top,
+      a.right > _insets.right ? a.right : _insets.right,
+      a.bottom > _insets.bottom ? a.bottom : _insets.bottom,
+    );
     // כשהמקלדת פתוחה ה-padding התחתון מתאפס (כמו במכשיר אמיתי).
     final keyboardOpen = mq.viewInsets.bottom > 0;
     final padding = merge(mq.padding);

@@ -103,9 +103,10 @@ class SettingsScreen extends ConsumerWidget {
                   icon: Icons.favorite_rounded,
                   color: const Color(0xFFE11D48),
                   label: 'המליצו לחברים',
-                  subtitle: 'שלחו קישור למשחק בוואטסאפ',
-                  onTap: () => ShareService.whatsApp(
-                    'מצאתי משחק מילים בעברית ממכר - "מצא ת׳מילה" 🔤\nבואו נתחרה! ${AppLinks.webBase}',
+                  subtitle: 'שתפו קישור למשחק',
+                  onTap: () => ShareService.system(
+                    context,
+                    text: 'מצאתי משחק מילים בעברית ממכר - "מצא ת׳מילה" 🔤\nבואו נתחרה! ${AppLinks.webBase}',
                   ),
                 ),
               ],

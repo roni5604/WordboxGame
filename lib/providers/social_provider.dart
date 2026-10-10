@@ -1,22 +1,14 @@
 import 'dart:convert';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/config/app_config.dart';
 import '../features/social/models/social_models.dart';
 import '../features/social/services/firestore_social_repository.dart';
 import '../features/social/services/social_repository.dart';
+import '../data/services/firebase_bootstrap.dart';
 
-bool _firebaseReady() {
-  if (!AppConfig.useFirebaseBackend) return false;
-  try {
-    return Firebase.apps.isNotEmpty;
-  } catch (_) {
-    return false;
-  }
-}
+bool _firebaseReady() => isFirebaseBackendReady();
 
 /// ה-repository החברתי הפעיל - Firestore אמיתי כש-Firebase אותחל בהצלחה,
 /// אחרת מימוש אופליין (בלי קריסות, עם הודעה ידידותית).

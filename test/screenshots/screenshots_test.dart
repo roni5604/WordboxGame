@@ -27,6 +27,7 @@ import 'package:wordbox_hebrew/features/game/level_result_screen.dart';
 import 'package:wordbox_hebrew/features/share/share_achievement_sheet.dart';
 import 'package:wordbox_hebrew/features/home/campaign_map_screen.dart';
 import 'package:wordbox_hebrew/features/home/home_screen.dart';
+import 'package:wordbox_hebrew/features/splash/splash_screen.dart';
 import 'package:wordbox_hebrew/features/multiplayer/create_room_screen.dart';
 import 'package:wordbox_hebrew/features/multiplayer/join_room_screen.dart';
 import 'package:wordbox_hebrew/features/multiplayer/models/race_config.dart';
@@ -249,6 +250,8 @@ void main() {
 
   final shots = <String, Future<void> Function(WidgetTester)>{
     'home': (t) => _shoot(t, 'home', () => const HomeScreen()),
+    'splash': (t) => _shoot(t, 'splash', () => const SplashScreen(), settle: const Duration(milliseconds: 2400)),
+    'splash_mid': (t) => _shoot(t, 'splash_mid', () => const SplashScreen(), settle: const Duration(milliseconds: 600)),
     'friends': (t) => _shoot(t, 'friends', () => const FriendsScreen()),
     'friend_card': (t) => _shoot(
           t,

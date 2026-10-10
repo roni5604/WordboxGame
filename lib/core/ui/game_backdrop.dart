@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'pressable.dart';
+import '../platform/top_bar_tint.dart';
 
 /// אנימציות "אווירה" אינסופיות (בועות שמרחפות ברקע וכו') כבויות בבדיקות
 /// אוטומטיות ובמכשירים שביקשו להפחית תנועה - כדי ש-pumpAndSettle יסתיים,
@@ -13,8 +14,7 @@ class AmbientMotion {
 
   static bool get _isTest => WidgetsBinding.instance.runtimeType.toString().contains('Test');
 
-  static bool enabledFor(BuildContext context) =>
-      !_isTest && !MediaQuery.of(context).disableAnimations;
+  static bool enabledFor(BuildContext context) => !_isTest && !MediaQuery.of(context).disableAnimations;
 }
 
 /// סגנון שורת הסטטוס של המערכת למסכים צבעוניים (אייקונים לבנים, רקע שקוף)
@@ -56,10 +56,7 @@ class GameBackdrop extends StatefulWidget {
 }
 
 class _GameBackdropState extends State<GameBackdrop> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 40),
-  );
+  late final AnimationController _controller = AnimationController(vsync: this, duration: const Duration(seconds: 40));
 
   @override
   void didChangeDependencies() {
@@ -79,27 +76,21 @@ class _GameBackdropState extends State<GameBackdrop> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: kLightSystemBars,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: widget.colors,
+    return TopBarTint(
+      color: widget.colors.first,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: kLightSystemBars,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: widget.colors),
           ),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (widget.bubbles)
-              RepaintBoundary(
-                child: CustomPaint(
-                  painter: _BubblesPainter(_controller),
-                ),
-              ),
-            widget.child,
-          ],
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (widget.bubbles) RepaintBoundary(child: CustomPaint(painter: _BubblesPainter(_controller))),
+              widget.child,
+            ],
+          ),
         ),
       ),
     );
@@ -130,7 +121,10 @@ class _BubblesPainter extends CustomPainter {
       final dy = size.height * (1.15 - progress * 1.3);
       final dx = size.width * b.x + math.sin(t.value * math.pi * 2 * b.speed + b.phase) * 24;
       paint.shader = RadialGradient(
-        colors: [Colors.white.withValues(alpha: b.alpha * 1.6), Colors.white.withValues(alpha: 0)],
+        colors: [
+          Colors.white.withValues(alpha: b.alpha * 1.6),
+          Colors.white.withValues(alpha: 0),
+        ],
       ).createShader(Rect.fromCircle(center: Offset(dx, dy), radius: b.radius));
       canvas.drawCircle(Offset(dx, dy), b.radius, paint);
     }
@@ -170,22 +164,12 @@ class GameScaffold extends StatelessWidget {
         bubbles: bubbles,
         child: Column(
           children: [
-            SafeArea(
-              bottom: false,
-              child: header ?? const SizedBox(height: 4),
-            ),
+            SafeArea(bottom: false, child: header ?? const SizedBox(height: 4)),
             Expanded(
-              child: MediaQuery.removePadding(
-                context: context,
-                removeTop: true,
-                child: body,
-              ),
+              child: MediaQuery.removePadding(context: context, removeTop: true, child: body),
             ),
             if (bottomBar != null)
-              Padding(
-                padding: EdgeInsets.fromLTRB(20, 8, 20, context.safeBottom()),
-                child: bottomBar,
-              ),
+              Padding(padding: EdgeInsets.fromLTRB(20, 8, 20, context.safeBottom()), child: bottomBar),
           ],
         ),
       ),
@@ -217,10 +201,7 @@ class GameHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
       child: Row(
         children: [
-          if (onBack != null)
-            _HeaderBackButton(icon: backIcon, onPressed: onBack!)
-          else
-            const SizedBox(width: 44),
+          if (onBack != null) _HeaderBackButton(icon: backIcon, onPressed: onBack!) else const SizedBox(width: 44),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -242,7 +223,11 @@ class GameHeader extends StatelessWidget {
                   Text(
                     subtitle!,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
               ],
             ),
@@ -266,14 +251,14 @@ class _HeaderBackButton extends StatelessWidget {
       semanticLabel: 'חזרה',
       onTap: onPressed,
       child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.22),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
-          ),
-          child: Icon(icon, color: Colors.white, size: 24),
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.22),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+        ),
+        child: Icon(icon, color: Colors.white, size: 24),
       ),
     );
   }
