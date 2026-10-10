@@ -18,12 +18,26 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="מצא ת׳מילה - משחק מילים בעברית בסגנון Boggle/Wordbox. חברו אותיות שכנות ומצאו מילים בלוח שגדל משלב לשלב.">
-  <meta name="theme-color" content="#FF7A45">
+  <meta name="description" content="מצא ת׳מילה - משחק מילים בעברית בסגנון Boggle/Wordbox. חברו אותיות שכנות ומצאו מילים בלוח שגדל משלב לשלב. משחקו של רוני מיכאלי.">
+  <meta name="author" content="רוני מיכאלי">
+  <meta name="theme-color" content="#E85D2A">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+  <!-- תצוגה מקדימה יפה כשמשתפים קישור בפייסבוק / וואטסאפ -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="מצא ת׳מילה">
+  <meta property="og:title" content="מצא ת׳מילה - משחק המילים בעברית">
+  <meta property="og:description" content="חברו אותיות, מצאו מילים, ואתגרו את החברים! משחק מילים בעברית לאייפון, אנדרואיד ובדפדפן.">
+  <meta property="og:image" content="https://roni5604.github.io/WordboxGame/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://roni5604.github.io/WordboxGame/">
+  <meta property="og:locale" content="he_IL">
+  <meta name="twitter:card" content="summary_large_image">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="מצא ת׳מילה">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
@@ -31,6 +45,40 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>מצא ת׳מילה</title>
+
+  <!--
+    אזור בטוח באייפון (notch / Dynamic Island / פס הבית):
+    1. Flutter מחליף את תג ה-viewport בשלו (בלי viewport-fit=cover), אז
+       מחזירים את ה-cover מיד כשהוא נוסף - כך הרקע של המשחק ממשיך עד הקצוות.
+    2. #safe-area-probe מודד את env(safe-area-inset-*), והאפליקציה קוראת
+       אותו (lib/core/platform/web_safe_area.dart) כדי שהתוכן יישב באזור הבטוח.
+  -->
+  <style>
+    html, body { background: #E85D2A; }
+    #safe-area-probe {
+      position: fixed; top: 0; left: 0; width: 0; height: 0;
+      visibility: hidden; pointer-events: none;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding-left: env(safe-area-inset-left, 0px);
+    }
+  </style>
+  <script>
+    (function () {
+      function ensureCover() {
+        var metas = document.querySelectorAll('meta[name="viewport"]');
+        for (var i = 0; i < metas.length; i++) {
+          var c = metas[i].getAttribute('content') || '';
+          if (c.indexOf('viewport-fit') === -1) {
+            metas[i].setAttribute('content', c + ', viewport-fit=cover');
+          }
+        }
+      }
+      new MutationObserver(ensureCover).observe(document.head, { childList: true, subtree: true, attributes: true, attributeFilter: ['content'] });
+      ensureCover();
+    })();
+  </script>
   <link rel="manifest" href="manifest.json">
 
   <!--
@@ -122,6 +170,7 @@
   <script id="wordbox-ad-loader" async crossorigin="anonymous"></script>
 </head>
 <body dir="rtl">
+  <div id="safe-area-probe"></div>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
