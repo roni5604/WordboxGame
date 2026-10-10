@@ -189,4 +189,42 @@ void main() {
       });
     });
   });
+
+  group('השלמת פער וסוף מילה', () {
+    test('אצבע שעוברת ליד אות הביניים (לא דרכה) עדיין בוחרת אותה', () {
+      final tracker = SwipePathTracker(size: 5, cellSize: cell);
+      tracker.start(center(const GridPosition(0, 0)));
+      // קו ישר אל (2,2) שעובר 0.45 תא מתחת-שמאלה ממרכז (1,1) - מחוץ
+      // לעיגול הפגיעה שלו, אבל ברור שזו הכוונה.
+      final a = center(const GridPosition(0, 0));
+      final b = center(const GridPosition(2, 2));
+      final mid = center(const GridPosition(1, 1)) + const Offset(-0.32, 0.32) * cell;
+      for (int i = 1; i <= 20; i++) {
+        final t = i / 20;
+        final p = t < 0.5 ? Offset.lerp(a, mid, t * 2)! : Offset.lerp(mid, b, (t - 0.5) * 2)!;
+        tracker.move(p);
+      }
+      expect(tracker.end(), const [GridPosition(0, 0), GridPosition(1, 1), GridPosition(2, 2)]);
+    });
+
+    test('גלישה קלה אל אות נוספת ברגע ההרמה לא נספרת', () {
+      final tracker = SwipePathTracker(size: 5, cellSize: cell);
+      final cells = [const GridPosition(0, 0), const GridPosition(1, 1), const GridPosition(2, 2)];
+      tracker.start(center(cells[0]));
+      for (int s = 1; s < cells.length; s++) {
+        for (int i = 1; i <= 10; i++) {
+          tracker.move(Offset.lerp(center(cells[s - 1]), center(cells[s]), i / 10)!);
+        }
+      }
+      // האצבע ממשיכה מעט הלאה ונוגעת רק בשולי (3,3).
+      final edge = center(const GridPosition(3, 3)) - const Offset(0.27, 0.27) * cell;
+      for (int i = 1; i <= 8; i++) {
+        tracker.move(Offset.lerp(center(cells.last), edge, i / 8)!);
+      }
+      final candidates = tracker.candidatePaths();
+      expect(candidates.first, cells);
+      expect(candidates.any((c) => c.length == 4), isTrue, reason: 'the full path stays as a fallback');
+      expect(tracker.end(), cells);
+    });
+  });
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -58,6 +59,15 @@ class GridBoardState extends State<GridBoard> {
   Timer? _hintTimer;
   SwipePathTracker? _tracker;
 
+  /// האצבע שמובילה את ההחלקה הנוכחית. אצבע שנייה / כף יד שנוגעת במסך
+  /// באמצע החלקה פשוט מתעלמים ממנה - אחרת המחווה "קופצת" אליה והמילה
+  /// מתקלקלת.
+  int? _activePointer;
+
+  /// הנתיב הנבחר כרגע (לבדיקות בלבד).
+  @visibleForTesting
+  List<GridPosition> get debugCurrentPath => List.unmodifiable(_path);
+
   int get _size => widget.letters.length;
   bool get _isDragging => _path.isNotEmpty;
 
@@ -73,10 +83,7 @@ class GridBoardState extends State<GridBoard> {
   }
 
   Offset _centerForPosition(GridPosition pos, double cellSize) {
-    return Offset(
-      pos.col * cellSize + cellSize / 2,
-      pos.row * cellSize + cellSize / 2,
-    );
+    return Offset(pos.col * cellSize + cellSize / 2, pos.row * cellSize + cellSize / 2);
   }
 
   void _handleStart(Offset localOffset, double cellSize) {
@@ -111,7 +118,30 @@ class GridBoardState extends State<GridBoard> {
     }
   }
 
+  /// ביטול בלי הגשה (למשל המערכת "לקחה" את המגע, או שהמשחק הושהה).
+  void _handleCancel() {
+    _activePointer = null;
+    _tracker?.cancel();
+    if (_path.isEmpty && _dragPosition == null) return;
+    setState(() {
+      _path = [];
+      _dragPosition = null;
+    });
+    _notifyWordChanged();
+  }
+
+  @override
+  void didUpdateWidget(covariant GridBoard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled && _isDragging) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _handleCancel();
+      });
+    }
+  }
+
   void _handleEnd() {
+    _activePointer = null;
     final tracker = _tracker;
     if (tracker != null && tracker.isActive) {
       final candidates = tracker.candidatePaths();
@@ -158,10 +188,7 @@ class GridBoardState extends State<GridBoard> {
   /// בעצמו/ה מעל האותיות המודגשות כדי לזכות בניקוד. כברירת מחדל נעלם
   /// אוטומטית אחרי [duration]; אפשר להעביר null כדי שיישאר מודגש עד
   /// קריאה מפורשת ל-[clearHint] (למשל בטוטוריאל המוטבע של שלב 1).
-  void showHint(
-    List<GridPosition> path, {
-    Duration? duration = const Duration(milliseconds: 2600),
-  }) {
+  void showHint(List<GridPosition> path, {Duration? duration = const Duration(milliseconds: 2600)}) {
     _hintTimer?.cancel();
     setState(() => _hintPath = path);
     if (duration != null) {
@@ -189,12 +216,8 @@ class GridBoardState extends State<GridBoard> {
       builder: (context, constraints) {
         // הלוח תמיד ריבועי ומוגבל לצלע הקטנה מבין הרוחב/הגובה הזמינים,
         // כדי שלעולם לא "ייחתך" מחוץ למסך (למשל במסכים נמוכים/רחבים).
-        final maxW = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : 400.0;
-        final maxH = constraints.maxHeight.isFinite
-            ? constraints.maxHeight
-            : maxW;
+        final maxW = constraints.maxWidth.isFinite ? constraints.maxWidth : 400.0;
+        final maxH = constraints.maxHeight.isFinite ? constraints.maxHeight : maxW;
         final boardSize = maxW < maxH ? maxW : maxH;
         final cellSize = boardSize / _size;
 
@@ -221,9 +244,10 @@ class GridBoardState extends State<GridBoard> {
           // ויזואלית את המסדרונות האלכסוניים בין העיגולים, ותואם לאזורי
           // הפגיעה הקטנים של SwipePathTracker. השכנים שאפשר להמשיך אליהם
           // נשארים גדולים יותר ומקבלים טבעת עדינה - רמז לאן אפשר להמשיך.
-          final scale = !_isDragging || state != TileVisualState.idle
-              ? 1.0
-              : (isCandidate ? 0.95 : 0.86);
+          // הכיווץ תואם לאזורי הפגיעה של SwipePathTracker (עיגול ברדיוס
+          // 0.4 מהתא): כשהעיגולים קטנים, הרווח האלכסוני בין ארבעה אריחים
+          // נראה בבירור כ"מסדרון" שאפשר לעבור בו בלי לגעת באותיות שבצד.
+          final scale = !_isDragging || state != TileVisualState.idle ? 1.0 : (isCandidate ? 0.92 : 0.78);
           final tileSize = cellSize * 0.8;
           return Positioned(
             key: ValueKey('tile-$r-$c'),
@@ -248,10 +272,7 @@ class GridBoardState extends State<GridBoard> {
                         height: tileSize + 8,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.75),
-                            width: 2.5,
-                          ),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.75), width: 2.5),
                         ),
                       ),
                     ),
@@ -274,64 +295,79 @@ class GridBoardState extends State<GridBoard> {
         return SizedBox(
           width: boardSize,
           height: boardSize,
-          child: GestureDetector(
-            // מונע מהגלילה/ההחלקה של המסך שמתחת "לגנוב" את המחווה.
+          // קלט גולמי (Listener) ולא onPan*: ההחלקה מתחילה ברגע הנגיעה
+          // ובנקודה המדויקת שבה האצבע נגעה (בלי "סף גרירה" של ~18-36px
+          // שמזיז את נקודת ההתחלה לפינה שבין האותיות), ונצמדת לאצבע
+          // הראשונה בלבד.
+          child: Listener(
             behavior: HitTestBehavior.opaque,
-            onPanStart: (details) =>
-                _handleStart(details.localPosition, cellSize),
-            onPanUpdate: (details) =>
-                _handleUpdate(details.localPosition, cellSize),
-            onPanEnd: (_) => _handleEnd(),
-            onPanCancel: _handleEnd,
-            // אין יותר קופסת רקע כהה/אחידה מסביב ללוח - הרקע הוא הגרדיאנט
-            // של המסך המכיל עצמו (ראו game_screen.dart וכו'), כדי שהלוח
-            // יתמזג חזותית עם שאר האפליקציה במקום להיראות כ"קובייה" נפרדת.
-            child: Stack(
-              children: [
-                if (backdrop != null)
+            onPointerDown: (event) {
+              if (_activePointer != null || !widget.enabled) return;
+              _activePointer = event.pointer;
+              _handleStart(event.localPosition, cellSize);
+            },
+            onPointerMove: (event) {
+              if (event.pointer != _activePointer) return;
+              _handleUpdate(event.localPosition, cellSize);
+            },
+            onPointerUp: (event) {
+              if (event.pointer != _activePointer) return;
+              _handleEnd();
+            },
+            onPointerCancel: (event) {
+              if (event.pointer != _activePointer) return;
+              _handleCancel();
+            },
+            child: GestureDetector(
+              // "תופס" את המחווה בזירת המחוות כדי שגלילה / החלקת-חזרה של
+              // מסך מכיל לעולם לא תגנוב אותה באמצע מילה.
+              behavior: HitTestBehavior.opaque,
+              dragStartBehavior: DragStartBehavior.down,
+              onPanStart: (_) {},
+              onPanUpdate: (_) {},
+              // אין יותר קופסת רקע כהה/אחידה מסביב ללוח - הרקע הוא הגרדיאנט
+              // של המסך המכיל עצמו (ראו game_screen.dart וכו'), כדי שהלוח
+              // יתמזג חזותית עם שאר האפליקציה במקום להיראות כ"קובייה" נפרדת.
+              child: Stack(
+                children: [
+                  if (backdrop != null)
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(color: backdrop, borderRadius: BorderRadius.circular(28)),
+                      ),
+                    ),
+                  // רשת קווים דקה ושקופה בין מרכזי כל שתי אותיות שכנות
+                  // (כולל אלכסונים) - "מלמדת" ויזואלית שגם חיבור אלכסוני
+                  // חוקי לגמרי, בהשראת עיצוב משחקי חיבור-אותיות מוכרים.
+                  // מצוירת מתחת לאריחים, ונראית רק במרווח שנפתח בין עיגול
+                  // לעיגול (ראו tileAt לעיל).
                   Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: backdrop,
-                        borderRadius: BorderRadius.circular(28),
+                    child: CustomPaint(
+                      painter: _GridMeshPainter(size: _size, cellSize: cellSize, color: widget.boardSkin?.meshColor),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: ConnectorPainter(
+                        points: linePoints,
+                        isError: _isError,
+                        style: widget.markerSkin?.style ?? MarkerStyle.classic,
+                        markerColor: widget.markerSkin?.color ?? AppColors.tileSelected,
                       ),
                     ),
                   ),
-                // רשת קווים דקה ושקופה בין מרכזי כל שתי אותיות שכנות
-                // (כולל אלכסונים) - "מלמדת" ויזואלית שגם חיבור אלכסוני
-                // חוקי לגמרי, בהשראת עיצוב משחקי חיבור-אותיות מוכרים.
-                // מצוירת מתחת לאריחים, ונראית רק במרווח שנפתח בין עיגול
-                // לעיגול (ראו tileAt לעיל).
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _GridMeshPainter(
-                      size: _size,
-                      cellSize: cellSize,
-                      color: widget.boardSkin?.meshColor,
-                    ),
-                  ),
-                ),
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: ConnectorPainter(
-                      points: linePoints,
-                      isError: _isError,
-                      style: widget.markerSkin?.style ?? MarkerStyle.classic,
-                      markerColor: widget.markerSkin?.color ?? AppColors.tileSelected,
-                    ),
-                  ),
-                ),
-                // שני מעברים: קודם כל התאים ה"רגילים" (idle), ואז
-                // התאים המודגשים (נבחר/רמז/שגיאה) - כך שתא מודגש (שגדל
-                // מעט באנימציה) לעולם לא "נבלע" ויזואלית מתחת לשכן
-                // צמוד שמצטייר אחריו ב-Stack, גם בלי רווח כלל ביניהם.
-                for (int r = 0; r < _size; r++)
-                  for (int c = 0; c < _size; c++)
-                    if (stateFor(r, c) == TileVisualState.idle) tileAt(r, c),
-                for (int r = 0; r < _size; r++)
-                  for (int c = 0; c < _size; c++)
-                    if (stateFor(r, c) != TileVisualState.idle) tileAt(r, c),
-              ],
+                  // שני מעברים: קודם כל התאים ה"רגילים" (idle), ואז
+                  // התאים המודגשים (נבחר/רמז/שגיאה) - כך שתא מודגש (שגדל
+                  // מעט באנימציה) לעולם לא "נבלע" ויזואלית מתחת לשכן
+                  // צמוד שמצטייר אחריו ב-Stack, גם בלי רווח כלל ביניהם.
+                  for (int r = 0; r < _size; r++)
+                    for (int c = 0; c < _size; c++)
+                      if (stateFor(r, c) == TileVisualState.idle) tileAt(r, c),
+                  for (int r = 0; r < _size; r++)
+                    for (int c = 0; c < _size; c++)
+                      if (stateFor(r, c) != TileVisualState.idle) tileAt(r, c),
+                ],
+              ),
             ),
           ),
         );
@@ -361,8 +397,7 @@ class _GridMeshPainter extends CustomPainter {
       ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round;
 
-    Offset centerOf(int row, int col) =>
-        Offset(col * cellSize + cellSize / 2, row * cellSize + cellSize / 2);
+    Offset centerOf(int row, int col) => Offset(col * cellSize + cellSize / 2, row * cellSize + cellSize / 2);
 
     for (int r = 0; r < size; r++) {
       for (int c = 0; c < size; c++) {
@@ -387,8 +422,6 @@ class _GridMeshPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GridMeshPainter oldDelegate) {
-    return oldDelegate.size != size ||
-        oldDelegate.cellSize != cellSize ||
-        oldDelegate.color != color;
+    return oldDelegate.size != size || oldDelegate.cellSize != cellSize || oldDelegate.color != color;
   }
 }

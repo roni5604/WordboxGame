@@ -55,6 +55,15 @@ class SwipePathTracker {
   /// רדיוס החזרה לתא הקודם (ביטול האות האחרונה).
   static const double backtrackRadiusFactor = 0.42;
 
+  /// אות אחרונה שהאצבע לא התקרבה למרכזה יותר מזה נחשבת "נגיעה בדרך
+  /// החוצה" (האצבע המשיכה מעט אחרי האות האחרונה לפני שהתרוממה), ולכן
+  /// הנתיב המועדף הוא בלעדיה.
+  static const double endGrazeFactor = 0.34;
+
+  /// השלמת פער: אם האצבע הגיעה לאות במרחק שני צעדים, אות הביניים נבחרת
+  /// רק אם האצבע עברה במרחק כזה ממרכזה.
+  static const double gapFillMaxApproachFactor = 0.62;
+
   /// מרווח הדגימה בין שתי נקודות מגע, כשבר מגודל התא.
   static const double sampleStepFactor = 0.1;
 
@@ -72,6 +81,10 @@ class SwipePathTracker {
 
   /// תאים שהוסרו כ"חיתוך פינה": (התא שלפני, התא שהוסר, התא שאחרי).
   final List<(GridPosition, GridPosition, GridPosition)> _droppedCorners = [];
+
+  /// המרחק הקטן ביותר בין האצבע לכל שכן פנוי של התא האחרון, מאז שהתא
+  /// האחרון נוסף - לבחירת אות הביניים בהשלמת פער.
+  final Map<GridPosition, double> _approach = {};
 
   Offset? _lastPoint;
 
@@ -91,11 +104,9 @@ class SwipePathTracker {
     };
   }
 
-  Offset centerOf(GridPosition pos) =>
-      Offset(pos.col * cellSize + cellSize / 2, pos.row * cellSize + cellSize / 2);
+  Offset centerOf(GridPosition pos) => Offset(pos.col * cellSize + cellSize / 2, pos.row * cellSize + cellSize / 2);
 
-  bool _inBounds(GridPosition p) =>
-      p.row >= 0 && p.row < size && p.col >= 0 && p.col < size;
+  bool _inBounds(GridPosition p) => p.row >= 0 && p.row < size && p.col >= 0 && p.col < size;
 
   /// התא שנלחץ (חלוקה ריבועית פשוטה) - משמש רק למגע הראשון.
   GridPosition nearestCell(Offset point) {
@@ -146,6 +157,9 @@ class SwipePathTracker {
     }
 
     final primary = List<GridPosition>.from(_path);
+    // אות אחרונה שנבחרה רק בנגיעה בשוליים - כנראה האצבע "גלשה" אליה
+    // ברגע ההרמה. מעדיפים את הנתיב בלעדיה, ומשאירים את המלא כחלופה.
+    if (_lastIsEndGraze) add(primary.sublist(0, primary.length - 1));
     add(primary);
 
     // תאים שנבחרו רק בנגיעה שולית - אפשר לוותר עליהם אם השכנים שלהם
@@ -186,9 +200,13 @@ class SwipePathTracker {
     return results;
   }
 
-  /// סיום החלקה - מחזיר את הנתיב הראשי ומאפס.
+  bool get _lastIsEndGraze => _path.length >= 3 && _closest.last > cellSize * endGrazeFactor;
+
+  /// סיום החלקה - מחזיר את הנתיב המועדף ומאפס.
   List<GridPosition> end() {
-    final result = List<GridPosition>.from(_path);
+    final result = _lastIsEndGraze
+        ? List<GridPosition>.from(_path.sublist(0, _path.length - 1))
+        : List<GridPosition>.from(_path);
     _reset();
     return result;
   }
@@ -199,6 +217,7 @@ class SwipePathTracker {
     _path.clear();
     _closest.clear();
     _droppedCorners.clear();
+    _approach.clear();
     _lastPoint = null;
   }
 
@@ -214,8 +233,16 @@ class SwipePathTracker {
       if ((q - centerOf(previous)).distance <= cellSize * backtrackRadiusFactor) {
         _path.removeLast();
         _closest.removeLast();
+        _approach.clear();
         return true;
       }
+    }
+
+    for (final n in last.rawNeighbors) {
+      if (!_inBounds(n) || _path.contains(n)) continue;
+      final d = (q - centerOf(n)).distance;
+      final prev = _approach[n];
+      if (prev == null || d < prev) _approach[n] = d;
     }
 
     final fromLast = q - centerOf(last);
@@ -246,7 +273,7 @@ class SwipePathTracker {
       }
     }
 
-    if (best == null) return false;
+    if (best == null) return _tryGapFill(q, last);
 
     // תיקון "חיתוך פינה": A → O (נגיעה שולית) → D, כש-A ו-D שכנים
     // באלכסון. השחקן/ית כמעט בוודאות רצה A → D.
@@ -264,6 +291,37 @@ class SwipePathTracker {
 
     _path.add(best);
     _closest.add(bestDistance);
+    _approach.clear();
+    return true;
+  }
+
+  /// השלמת פער: האצבע נכנסה לאות T שנמצאת שני צעדים מהאות האחרונה, בלי
+  /// "לפגוש" את אות הביניים (אצבע עקומה/מוטה שעברה ליד העיגול ולא דרכו).
+  /// בוחרים את אות הביניים שהאצבע עברה הכי קרוב אליה - אם היא קרובה מספיק.
+  bool _tryGapFill(Offset q, GridPosition last) {
+    final probe = nearestCell(q);
+    final dr = probe.row - last.row;
+    final dc = probe.col - last.col;
+    if (math.max(dr.abs(), dc.abs()) != 2 || _path.contains(probe)) return false;
+    if ((q - centerOf(probe)).distance > cellSize * hitRadiusFactor * 0.9) return false;
+
+    GridPosition? middle;
+    var bestApproach = double.infinity;
+    for (final n in last.rawNeighbors) {
+      if (!_inBounds(n) || _path.contains(n) || !n.isAdjacentTo(probe)) continue;
+      final a = _approach[n] ?? double.infinity;
+      if (a < bestApproach) {
+        bestApproach = a;
+        middle = n;
+      }
+    }
+    if (middle == null || bestApproach > cellSize * gapFillMaxApproachFactor) return false;
+
+    _path.add(middle);
+    _closest.add(bestApproach);
+    _path.add(probe);
+    _closest.add((q - centerOf(probe)).distance);
+    _approach.clear();
     return true;
   }
 
