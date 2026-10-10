@@ -238,7 +238,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             begin: const Offset(0.9, 0.9),
                           ),
                           const Text(
-                            'משחקה של ליאן רודן',
+                            'משחקו של רוני מיכאלי',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 14,

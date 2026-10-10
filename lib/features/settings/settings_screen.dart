@@ -98,7 +98,7 @@ class SettingsScreen extends ConsumerWidget {
                 child: Padding(
                   padding: EdgeInsets.all(16),
                   child: Text(
-                    'מצא ת׳מילה - גרסת בטא\nמשחקה של ליאן רודן. מבוסס על Flutter, מיועד ל-iOS, Android ואתר מקוד אחד.',
+                    'מצא ת׳מילה - גרסת בטא\nמשחקו של רוני מיכאלי. מבוסס על Flutter, מיועד ל-iOS, Android ואתר מקוד אחד.',
                     style: TextStyle(color: Colors.black54, fontSize: 13),
                   ),
                 ),
