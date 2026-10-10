@@ -86,18 +86,28 @@
     @keyframes boot-glow { 50% { transform: scale(1.08); box-shadow: 0 0 22px rgba(255,226,122,.9); } }
     @keyframes boot-bar { 0% { transform: translateX(160%); } 100% { transform: translateX(-260%); } }
     @media (prefers-reduced-motion: reduce) { #boot * { animation: none !important; } }
-    /* פס צבע צמוד לראש המסך, בגובה אזור השעה/הסוללה באייפון. ב-iOS 26
-       Safari כבר לא משתמש ב-theme-color - הוא צובע את אזור השעה לפי אלמנט
-       fixed שנוגע בקצה העליון (או לפי רקע הדף). האפליקציה צובעת את הפס הזה
-       בצבע העליון של כל מסך (lib/core/platform/browser_chrome_web.dart),
-       ובאפליקציה שנוספה למסך הבית הוא ממש מצייר את האזור הזה. */
+    /* צבע אזור השעה/הסוללה באייפון (Safari 26 ב-iOS ו-macOS).
+       Safari 26 מתעלם מ-theme-color. לפי קוד המקור של WebKit
+       (LocalFrameView::fixedContainerEdges) הוא צובע את האזור לפי אלמנט
+       position:fixed שנמצא בראש הדף - בתנאי שהאלמנט:
+         * גלוי: opacity 0 / visibility hidden / opacity < 0.1 נפסלים;
+         * גבוה מ-10px ורחב לפחות 90% מהמסך;
+         * בעל רקע בצבע אחיד.
+       אחרת הוא נופל לרקע הדף, שנדגם מחדש רק בגלילה - וזה הבאג שראינו
+       (הפס נשאר בצבע המסך הקודם עד שמזיזים את המסך).
+       לכן: פס גלוי בגובה 14px (או גובה ה-notch באפליקציה שנוספה למסך הבית),
+       בצבע העליון של כל מסך - אותו צבע כמו הרקע שמתחתיו, כך שהוא לא נראה.
+       Flutter מזיז את התוכן מתחתיו (WebSafeArea), והאפליקציה מחליפה אותו
+       באלמנט חדש בכל מעבר מסך - כך Safari מעדכן את הצבע מיד.
+       מופעל רק בדפדפני אפל (המחלקה wb-tint נוספת בסקריפט למטה). */
     #top-tint, #top-tint-old {
-      position: fixed; top: 0; left: 0; right: 0;
-      height: env(safe-area-inset-top, 0px);
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0; width: 100%;
+      height: max(14px, env(safe-area-inset-top, 0px));
       background-color: #FF8A3D;
       z-index: 2147483000; pointer-events: none;
-      transition: background-color .25s ease;
     }
+    .wb-tint #top-tint, .wb-tint #top-tint-old { display: block; }
     #safe-area-probe {
       position: fixed; top: 0; left: 0; width: 0; height: 0;
       visibility: hidden; pointer-events: none;
@@ -107,6 +117,15 @@
       padding-left: env(safe-area-inset-left, 0px);
     }
   </style>
+  <script>
+    // דפדפני אפל (Safari / כל דפדפן באייפון ובאייפד) - שם צריך את #top-tint.
+    (function () {
+      var ua = navigator.userAgent || '';
+      var iOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var desktopSafari = /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|EdgiOS|Edg\/|OPR\/|Android/.test(ua);
+      if (iOS || desktopSafari) document.documentElement.classList.add('wb-tint');
+    })();
+  </script>
   <script>
     (function () {
       function ensureCover() {

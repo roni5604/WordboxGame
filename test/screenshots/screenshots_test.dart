@@ -159,10 +159,13 @@ Future<void> _shoot(
   Duration settle = const Duration(milliseconds: 1500),
   int realWaitSeconds = 0,
 }) async {
-  tester.view.physicalSize = const Size(1179, 2556);
+  // ברירת מחדל: iPhone 15/16. אפשר לבדוק מכשירים אחרים עם SCREEN=רוחב,גובה,עליון,תחתון
+  // (בנקודות), למשל iPhone SE: SCREEN=375,667,20,0.
+  final dev = (Platform.environment['SCREEN'] ?? '393,852,59,34').split(',').map(double.parse).toList();
+  tester.view.physicalSize = Size(dev[0] * 3, dev[1] * 3);
   tester.view.devicePixelRatio = 3;
-  tester.view.padding = const FakeViewPadding(top: 59 * 3, bottom: 34 * 3);
-  tester.view.viewPadding = const FakeViewPadding(top: 59 * 3, bottom: 34 * 3);
+  tester.view.padding = FakeViewPadding(top: dev[2] * 3, bottom: dev[3] * 3);
+  tester.view.viewPadding = FakeViewPadding(top: dev[2] * 3, bottom: dev[3] * 3);
   addTearDown(tester.view.reset);
 
   final router = GoRouter(

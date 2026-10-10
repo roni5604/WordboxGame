@@ -76,12 +76,16 @@ class AnimatedMiniGridDemo extends StatefulWidget {
   final List<String> letters;
   final int columns;
   final List<int> path;
+  final double tileSize;
+  final double spacing;
 
   const AnimatedMiniGridDemo({
     super.key,
     required this.letters,
     required this.columns,
     required this.path,
+    this.tileSize = 56,
+    this.spacing = 12,
   });
 
   @override
@@ -121,6 +125,8 @@ class _AnimatedMiniGridDemoState extends State<AnimatedMiniGridDemo>
           columns: widget.columns,
           path: widget.path,
           highlightedCount: count,
+          tileSize: widget.tileSize,
+          spacing: widget.spacing,
         );
       },
     );

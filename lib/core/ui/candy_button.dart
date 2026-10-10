@@ -100,16 +100,21 @@ class _CandyButtonState extends State<CandyButton> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      widget.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: p.text,
-                        fontSize: widget.fontSize,
-                        fontWeight: FontWeight.w900,
-                        height: 1.1,
-                        shadows: _textShadows(p),
+                    // בטלפונים צרים (iPhone SE/mini) התווית מתכווצת מעט במקום
+                    // להיחתך ל"שחקו ..." - כך הטקסט תמיד נקרא במלואו.
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(
+                        widget.label,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: p.text,
+                          fontSize: widget.fontSize,
+                          fontWeight: FontWeight.w900,
+                          height: 1.1,
+                          shadows: _textShadows(p),
+                        ),
                       ),
                     ),
                     if (widget.subtitle != null)
@@ -367,6 +372,9 @@ class _CandyTileState extends State<CandyTile> {
     final p = widget.palette;
     const lip = 7.0;
     final depth = _pressed ? 2.0 : lip;
+    // אריח נמוך (מסכים קצרים) - העיגול והרווחים מתכווצים כדי שהטקסט ייכנס.
+    final compactTile = widget.height < 120;
+    final iconBox = (widget.height - 68).clamp(40.0, 54.0);
     final enabled = widget.onPressed != null;
 
     final tile = GestureDetector(
@@ -429,21 +437,21 @@ class _CandyTileState extends State<CandyTile> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: compactTile ? 7 : 10),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Container(
-                            width: 54,
-                            height: 54,
+                            width: iconBox,
+                            height: iconBox,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: Colors.white.withValues(alpha: 0.25),
                               border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 2),
                             ),
-                            child: Icon(widget.icon, color: p.text, size: 30),
+                            child: Icon(widget.icon, color: p.text, size: iconBox * 0.56),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: compactTile ? 5 : 8),
                           FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
