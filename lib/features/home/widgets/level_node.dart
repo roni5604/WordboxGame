@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/ui/pressable.dart';
 import '../../../data/models/level_progress.dart';
 import '../../../game_engine/models/level_config.dart';
 import '../../../game_engine/rewards/reward_tables.dart';
@@ -22,6 +23,9 @@ class LevelNode extends StatelessWidget {
   final bool isNextToPlay;
   final VoidCallback? onTap;
 
+  /// לחיצה על שלב נעול (למשל להציג הודעה "השלב נעול").
+  final VoidCallback? onLockedTap;
+
   const LevelNode({
     super.key,
     required this.config,
@@ -29,6 +33,7 @@ class LevelNode extends StatelessWidget {
     required this.isUnlocked,
     required this.isNextToPlay,
     this.onTap,
+    this.onLockedTap,
   });
 
   static _NodeLook _lookFor(LevelConfig config) {
@@ -145,8 +150,11 @@ class LevelNode extends StatelessWidget {
           .scaleXY(begin: 1, end: 1.08, duration: 700.ms, curve: Curves.easeInOut);
     }
 
-    return GestureDetector(
-      onTap: isUnlocked ? onTap : null,
+    return Pressable(
+      onTap: isUnlocked ? onTap : onLockedTap,
+      pressedScale: 0.9,
+      feedback: isUnlocked,
+      semanticLabel: isUnlocked ? 'שלב ${config.levelNumber}' : 'שלב ${config.levelNumber} נעול',
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
