@@ -31,6 +31,9 @@ void setBrowserTopColor(Color color) {
     }
     web.document.documentElement?.setAttribute('style', 'background-color: $hex');
     web.document.body?.style.backgroundColor = hex;
+    // הפס הצמוד לראש המסך (ראו #top-tint ב-index.html) - זה מה ש-Safari
+    // ב-iOS 26 משתמש בו לצבע אזור השעה.
+    (web.document.getElementById('top-tint') as web.HTMLElement?)?.style.backgroundColor = hex;
   } catch (_) {
     // לא קריטי - רק קוסמטיקה של הדפדפן.
   }
