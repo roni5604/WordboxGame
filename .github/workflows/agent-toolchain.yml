@@ -30,4 +30,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create agent-toolchain-tmp --draft --title "temporary agent toolchain (will be deleted)" --notes "temporary" --target ${{ github.sha }} /tmp/flutter_sdk.tar.zst /tmp/pub_cache.tar.zst /tmp/flutter_root.txt
+          gh release create agent-toolchain-${{ github.run_id }} --draft --title "temporary agent toolchain (will be deleted)" --notes "temporary" --target ${{ github.sha }} /tmp/flutter_sdk.tar.zst /tmp/pub_cache.tar.zst /tmp/flutter_root.txt
