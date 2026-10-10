@@ -102,7 +102,7 @@ class _RaceSetupScreenState extends ConsumerState<RaceSetupScreen> {
       GameSectionCard(
         title: 'גודל לוח',
         child: GameChipRow<int>(
-          values: const [4, 5, 6],
+          values: const [3, 4, 5, 6],
           selected: _gridSize,
           labelBuilder: (v) => '$v×$v',
           palette: CandyPalette.blue,
