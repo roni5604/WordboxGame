@@ -62,6 +62,11 @@ class FirestoreSocialRepository implements SocialRepository {
       'friendCode': SocialRepository.friendCodeFor(uid),
       'totalStars': info.totalStars,
       'highestLevel': info.highestLevel,
+      if (info.dailyDate != null) ...{
+        'dailyDate': info.dailyDate,
+        'dailyScore': info.dailyScore,
+        'dailyStreak': info.dailyStreak,
+      },
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     _lastPublished = info;
@@ -100,6 +105,9 @@ class FirestoreSocialRepository implements SocialRepository {
       highestLevel: (data['highestLevel'] as num?)?.toInt() ?? 1,
       mpGames: (data['mpGames'] as num?)?.toInt() ?? 0,
       mpWins: (data['mpWins'] as num?)?.toInt() ?? 0,
+      dailyDate: data['dailyDate'] as String?,
+      dailyScore: (data['dailyScore'] as num?)?.toInt() ?? 0,
+      dailyStreak: (data['dailyStreak'] as num?)?.toInt() ?? 0,
       lastActive: (data['lastActive'] as Timestamp?)?.toDate(),
       status: PresenceStatus.values.firstWhere(
         (s) => s.name == data['status'],

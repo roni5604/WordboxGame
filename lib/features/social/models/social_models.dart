@@ -23,6 +23,11 @@ class PublicProfile extends Equatable {
   final DateTime? lastActive;
   final PresenceStatus status;
 
+  /// האתגר היומי האחרון ששוחק: תאריך (yyyy-MM-dd), ניקוד ורצף ימים.
+  final String? dailyDate;
+  final int dailyScore;
+  final int dailyStreak;
+
   const PublicProfile({
     required this.uid,
     required this.displayName,
@@ -35,7 +40,13 @@ class PublicProfile extends Equatable {
     this.mpWins = 0,
     this.lastActive,
     this.status = PresenceStatus.offline,
+    this.dailyDate,
+    this.dailyScore = 0,
+    this.dailyStreak = 0,
   });
+
+  /// הניקוד באתגר של [dateKey], או null אם עוד לא שיחק/ה היום.
+  int? dailyScoreOn(String dateKey) => dailyDate == dateKey ? dailyScore : null;
 
   /// הנוכחות האפקטיבית: גם אם המסמך אומר "online", אם הפעימה האחרונה ישנה
   /// מדי (האפליקציה נסגרה בלי להספיק לעדכן) - מציגים כלא מחובר/ת.
@@ -78,6 +89,9 @@ class PublicProfile extends Equatable {
         mpWins,
         lastActive,
         status,
+        dailyDate,
+        dailyScore,
+        dailyStreak,
       ];
 }
 

@@ -75,6 +75,11 @@ class LocalProgressRepository implements ProgressRepository {
       ownedBoardSkins: _stringList(box, 'owned_board_skins'),
       ownedLetterSkins: _stringList(box, 'owned_letter_skins'),
       ownedMarkerSkins: _stringList(box, 'owned_marker_skins'),
+      dailyChallengeDate: box.get('daily_challenge_date') as String?,
+      dailyChallengeScore: box.get('daily_challenge_score', defaultValue: 0) as int,
+      dailyChallengeWords: box.get('daily_challenge_words', defaultValue: 0) as int,
+      dailyChallengeStreak: box.get('daily_challenge_streak', defaultValue: 0) as int,
+      dailyChallengeBestStreak: box.get('daily_challenge_best_streak', defaultValue: 0) as int,
     );
   }
 
@@ -116,6 +121,11 @@ class LocalProgressRepository implements ProgressRepository {
       'owned_board_skins': profile.ownedBoardSkins,
       'owned_letter_skins': profile.ownedLetterSkins,
       'owned_marker_skins': profile.ownedMarkerSkins,
+      'daily_challenge_date': profile.dailyChallengeDate,
+      'daily_challenge_score': profile.dailyChallengeScore,
+      'daily_challenge_words': profile.dailyChallengeWords,
+      'daily_challenge_streak': profile.dailyChallengeStreak,
+      'daily_challenge_best_streak': profile.dailyChallengeBestStreak,
     });
   }
 }

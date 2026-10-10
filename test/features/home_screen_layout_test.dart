@@ -76,7 +76,7 @@ void main() {
     expect(find.text('שחקו!'), findsOneWidget);
     expect(find.text('שחק נגד המחשב'), findsOneWidget);
     expect(find.text('שחק נגד חברים'), findsOneWidget);
-    expect(find.text('איך משחקים'), findsOneWidget);
+    expect(find.text('אתגר יומי'), findsOneWidget);
     expect(find.text('חוקי המשחק'), findsOneWidget);
   });
 }

@@ -5,6 +5,7 @@ import '../data/models/auth_user.dart';
 import '../data/models/level_progress.dart';
 import '../data/models/player_profile.dart';
 import '../data/repositories/progress_repository.dart';
+import '../game_engine/daily_challenge.dart';
 import '../game_engine/rewards/reward_tables.dart';
 import 'repository_providers.dart';
 
@@ -180,6 +181,37 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
     final name = user.displayName?.trim();
     if (name == null || name.isEmpty) return;
     await _mutate((c) => c.displayName == name ? c : c.copyWith(displayName: name));
+  }
+
+  /// רושם את התוצאה הרשמית של האתגר היומי (פעם אחת ביום): מעדכן ניקוד,
+  /// רצף ימים, ומזכה במטבעות. מחזיר null אם האתגר של היום כבר נרשם.
+  Future<DailyChallengeOutcome?> recordDailyChallenge({
+    required DailyChallenge challenge,
+    required int score,
+    required int words,
+    DateTime? now,
+  }) async {
+    final current = await ensureLoaded();
+    if (current.playedDailyOn(challenge.dateKey)) return null;
+    final today = now ?? DateTime.now();
+    final streak = DailyChallenge.nextStreak(
+      lastDate: current.dailyChallengeDate,
+      previousStreak: current.dailyChallengeStreak,
+      today: today,
+    );
+    final coins = DailyChallenge.coinsFor(score: score, streak: streak);
+    final newBest = streak > current.dailyChallengeBestStreak;
+    await _mutate(
+      (c) => c.copyWith(
+        dailyChallengeDate: challenge.dateKey,
+        dailyChallengeScore: score,
+        dailyChallengeWords: words,
+        dailyChallengeStreak: streak,
+        dailyChallengeBestStreak: newBest ? streak : c.dailyChallengeBestStreak,
+        coins: c.coins + coins,
+      ),
+    );
+    return DailyChallengeOutcome(score: score, words: words, streak: streak, coins: coins, newBestStreak: newBest);
   }
 
   Future<void> resetProgress() async {

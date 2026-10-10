@@ -2,6 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/auth_screen.dart';
+import '../../features/daily/daily_challenge_game_screen.dart';
+import '../../features/daily/daily_challenge_screen.dart';
 import '../../features/game/level_intro_screen.dart';
 import '../../features/game/level_result_screen.dart';
 import '../../features/game/game_screen.dart';
@@ -159,6 +161,14 @@ final appRouter = GoRouter(
         ),
       ),
     ),
+    GoRoute(
+      path: '/daily',
+      pageBuilder: (context, state) => gamePage(
+        state,
+        DailyChallengeScreen(args: state.extra is DailyChallengeArgs ? state.extra as DailyChallengeArgs : null),
+      ),
+    ),
+    GoRoute(path: '/daily/play', pageBuilder: (context, state) => gamePage(state, const DailyChallengeGameScreen())),
     GoRoute(path: '/profile', pageBuilder: (context, state) => popupPage(state, const ProfileScreen())),
     GoRoute(path: '/settings', pageBuilder: (context, state) => appPage(state, const SettingsScreen())),
     GoRoute(path: '/store', pageBuilder: (context, state) => popupPage(state, const StoreScreen())),

@@ -18,7 +18,9 @@ import 'package:wordbox_hebrew/core/theme/app_colors.dart';
 import 'package:wordbox_hebrew/data/models/level_progress.dart';
 import 'package:wordbox_hebrew/data/models/player_profile.dart';
 import 'package:wordbox_hebrew/data/repositories/progress_repository.dart';
+import 'package:wordbox_hebrew/features/daily/daily_challenge_screen.dart';
 import 'package:wordbox_hebrew/features/game/game_screen.dart';
+import 'package:wordbox_hebrew/game_engine/daily_challenge.dart';
 import 'package:wordbox_hebrew/features/onboarding/onboarding_screen.dart';
 import 'package:wordbox_hebrew/features/game/level_result_screen.dart';
 import 'package:wordbox_hebrew/features/share/share_achievement_sheet.dart';
@@ -54,6 +56,9 @@ final _outDir = Platform.environment['SCREENSHOTS_DIR'];
 final _only = Platform.environment['SCREENSHOTS_ONLY'];
 
 class _Progress implements ProgressRepository {
+  final bool daily;
+  _Progress({this.daily = false});
+
   @override
   Future<PlayerProfile> loadProfile() async {
     final now = DateTime.now();
@@ -67,6 +72,11 @@ class _Progress implements ProgressRepository {
       onboardingCompleted: true,
       authIntroShown: true,
       level1TutorialSeen: true,
+      dailyChallengeDate: daily ? today : null,
+      dailyChallengeScore: daily ? 48 : 0,
+      dailyChallengeWords: daily ? 11 : 0,
+      dailyChallengeStreak: daily ? 4 : 0,
+      dailyChallengeBestStreak: 4,
       levelProgress: {
         for (int i = 1; i < 9; i++) i: LevelProgress(levelNumber: i, stars: i % 3 + 1, bestScore: 40, completed: true),
       },
@@ -79,8 +89,11 @@ class _Progress implements ProgressRepository {
 
 FakeSocialRepository _social() {
   final now = DateTime.now();
-  PublicProfile p(String uid, String name, PresenceStatus s, int stars, int wins, {Duration ago = Duration.zero}) =>
+  final todayKey = DailyChallenge.dateKeyFor(now);
+  PublicProfile p(String uid, String name, PresenceStatus s, int stars, int wins, {Duration ago = Duration.zero, int? daily}) =>
       PublicProfile(
+        dailyDate: daily == null ? null : todayKey,
+        dailyScore: daily ?? 0,
         uid: uid,
         displayName: name,
         friendCode: 'ABC234',
@@ -94,8 +107,8 @@ FakeSocialRepository _social() {
   return FakeSocialRepository(
     myUid: 'me-uid',
     friends: [
-      FriendEntry(profile: p('a', 'נועה', PresenceStatus.online, 41, 12), record: const FriendRecord(uid: 'a', games: 7, wins: 4, losses: 3)),
-      FriendEntry(profile: p('b', 'איתי', PresenceStatus.playing, 18, 5), record: const FriendRecord(uid: 'b', games: 2, wins: 1, losses: 1)),
+      FriendEntry(profile: p('a', 'נועה', PresenceStatus.online, 41, 12, daily: 61), record: const FriendRecord(uid: 'a', games: 7, wins: 4, losses: 3)),
+      FriendEntry(profile: p('b', 'איתי', PresenceStatus.playing, 18, 5, daily: 33), record: const FriendRecord(uid: 'b', games: 2, wins: 1, losses: 1)),
       FriendEntry(profile: p('c', 'מאיה', PresenceStatus.online, 55, 20), record: const FriendRecord(uid: 'c', games: 3, wins: 2, losses: 1)),
       FriendEntry(profile: p('d', 'יובל', PresenceStatus.offline, 9, 1, ago: const Duration(days: 2)), record: const FriendRecord(uid: 'd')),
     ],
@@ -139,6 +152,7 @@ Future<void> _shoot(
   Widget Function() screen, {
   FakeSocialRepository? social,
   FakeMultiplayerRepository? multiplayer,
+  _Progress? progress,
   Future<void> Function(WidgetTester tester)? interact,
   Duration settle = const Duration(milliseconds: 1500),
   int realWaitSeconds = 0,
@@ -160,7 +174,7 @@ Future<void> _shoot(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        progressRepositoryProvider.overrideWithValue(_Progress()),
+        progressRepositoryProvider.overrideWithValue(progress ?? _Progress()),
         socialRepositoryProvider.overrideWithValue(social ?? _social()),
         soundServiceProvider.overrideWithValue(SoundService.silent()),
         if (multiplayer != null) multiplayerRepositoryProvider.overrideWithValue(multiplayer),
@@ -357,6 +371,17 @@ void main() {
           settle: const Duration(seconds: 3),
         ),
     'onboarding': (t) => _shoot(t, 'onboarding', () => const OnboardingScreen(standalone: true)),
+    'daily': (t) => _shoot(t, 'daily', () => const DailyChallengeScreen()),
+    'daily_done': (t) => _shoot(
+          t,
+          'daily_done',
+          () => const DailyChallengeScreen(
+            args: DailyChallengeArgs(
+              outcome: DailyChallengeOutcome(score: 48, words: 11, streak: 4, coins: 54, newBestStreak: true),
+            ),
+          ),
+          progress: _Progress(daily: true),
+        ),
     'settings': (t) => _shoot(t, 'settings', () => const SettingsScreen()),
     'profile': (t) => _shoot(t, 'profile', () => const ProfileScreen()),
     'rules': (t) => _shoot(t, 'rules', () => const RulesScreen()),

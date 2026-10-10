@@ -18,6 +18,7 @@ bool isGameplayLocation(String location) {
   if (path.startsWith('/level/') && path.endsWith('/play')) return true;
   if (path == '/multiplayer/race') return true;
   if (path.startsWith('/multiplayer/online/race/')) return true;
+  if (path == '/daily/play') return true;
   return false;
 }
 
@@ -126,6 +127,9 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
             photoUrl: auth?.photoUrl,
             totalStars: profile.totalStars,
             highestLevel: profile.highestUnlockedLevel,
+            dailyDate: profile.dailyChallengeDate,
+            dailyScore: profile.dailyChallengeScore,
+            dailyStreak: profile.dailyChallengeStreak,
           ))
           .catchError((_) {});
     });

@@ -21,12 +21,20 @@ class MyPublicInfo {
   final int totalStars;
   final int highestLevel;
 
+  /// תוצאת האתגר היומי האחרונה (לדירוג "אתגר היום" אצל חברים).
+  final String? dailyDate;
+  final int dailyScore;
+  final int dailyStreak;
+
   const MyPublicInfo({
     required this.displayName,
     required this.avatarId,
     this.photoUrl,
     required this.totalStars,
     required this.highestLevel,
+    this.dailyDate,
+    this.dailyScore = 0,
+    this.dailyStreak = 0,
   });
 
   @override
@@ -36,10 +44,14 @@ class MyPublicInfo {
       other.avatarId == avatarId &&
       other.photoUrl == photoUrl &&
       other.totalStars == totalStars &&
-      other.highestLevel == highestLevel;
+      other.highestLevel == highestLevel &&
+      other.dailyDate == dailyDate &&
+      other.dailyScore == dailyScore &&
+      other.dailyStreak == dailyStreak;
 
   @override
-  int get hashCode => Object.hash(displayName, avatarId, photoUrl, totalStars, highestLevel);
+  int get hashCode =>
+      Object.hash(displayName, avatarId, photoUrl, totalStars, highestLevel, dailyDate, dailyScore, dailyStreak);
 }
 
 /// כל מה שקשור לחברים: כרטיס ציבורי, נוכחות (מי מחובר), בקשות חברות,

@@ -1008,6 +1008,9 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab> {
                 _ToggleChip(label: '⭐ כוכבים', selected: !_byWins, onTap: () => setState(() => _byWins = false)),
                 const SizedBox(width: 8),
                 _ToggleChip(label: '🏆 ניצחונות', selected: _byWins, onTap: () => setState(() => _byWins = true)),
+                const SizedBox(width: 8),
+                // הדירוג היומי (אותו לוח לכולם) מוצג במסך האתגר היומי.
+                _ToggleChip(label: '📅 אתגר היום', selected: false, onTap: () => context.push('/daily')),
               ],
             ),
             const SizedBox(height: 14),

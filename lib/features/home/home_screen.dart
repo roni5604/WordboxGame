@@ -14,6 +14,7 @@ import '../../data/models/player_profile.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
+import '../../game_engine/daily_challenge.dart';
 import '../onboarding/widgets/mini_grid_demo.dart';
 import '../profile/widgets/avatar_widget.dart';
 import 'widgets/daily_hint_dialog.dart';
@@ -319,11 +320,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                             palette: CandyPalette.gold,
                                             onTap: () => context.push('/store'),
                                           ),
-                                          _RoundAction(
-                                            icon: Icons.school_rounded,
-                                            label: 'איך משחקים',
-                                            palette: CandyPalette.white,
-                                            onTap: () => context.push('/how-to-play'),
+                                          Builder(
+                                            builder: (context) {
+                                              final dailyPlayed = profile.playedDailyOn(
+                                                DailyChallenge.dateKeyFor(DateTime.now()),
+                                              );
+                                              final action = _RoundAction(
+                                                icon: Icons.calendar_today_rounded,
+                                                label: 'אתגר יומי',
+                                                palette: CandyPalette.orange,
+                                                badgeCount: dailyPlayed ? null : 1,
+                                                onTap: () => context.push('/daily'),
+                                              );
+                                              if (dailyPlayed) return action;
+                                              // לא שוחק היום - פעימה עדינה שמזמינה לחזור.
+                                              return action
+                                                  .animate(onPlay: (c) => c.repeat(reverse: true))
+                                                  .scaleXY(begin: 1, end: 1.07, duration: 900.ms, curve: Curves.easeInOut);
+                                            },
                                           ),
                                           _RoundAction(
                                             icon: Icons.menu_book_rounded,
