@@ -1,0 +1,33 @@
+name: agent-toolchain (temporary)
+on:
+  push:
+    branches: [agent/toolchain-bootstrap]
+permissions:
+  contents: write
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.5'
+          channel: stable
+      - run: flutter config --no-analytics --enable-web
+      - run: flutter precache --web --linux --no-android --no-ios
+      - run: flutter pub get
+      - run: flutter analyze || true
+      - run: flutter test test/game_engine/game_session_test.dart || true
+      - name: Pack SDK and pub cache
+        run: |
+          FL=$(dirname $(dirname $(which flutter)))
+          echo "FLUTTER_ROOT=$FL"
+          tar -C $(dirname $FL) -cf - $(basename $FL) | zstd -T0 -10 -o /tmp/flutter_sdk.tar.zst
+          tar -C $HOME -cf - .pub-cache | zstd -T0 -10 -o /tmp/pub_cache.tar.zst
+          echo "$FL" > /tmp/flutter_root.txt
+          ls -la /tmp/*.zst
+      - name: Draft release with assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create agent-toolchain-tmp --draft --title "temporary agent toolchain (will be deleted)" --notes "temporary" --target ${{ github.sha }} /tmp/flutter_sdk.tar.zst /tmp/pub_cache.tar.zst /tmp/flutter_root.txt
