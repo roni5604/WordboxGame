@@ -329,3 +329,168 @@ class CandyIconButton extends StatelessWidget {
     );
   }
 }
+
+/// אריח-כפתור גבוה (אייקון גדול מעל טקסט) - לבחירת מצב משחק במסך הבית,
+/// כמו האריחים של Clash Royale / Candy Crush. אותה שפה תלת-ממדית כמו
+/// [CandyButton], כולל "שקיעה" בלחיצה.
+class CandyTile extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final String? subtitle;
+  final CandyPalette palette;
+  final VoidCallback? onPressed;
+  final double height;
+  final int? badgeCount;
+  final Widget? footer;
+
+  const CandyTile({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.subtitle,
+    this.palette = CandyPalette.blue,
+    this.onPressed,
+    this.height = 132,
+    this.badgeCount,
+    this.footer,
+  });
+
+  @override
+  State<CandyTile> createState() => _CandyTileState();
+}
+
+class _CandyTileState extends State<CandyTile> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.palette;
+    const lip = 7.0;
+    final depth = _pressed ? 2.0 : lip;
+    final enabled = widget.onPressed != null;
+
+    final tile = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+      onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
+      onTapCancel: enabled ? () => setState(() => _pressed = false) : null,
+      onTap: enabled
+          ? () {
+              PressFeedback.trigger();
+              widget.onPressed!();
+            }
+          : null,
+      child: SizedBox(
+        height: widget.height + lip,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              top: lip,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: p.lip,
+                  borderRadius: BorderRadius.circular(26),
+                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 6))],
+                ),
+              ),
+            ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 70),
+              left: 0,
+              right: 0,
+              top: lip - depth,
+              height: widget.height,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(26),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [p.top, p.bottom],
+                  ),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 2),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: 4,
+                      left: 14,
+                      right: 14,
+                      height: widget.height * 0.33,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(22),
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.white.withValues(alpha: 0.45), Colors.white.withValues(alpha: 0)],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 54,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.25),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 2),
+                            ),
+                            child: Icon(widget.icon, color: p.text, size: 30),
+                          ),
+                          const SizedBox(height: 8),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              widget.label,
+                              style: TextStyle(
+                                color: p.text,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 17,
+                                shadows: p.text == Colors.white
+                                    ? [Shadow(color: p.lip, offset: const Offset(0, 2))]
+                                    : null,
+                              ),
+                            ),
+                          ),
+                          if (widget.subtitle != null)
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                widget.subtitle!,
+                                style: TextStyle(
+                                  color: p.text.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          if (widget.footer != null) ...[const SizedBox(height: 4), widget.footer!],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final badge = widget.badgeCount;
+    if (badge == null || badge <= 0) return tile;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        tile,
+        PositionedDirectional(top: -4, end: -2, child: CountBadge(count: badge)),
+      ],
+    );
+  }
+}

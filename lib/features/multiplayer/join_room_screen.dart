@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/ui/candy_button.dart';
+import '../../core/ui/game_backdrop.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/multiplayer_repository_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../game/widgets/mascot_widget.dart';
@@ -14,7 +17,13 @@ import 'models/room_models.dart';
 /// ממנהל/ת החדר (ראו create_room_screen.dart). אחרי הזנת הקוד מוצגים
 /// דמי הכניסה והקופה, ומי שאין לו/ה מספיק מטבעות לא יכול/ה להיכנס.
 class JoinRoomScreen extends ConsumerStatefulWidget {
-  const JoinRoomScreen({super.key});
+  /// קוד שהגיע מקישור (וואטסאפ) או מהזמנה של חבר/ה - ממולא מראש.
+  final String? initialCode;
+
+  /// true = הגענו מאישור הזמנה: מצטרפים מיד ברגע שפרטי החדר נטענו.
+  final bool autoJoin;
+
+  const JoinRoomScreen({super.key, this.initialCode, this.autoJoin = false});
 
   @override
   ConsumerState<JoinRoomScreen> createState() => _JoinRoomScreenState();
@@ -28,6 +37,7 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
   String? _error;
   String? _previewedCode;
   GameRoom? _preview;
+  bool _autoJoinPending = false;
 
   @override
   void initState() {
@@ -38,6 +48,13 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
         : 'את/ה';
     _nameController = TextEditingController(text: defaultName);
     _codeController.addListener(_onCodeChanged);
+    final code = widget.initialCode?.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
+    if (code.length == 5) {
+      _autoJoinPending = widget.autoJoin;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _codeController.text = code;
+      });
+    }
   }
 
   @override
@@ -79,6 +96,15 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
         _preview = room;
         _isFetching = false;
       });
+      if (_autoJoinPending) {
+        _autoJoinPending = false;
+        final profile = await ref.read(playerProfileProvider.notifier).ensureLoaded();
+        if (!mounted) return;
+        if (profile.displayName.trim().isNotEmpty && _nameController.text.trim() == 'את/ה') {
+          _nameController.text = profile.displayName.trim();
+        }
+        await _join();
+      }
     } catch (e) {
       if (!mounted || _codeController.text.trim() != code) return;
       setState(() {
@@ -148,7 +174,13 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
 
     try {
       final repo = ref.read(multiplayerRepositoryProvider);
-      final joined = await repo.joinRoom(roomCode: code, displayName: name);
+      final profile = ref.read(playerProfileProvider).valueOrNull;
+      final joined = await repo.joinRoom(
+        roomCode: code,
+        displayName: name,
+        avatarId: profile?.avatarId,
+        photoUrl: ref.read(authStateProvider).valueOrNull?.photoUrl,
+      );
       if (!mounted) return;
       context.pushReplacement('/multiplayer/online/room/${joined.roomCode}');
     } catch (e) {
@@ -178,18 +210,38 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
         preview != null &&
         coins >= preview.entryFee;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('הצטרפות לחדר'),
-        backgroundColor: AppColors.primaryDark,
-        leading: BackButton(onPressed: () => context.pop()),
+    return GameScaffold(
+      colors: const [Color(0xFFFFB259), Color(0xFFFF7A45), Color(0xFFE8456B)],
+      header: GameHeader(
+        title: 'הצטרפות לחדר',
+        onBack: () => context.canPop() ? context.pop() : context.go('/play/friends'),
       ),
-      backgroundColor: AppColors.background,
-      body: ListView(
-        padding: const EdgeInsets.all(20),
+      bottomBar: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Center(child: MascotWidget(mood: MascotMood.happy, size: 90)),
-          const SizedBox(height: 8),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+              ),
+            ),
+          CandyButton(
+            label: 'הצטרפות לחדר 🚪',
+            palette: CandyPalette.green,
+            height: 62,
+            loading: _isJoining,
+            onPressed: canJoin ? _join : (_isJoining ? null : (_preview == null ? _join : null)),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        children: [
+          const Center(child: MascotWidget(mood: MascotMood.happy, size: 84)),
+          const SizedBox(height: 6),
           const Center(
             child: Text(
               'הזינו את הקוד שקיבלתם ממנהל/ת החדר',
@@ -197,60 +249,52 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white),
             ),
           ),
-          const SizedBox(height: 24),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('שם/כינוי שלך',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _nameController,
-                    textAlign: TextAlign.center,
-                    maxLength: 16,
-                    decoration: InputDecoration(
-                      counterText: '',
-                      filled: true,
-                      fillColor: AppColors.background.withValues(alpha: 0.08),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
+          const SizedBox(height: 20),
+          _WhiteCard(
+            title: 'קוד החדר',
+            child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: TextField(
+                controller: _codeController,
+                textAlign: TextAlign.center,
+                maxLength: 5,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: const TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 12,
+                  color: Color(0xFFC94A1C),
+                ),
+                decoration: InputDecoration(
+                  counterText: '',
+                  filled: true,
+                  fillColor: const Color(0xFFFFF3EA),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
                   ),
-                ],
+                  hintText: '12345',
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('קוד החדר', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _codeController,
-                    textAlign: TextAlign.center,
-                    maxLength: 5,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 12,
-                    ),
-                    decoration: InputDecoration(
-                      counterText: '',
-                      filled: true,
-                      fillColor: AppColors.background.withValues(alpha: 0.08),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                      hintText: '12345',
-                    ),
-                  ),
-                ],
+          const SizedBox(height: 14),
+          _WhiteCard(
+            title: 'שם/כינוי שלך',
+            child: TextField(
+              controller: _nameController,
+              textAlign: TextAlign.center,
+              maxLength: 16,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              decoration: InputDecoration(
+                counterText: '',
+                filled: true,
+                fillColor: const Color(0xFFFFF3EA),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
           ),
@@ -259,29 +303,38 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
             const Center(child: CircularProgressIndicator(color: Colors.white)),
           ],
           if (preview != null) ...[
-            const SizedBox(height: 16),
-            _EntryFeePreview(room: preview, myCoins: coins),
+            const SizedBox(height: 14),
+            _EntryFeePreview(room: preview, myCoins: coins)
+                .animate()
+                .fadeIn(duration: 250.ms)
+                .scaleXY(begin: 0.94, end: 1, curve: Curves.easeOutBack),
           ],
-          const SizedBox(height: 32),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-              ),
-            ),
-          ElevatedButton(
-            onPressed: canJoin ? _join : (_isJoining ? null : (_preview == null ? _join : null)),
-            child: _isJoining
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
-                  )
-                : const Text('הצטרפות לחדר 🚪'),
-          ).animate().fadeIn(delay: 200.ms),
+        ],
+      ),
+    );
+  }
+}
+
+class _WhiteCard extends StatelessWidget {
+  final String title;
+  final Widget child;
+  const _WhiteCard({required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 5))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF7A3A12))),
+          const SizedBox(height: 10),
+          child,
         ],
       ),
     );
@@ -299,6 +352,8 @@ class _EntryFeePreview extends StatelessWidget {
     final enough = myCoins >= room.entryFee;
     return Card(
       color: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

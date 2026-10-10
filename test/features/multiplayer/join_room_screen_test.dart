@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:wordbox_hebrew/data/models/player_profile.dart';
 import 'package:wordbox_hebrew/data/repositories/progress_repository.dart';
+import 'package:wordbox_hebrew/core/ui/candy_button.dart';
 import 'package:wordbox_hebrew/features/multiplayer/join_room_screen.dart';
 import 'package:wordbox_hebrew/providers/multiplayer_repository_provider.dart';
 import 'package:wordbox_hebrew/providers/player_profile_provider.dart';
@@ -82,7 +83,7 @@ void main() {
     final fakeRepo = FakeMultiplayerRepository();
     await _pumpJoinScreen(tester, fakeRepo: fakeRepo);
 
-    await tester.enterText(find.byType(TextField).last, 'AB');
+    await tester.enterText(find.byType(TextField).first, 'AB');
     await tester.tap(find.text('הצטרפות לחדר 🚪'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -102,8 +103,8 @@ void main() {
 
     // אותיות מסוננות אוטומטית ע"י FilteringTextInputFormatter.digitsOnly -
     // רק הספרות בתוך הטקסט שמוזן בפועל מתקבלות.
-    await tester.enterText(find.byType(TextField).last, 'a1b2c3d4e5');
-    final codeField = tester.widget<TextField>(find.byType(TextField).last);
+    await tester.enterText(find.byType(TextField).first, 'a1b2c3d4e5');
+    final codeField = tester.widget<TextField>(find.byType(TextField).first);
     expect(codeField.controller?.text, '12345');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
@@ -126,7 +127,7 @@ void main() {
     final fakeRepo = FakeMultiplayerRepository()..joinRoomError = StateError('חדר עם הקוד 99999 לא נמצא.');
     await _pumpJoinScreen(tester, fakeRepo: fakeRepo);
 
-    await tester.enterText(find.byType(TextField).last, '99999');
+    await tester.enterText(find.byType(TextField).first, '99999');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
@@ -146,13 +147,13 @@ void main() {
       profile: const PlayerProfile(displayName: 'עומר', coins: 2),
     );
 
-    await tester.enterText(find.byType(TextField).last, '12345');
+    await tester.enterText(find.byType(TextField).first, '12345');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('דמי כניסה לחדר'), findsOneWidget);
     expect(find.textContaining('אין מספיק מטבעות'), findsWidgets);
-    final button = tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'הצטרפות לחדר 🚪'));
+    final button = tester.widget<CandyButton>(find.widgetWithText(CandyButton, 'הצטרפות לחדר 🚪'));
     expect(button.onPressed, isNull);
   });
 }

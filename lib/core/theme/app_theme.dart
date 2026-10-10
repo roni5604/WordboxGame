@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../router/transitions.dart';
+import '../ui/game_backdrop.dart';
 import 'app_colors.dart';
 
 /// ה-Theme הראשי של האפליקציה - גופן עגול וידידותי (Heebo) שתומך היטב
@@ -25,7 +27,25 @@ class AppTheme {
 
     return base.copyWith(
       textTheme: textTheme,
+      pageTransitionsTheme: kPageTransitionsTheme,
+      dialogTheme: DialogThemeData(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+        titleTextStyle: GoogleFonts.heebo(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.textDark),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.textDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentTextStyle: GoogleFonts.heebo(fontWeight: FontWeight.w700, color: Colors.white),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Colors.white,
+        showDragHandle: true,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      ),
       appBarTheme: AppBarTheme(
+        systemOverlayStyle: kLightSystemBars,
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,

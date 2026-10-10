@@ -5,7 +5,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../providers/multiplayer_repository_provider.dart';
+import '../../core/ui/candy_button.dart';
+import '../../core/ui/game_backdrop.dart';
+import '../../core/ui/game_dialog.dart';
+import '../../core/ui/pressable.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
+import '../../providers/social_provider.dart';
+import '../social/friends_screen.dart';
 import '../game/widgets/mascot_widget.dart';
 import 'models/room_models.dart';
 
@@ -13,7 +20,11 @@ import 'models/room_models.dart';
 /// הגדרות המשחק (גודל לוח, משך הסבב, ניקוד יעד, מספר משחקונים, דמי כניסה,
 /// זמן פתיחת ההצטרפות), ואז מקבל/ת קוד חדר לשיתוף.
 class CreateRoomScreen extends ConsumerStatefulWidget {
-  const CreateRoomScreen({super.key});
+  /// אם נפתח מ"הזמנה למשחק" של חבר/ה - ההזמנה נשלחת אוטומטית ברגע שהחדר נוצר.
+  final String? inviteFriendUid;
+  final String? inviteFriendName;
+
+  const CreateRoomScreen({super.key, this.inviteFriendUid, this.inviteFriendName});
 
   @override
   ConsumerState<CreateRoomScreen> createState() => _CreateRoomScreenState();
@@ -85,7 +96,32 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
         joinWindow: Duration(minutes: _joinWindowMinutes),
         totalRounds: _totalRounds,
         entryFee: _entryFee,
+        avatarId: ref.read(playerProfileProvider).valueOrNull?.avatarId,
+        photoUrl: ref.read(authStateProvider).valueOrNull?.photoUrl,
       );
+      final inviteUid = widget.inviteFriendUid;
+      if (inviteUid != null && inviteUid.isNotEmpty) {
+        try {
+          await ref.read(socialRepositoryProvider).sendInvite(
+                toUid: inviteUid,
+                toName: widget.inviteFriendName ?? '',
+                roomCode: room.roomCode,
+                gridSize: room.gridSize,
+                roundSeconds: room.roundSeconds,
+                entryFee: room.entryFee,
+              );
+          if (mounted) {
+            GameToast.show(
+              context,
+              message: 'ההזמנה נשלחה ל${widget.inviteFriendName ?? 'חבר/ה'} ⚔️',
+              icon: Icons.send_rounded,
+              color: const Color(0xFF7B3FF2),
+            );
+          }
+        } catch (_) {
+          // ההזמנה היא תוספת - גם אם נכשלה, החדר נוצר וקוד/קישור זמינים בלובי.
+        }
+      }
       if (!mounted) return;
       context.pushReplacement('/multiplayer/online/room/${room.roomCode}');
     } catch (e) {
@@ -101,42 +137,93 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
   @override
   Widget build(BuildContext context) {
     final coins = ref.watch(playerProfileProvider).valueOrNull?.coins ?? 0;
+    final inviteName = widget.inviteFriendName;
+    final hasInvite = widget.inviteFriendUid != null && widget.inviteFriendUid!.isNotEmpty;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('יצירת חדר - משחק מול חברים'),
-        backgroundColor: AppColors.primaryDark,
-        leading: BackButton(onPressed: () => context.pop()),
+    return GameScaffold(
+      colors: kFriendsGradient,
+      header: GameHeader(
+        title: 'יצירת חדר',
+        subtitle: 'משחק מול חברים',
+        onBack: () => context.canPop() ? context.pop() : context.go('/play/friends'),
       ),
-      backgroundColor: AppColors.background,
-      body: ListView(
-        padding: const EdgeInsets.all(20),
+      bottomBar: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Center(child: MascotWidget(mood: MascotMood.excited, size: 90)),
-          const SizedBox(height: 8),
-          const Center(
-            child: Text(
-              'תקבלו קוד לשיתוף - חברים יכולים להצטרף איתו לחדר שלכם',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+              ),
             ),
+          CandyButton(
+            label: hasInvite ? 'יצירת חדר ושליחת הזמנה 🔑' : 'יצירת חדר 🔑',
+            palette: CandyPalette.green,
+            height: 62,
+            loading: _isCreating,
+            onPressed: (_isCreating || coins < _entryFee) ? null : _create,
           ),
-          const SizedBox(height: 24),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        children: [
+          if (hasInvite)
+            Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF7CEB6E), width: 2),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.sports_esports_rounded, color: Color(0xFF33C24D), size: 30),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'בחרו הגדרות - ו${inviteName ?? 'החבר/ה'} יקבל/תקבל הזמנה קופצת להצטרף מיד!',
+                      style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.textDark),
+                    ),
+                  ),
+                ],
+              ),
+            ).animate().fadeIn().scaleXY(begin: 0.95, end: 1)
+          else ...[
+            const Center(child: MascotWidget(mood: MascotMood.excited, size: 80)),
+            const SizedBox(height: 6),
+            const Center(
+              child: Text(
+                'תקבלו קוד וקישור לשיתוף - חברים מצטרפים איתם לחדר שלכם',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 18),
+          ],
           _SectionCard(
             title: 'שם/כינוי שלך',
             child: TextField(
               controller: _nameController,
               textAlign: TextAlign.center,
               maxLength: 16,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
               decoration: InputDecoration(
                 counterText: '',
                 filled: true,
-                fillColor: AppColors.background.withValues(alpha: 0.08),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                fillColor: const Color(0xFFF6F2FF),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _SectionCard(
             title: 'גודל לוח',
             child: _ChipRow<int>(
@@ -146,7 +233,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
               onSelected: (v) => setState(() => _gridSize = v),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _SettingSlider(
             title: 'כמה זמן לכל תור (סבב)?',
             valueLabel: '$_roundSeconds שנ׳',
@@ -156,7 +243,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
             divisions: 15,
             onChanged: (v) => setState(() => _roundSeconds = v.round()),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _SettingSlider(
             title: 'עד כמה נקודות המשחק? (ניקוד יעד לניצחון מוקדם)',
             valueLabel: _targetScore == 0 ? 'ללא יעד' : '$_targetScore נק׳',
@@ -166,7 +253,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
             divisions: 40,
             onChanged: (v) => setState(() => _targetScore = (v / 25).round() * 25),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _SettingSlider(
             title: 'כמה משחקונים בסדרה?',
             valueLabel: _totalRounds == 1 ? 'משחקון אחד' : '$_totalRounds משחקונים',
@@ -176,7 +263,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
             divisions: 9,
             onChanged: (v) => setState(() => _totalRounds = v.round()),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _SectionCard(
             title: 'דמי כניסה (נגבים מכל מי שנכנס, כולל אותך)',
             child: Column(
@@ -212,7 +299,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _SectionCard(
             title: 'כמה זמן ניתן להצטרף עם הקוד?',
             child: _ChipRow<int>(
@@ -222,26 +309,6 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
               onSelected: (v) => setState(() => _joinWindowMinutes = v),
             ),
           ),
-          const SizedBox(height: 32),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-              ),
-            ),
-          ElevatedButton(
-            onPressed: (_isCreating || coins < _entryFee) ? null : _create,
-            child: _isCreating
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
-                  )
-                : const Text('יצירת חדר 🔑'),
-          ).animate().fadeIn(delay: 200.ms),
         ],
       ),
     );
@@ -279,15 +346,15 @@ class _SettingSlider extends StatelessWidget {
             style: const TextStyle(
               fontWeight: FontWeight.w900,
               fontSize: 22,
-              color: AppColors.primaryDark,
+              color: Color(0xFF5B2EC9),
             ),
           ),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor: AppColors.primary,
-              inactiveTrackColor: AppColors.primary.withValues(alpha: 0.2),
-              thumbColor: AppColors.primaryDark,
-              overlayColor: AppColors.primary.withValues(alpha: 0.16),
+              activeTrackColor: const Color(0xFF7B3FF2),
+              inactiveTrackColor: const Color(0xFF7B3FF2).withValues(alpha: 0.18),
+              thumbColor: const Color(0xFF5B2EC9),
+              overlayColor: const Color(0xFF7B3FF2).withValues(alpha: 0.16),
               trackHeight: 6,
             ),
             child: Slider(
@@ -312,13 +379,18 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 5))],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF4A2F8F))),
             const SizedBox(height: 12),
             child,
           ],
@@ -345,15 +417,34 @@ class _ChipRow<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return Wrap(
       spacing: 8,
+      runSpacing: 8,
       alignment: WrapAlignment.center,
       children: values.map((v) {
         final isSelected = v == selected;
-        return ChoiceChip(
-          label: Text(labelBuilder(v)),
-          selected: isSelected,
-          onSelected: (_) => onSelected(v),
-          selectedColor: AppColors.primary,
-          labelStyle: TextStyle(color: isSelected ? Colors.white : AppColors.textDark),
+        return Pressable(
+          onTap: () => onSelected(v),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutBack,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              gradient: isSelected
+                  ? const LinearGradient(colors: [Color(0xFFB57BFF), Color(0xFF7B3FF2)])
+                  : null,
+              color: isSelected ? null : const Color(0xFFF1ECFF),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: isSelected
+                  ? const [BoxShadow(color: Color(0xFF4F1FB0), offset: Offset(0, 3))]
+                  : null,
+            ),
+            child: Text(
+              labelBuilder(v),
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                color: isSelected ? Colors.white : const Color(0xFF4A2F8F),
+              ),
+            ),
+          ),
         );
       }).toList(),
     );

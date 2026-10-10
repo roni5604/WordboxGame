@@ -73,6 +73,8 @@ class FakeMultiplayerRepository implements MultiplayerRepository {
     required Duration joinWindow,
     int totalRounds = 1,
     int entryFee = 5,
+    String? avatarId,
+    String? photoUrl,
   }) async {
     createRoomCalls.add(CreateRoomCall(
       hostDisplayName: hostDisplayName,
@@ -132,7 +134,12 @@ class FakeMultiplayerRepository implements MultiplayerRepository {
   }
 
   @override
-  Future<GameRoom> joinRoom({required String roomCode, required String displayName}) async {
+  Future<GameRoom> joinRoom({
+    required String roomCode,
+    required String displayName,
+    String? avatarId,
+    String? photoUrl,
+  }) async {
     if (joinRoomError != null) throw joinRoomError!;
     if (joinRoomResultBuilder != null) return joinRoomResultBuilder!(roomCode, displayName);
 

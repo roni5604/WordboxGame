@@ -66,6 +66,8 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
     required Duration joinWindow,
     int totalRounds = 1,
     int entryFee = 5,
+    String? avatarId,
+    String? photoUrl,
   }) async {
     _validateCreateSettings(totalRounds: totalRounds, entryFee: entryFee);
     final uid = await _ensureUid();
@@ -104,6 +106,8 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
         'score': 0,
         'wordsFound': 0,
         'isHost': true,
+        'avatarId': avatarId,
+        'photoUrl': photoUrl,
         'joinedAt': FieldValue.serverTimestamp(),
       });
 
@@ -123,7 +127,13 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
         paidUids: {uid: true},
         joinDeadline: joinDeadline,
         players: [
-          PlayerInRoom(uid: uid, displayName: hostDisplayName, isHost: true),
+          PlayerInRoom(
+            uid: uid,
+            displayName: hostDisplayName,
+            isHost: true,
+            avatarId: avatarId,
+            photoUrl: photoUrl,
+          ),
         ],
       );
     }
@@ -142,7 +152,12 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   }
 
   @override
-  Future<GameRoom> joinRoom({required String roomCode, required String displayName}) async {
+  Future<GameRoom> joinRoom({
+    required String roomCode,
+    required String displayName,
+    String? avatarId,
+    String? photoUrl,
+  }) async {
     final code = roomCode.trim();
     final uid = await _ensureUid();
     final roomRef = _rooms.doc(code);
@@ -177,6 +192,8 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
           'score': 0,
           'wordsFound': 0,
           'isHost': false,
+          'avatarId': avatarId,
+          'photoUrl': photoUrl,
           'joinedAt': FieldValue.serverTimestamp(),
         });
 
@@ -243,6 +260,8 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
             score: (doc.data()['score'] as num?)?.toInt() ?? 0,
             wordsFound: (doc.data()['wordsFound'] as num?)?.toInt() ?? 0,
             isHost: doc.data()['isHost'] as bool? ?? false,
+            avatarId: doc.data()['avatarId'] as String?,
+            photoUrl: doc.data()['photoUrl'] as String?,
           ),
       ],
     );
