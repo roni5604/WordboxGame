@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/ui/game_backdrop.dart';
 import '../onboarding/widgets/mini_grid_demo.dart';
 
 /// מסך "חוקי המשחק" - הסבר חוקי המשחק המלאים עם תצוגה ויזואלית ואיורים
@@ -12,15 +13,15 @@ class RulesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('חוקי המשחק'),
-        backgroundColor: AppColors.primaryDark,
-        leading: BackButton(onPressed: () => context.pop()),
+    return GameScaffold(
+      colors: AppColors.gradientForWorldIndex(1),
+      header: GameHeader(
+        title: 'חוקי המשחק',
+        onBack: () => context.canPop() ? context.pop() : context.go('/home'),
       ),
-      backgroundColor: AppColors.background,
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(16, 0, 16, context.safeBottom(min: 24, extra: 24)),
         children: [
           Center(
             child: Column(
@@ -33,7 +34,11 @@ class RulesScreen extends StatelessWidget {
                 const Text(
                   'הבלש מילולי כאן כדי לעזור לכם להבין את כל החוקים 🔍',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textDark),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    shadows: [Shadow(color: Colors.black26, blurRadius: 4)],
+                  ),
                 ),
               ],
             ),
@@ -143,8 +148,13 @@ class _RuleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 14, offset: Offset(0, 6))],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -154,7 +164,7 @@ class _RuleCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: AppColors.primaryDark,
                   child: icon != null
                       ? Icon(icon, color: Colors.white, size: 22)
                       : Text('${index + 1}',
@@ -168,7 +178,10 @@ class _RuleCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Text(description, style: const TextStyle(color: Colors.black54, height: 1.5)),
+            Text(
+              description,
+              style: const TextStyle(color: Color(0xFF5E5578), height: 1.5, fontWeight: FontWeight.w600),
+            ),
             if (demo != null) ...[
               const SizedBox(height: 14),
               demo!,
