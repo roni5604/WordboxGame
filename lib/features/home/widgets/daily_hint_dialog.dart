@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../providers/player_profile_provider.dart';
+import '../../../core/ui/candy_button.dart';
 
 /// פופ-אפ חגיגי שמוצג פעם ביום (כשנכנסים למשחק) ומזכה את השחקן ברמזי
 /// המתנה היומיים: יום 1 = רמז אחד, יום 2 = שניים... עד יום 7 = שבעה,
@@ -107,20 +108,12 @@ class DailyHintDialog extends StatelessWidget {
               SizedBox(width: double.infinity, child: extraAction!),
             ],
             const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppColors.primaryDark,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text(
-                  'תודה! 🙌',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
+            CandyButton(
+              label: 'תודה!',
+              icon: Icons.check_rounded,
+              palette: CandyPalette.green,
+              height: 56,
+              onPressed: () => Navigator.of(context).pop(),
             ),
           ],
         ),

@@ -403,10 +403,7 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
             decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'איך לקרוא לך?'),
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(onPressed: _save, child: const Text('שמירה')),
-          ),
+          CandyButton(label: 'שמירה', icon: Icons.check_rounded, palette: CandyPalette.green, height: 54, onPressed: _save),
         ],
       ),
     );

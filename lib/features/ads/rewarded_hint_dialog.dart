@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/ui/candy_button.dart';
 
 /// שאלה לפני Rewarded באמצע שלב, כשנגמרו הרמזים. true אם בחרו לצפות.
 Future<bool> showRewardedHintDialog(
@@ -61,35 +62,23 @@ Future<bool> showRewardedHintDialog(
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
+                  child: CandyButton(
+                    label: 'לא עכשיו',
+                    palette: CandyPalette.white,
+                    height: 50,
+                    fontSize: 16,
                     onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text(
-                      'לא עכשיו',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.primaryDark,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+                  child: CandyButton(
+                    label: 'צפייה',
+                    icon: Icons.play_circle_fill_rounded,
+                    palette: CandyPalette.green,
+                    height: 50,
+                    fontSize: 16,
                     onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text(
-                      'צפייה',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
                   ),
                 ),
               ],

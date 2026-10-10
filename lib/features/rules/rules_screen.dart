@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/game_backdrop.dart';
 import '../onboarding/widgets/mini_grid_demo.dart';
+import '../../core/ui/candy_button.dart';
 
 /// מסך "חוקי המשחק" - הסבר חוקי המשחק המלאים עם תצוגה ויזואלית ואיורים
 /// (לא רק טקסט), נגיש בכל שלב מהתפריט הראשי.
@@ -114,16 +115,18 @@ class RulesScreen extends StatelessWidget {
             index: 7,
             title: 'רב-משתתפים: מי הכי מהיר/ה?',
             description:
-                'ב"תחרות מקומית" (2-4 משתתפים) כולם פותרים את אותו לוח. מי שצובר/ת\n'
-                'הכי הרבה נקודות (או מוצא/ת הכי הרבה מילים) עד תום הזמן מנצח/ת!',
+                'בתחרות (נגד המחשב או נגד חברים בזמן אמת) כולם פותרים את אותו לוח.\n'
+                'מי שצובר/ת הכי הרבה נקודות עד תום הזמן מנצח/ת! המילים שהיריבים\n'
+                'מוצאים נשארות סודיות - רואים רק כמה נקודות הם צברו.',
             icon: Icons.groups_rounded,
           ),
           const SizedBox(height: 12),
-          Center(
-            child: ElevatedButton(
-              onPressed: () => context.pop(),
-              child: const Text('הבנתי, בואו נשחק!'),
-            ),
+          CandyButton(
+            label: 'הבנתי, בואו נשחק!',
+            icon: Icons.play_arrow_rounded,
+            palette: CandyPalette.green,
+            height: 58,
+            onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
           ),
         ],
       ),

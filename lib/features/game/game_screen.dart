@@ -386,18 +386,14 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
   Future<void> _confirmSkip() async {
     if (_finished) return;
     final cost = CoinCosts.skipLevel(widget.levelNumber);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('לדלג על השלב?'),
-        content: Text('הדילוג עולה $cost מטבעות, נותן כוכב אחד ופותח את השלב הבא.'),
-        actions: [
-          TextButton(onPressed: () => dialogContext.pop(false), child: const Text('ביטול')),
-          FilledButton(onPressed: () => dialogContext.pop(true), child: const Text('דילוג')),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'לדלג על השלב?',
+      message: 'הדילוג עולה $cost מטבעות, נותן כוכב אחד ופותח את השלב הבא.',
+      confirmLabel: 'דילוג · $cost מטבעות',
+      confirmPalette: CandyPalette.gold,
     );
-    if (confirmed != true || !mounted || _finished) return;
+    if (!confirmed || !mounted || _finished) return;
     final ok = await ref
         .read(playerProfileProvider.notifier)
         .skipLevel(levelNumber: widget.levelNumber, cost: cost);
@@ -1068,9 +1064,13 @@ class _TutorialCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(onPressed: onStart, child: const Text('הבנתי, בואו נתחיל!')),
+          CandyButton(
+            label: 'הבנתי, בואו נתחיל!',
+            icon: Icons.play_arrow_rounded,
+            palette: CandyPalette.green,
+            height: 54,
+            fontSize: 18,
+            onPressed: onStart,
           ),
         ],
       ),
