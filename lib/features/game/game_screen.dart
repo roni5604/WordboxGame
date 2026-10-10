@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui' show ImageFilter;
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
@@ -736,7 +735,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
                                     child: SizedBox(
                                       width: side,
                                       height: side,
-                                      child: _PausableBoard(
+                                      child: PausableBoard(
                                         paused: _paused,
                                         child: GridBoard(
                                           key: _boardKey,
@@ -1031,29 +1030,6 @@ class _GameHeader extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// מסתיר את הלוח מאחורי טשטוש כשהמשחק מושהה.
-class _PausableBoard extends StatelessWidget {
-  final bool paused;
-  final Widget child;
-  const _PausableBoard({required this.paused, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: paused ? 1 : 0),
-      duration: const Duration(milliseconds: 250),
-      builder: (context, t, child) {
-        if (t == 0) return child!;
-        return ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 14 * t, sigmaY: 14 * t),
-          child: Opacity(opacity: 1 - 0.4 * t, child: child),
-        );
-      },
-      child: child,
     );
   }
 }

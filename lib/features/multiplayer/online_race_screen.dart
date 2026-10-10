@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/ui/candy_button.dart';
+import '../../core/ui/game_dialog.dart';
 import '../../game_engine/board_generator.dart';
 import '../../game_engine/dictionary/hebrew_trie.dart';
 import '../../game_engine/game_session.dart';
@@ -264,6 +266,20 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     );
   }
 
+  /// משחק חי מול אנשים אמיתיים לא אפשר להשהות - לכן "חזרה"/X שואלים
+  /// לפני שיוצאים, כדי שתנועה בטעות לא תוציא מהסבב.
+  Future<void> _confirmExit() async {
+    final ok = await showConfirmDialog(
+      context,
+      title: 'לצאת מהמשחק?',
+      message: 'המשחק ממשיך בלעדיך, והניקוד שלך ייעצר כאן.',
+      confirmLabel: 'יציאה',
+      cancelLabel: 'נשארים לשחק',
+      confirmPalette: CandyPalette.red,
+    );
+    if (ok && mounted) await _exitToHome();
+  }
+
   Future<void> _exitToHome() async {
     try {
       await _repo.leaveRoom(widget.roomCode);
@@ -318,7 +334,7 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _exitToHome();
+        if (!didPop) _confirmExit();
       },
       child: Scaffold(
         body: Container(
@@ -349,10 +365,13 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: Row(
                           children: [
-                            IconButton(
-                              onPressed: _exitToHome,
-                              icon: const Icon(Icons.close_rounded, color: Colors.white),
+                            CandyIconButton(
+                              icon: Icons.close_rounded,
+                              tooltip: 'יציאה',
+                              size: 42,
+                              onPressed: _confirmExit,
                             ),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,

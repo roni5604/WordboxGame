@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/ui/candy_button.dart';
@@ -87,12 +89,14 @@ class StartCountdown extends StatefulWidget {
 }
 
 class _StartCountdownState extends State<StartCountdown> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: Duration(milliseconds: 700 * (widget.from + 1)),
-  )..forward().whenComplete(() {
-      if (mounted) widget.onDone();
-    });
+  late final AnimationController _c =
+      AnimationController(
+          vsync: this,
+          duration: Duration(milliseconds: 700 * (widget.from + 1)),
+        )
+        ..forward().whenComplete(() {
+          if (mounted) widget.onDone();
+        });
 
   @override
   void dispose() {
@@ -137,6 +141,29 @@ class _StartCountdownState extends State<StartCountdown> with SingleTickerProvid
           ),
         );
       },
+    );
+  }
+}
+
+/// מסתיר את הלוח מאחורי טשטוש כשהמשחק מושהה.
+class PausableBoard extends StatelessWidget {
+  final bool paused;
+  final Widget child;
+  const PausableBoard({super.key, required this.paused, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: paused ? 1 : 0),
+      duration: const Duration(milliseconds: 250),
+      builder: (context, t, child) {
+        if (t == 0) return child!;
+        return ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 14 * t, sigmaY: 14 * t),
+          child: Opacity(opacity: 1 - 0.4 * t, child: child),
+        );
+      },
+      child: child,
     );
   }
 }

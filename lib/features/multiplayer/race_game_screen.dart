@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/ui/candy_button.dart';
 import '../../game_engine/board_generator.dart';
 import '../../game_engine/bot_player.dart';
 import '../../game_engine/dictionary/hebrew_trie.dart';
@@ -22,6 +23,7 @@ import '../game/widgets/current_word_badge.dart';
 import '../game/widgets/found_words_panel.dart';
 import '../game/widgets/grid_board.dart';
 import '../game/widgets/mascot_widget.dart';
+import '../game/widgets/pause_menu.dart';
 import '../game/widgets/timer_bar.dart';
 import 'models/race_config.dart';
 import 'models/race_result.dart';
@@ -36,7 +38,11 @@ class RaceGameScreen extends ConsumerStatefulWidget {
   ConsumerState<RaceGameScreen> createState() => _RaceGameScreenState();
 }
 
-class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
+class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBindingObserver {
+  /// ספירה לאחור "3, 2, 1" לפני שהשעון והבוטים מתחילים.
+  bool _countingDown = false;
+  bool _paused = false;
+
   GameSession? _session;
   List<BotPlayer> _bots = [];
   Duration _remaining = Duration.zero;
@@ -60,7 +66,41 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
   void initState() {
     super.initState();
     _remaining = widget.config.timeLimit;
+    WidgetsBinding.instance.addObserver(this);
     _initRace();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) _pause();
+  }
+
+  /// השהיה (כפתור, "חזרה" של המערכת, או יציאה מהאפליקציה): השעון והבוטים
+  /// נעצרים והלוח מוסתר - אף אחד לא "מרוויח" זמן.
+  Future<void> _pause() async {
+    if (_paused || _finished || _session == null || _countingDown) return;
+    _ticker?.cancel();
+    _ticker = null;
+    setState(() => _paused = true);
+    final choice = await showPauseMenu(
+      context,
+      title: 'התחרות מושהית',
+      subtitle: '${_session?.score ?? 0} נקודות · ${_remaining.inSeconds} שניות נותרו',
+      exitLabel: 'יציאה לתפריט הראשי',
+      exitWarning: 'יציאה עכשיו תסיים את התחרות בלי תוצאה.',
+    );
+    if (!mounted) return;
+    switch (choice) {
+      case PauseChoice.resume:
+        setState(() => _paused = false);
+        if (!_finished && _remaining > Duration.zero) _startTimer();
+      case PauseChoice.restart:
+        _finished = true;
+        context.pushReplacement('/multiplayer/race', extra: widget.config);
+      case PauseChoice.exit:
+        _finished = true;
+        context.go('/home');
+    }
   }
 
   Future<void> _initRace() async {
@@ -88,7 +128,13 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
     setState(() {
       _session = session;
       _bots = bots;
+      _countingDown = true;
     });
+  }
+
+  void _onCountdownDone() {
+    if (!mounted) return;
+    setState(() => _countingDown = false);
     _startTimer();
   }
 
@@ -232,6 +278,7 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _bannerTimer?.cancel();
     super.dispose();
@@ -248,7 +295,7 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) context.go('/home');
+        if (!didPop) _pause();
       },
       child: Scaffold(
         body: Container(
@@ -279,10 +326,13 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: Row(
                           children: [
-                            IconButton(
-                              onPressed: () => context.go('/home'),
-                              icon: const Icon(Icons.close_rounded, color: Colors.white),
+                            CandyIconButton(
+                              icon: Icons.pause_rounded,
+                              tooltip: 'השהיה',
+                              size: 42,
+                              onPressed: _countingDown ? null : _pause,
                             ),
+                            const SizedBox(width: 10),
                             const Text(
                               'תחרות מקומית',
                               style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
@@ -326,21 +376,26 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> {
                                     child: SizedBox(
                                       width: side,
                                       height: side,
-                                      child: GridBoard(
-                                        key: _boardKey,
-                                        letters: session.board.letters,
-                                        onPathSubmitted: _onPathSubmitted,
-                                        isPathAcceptable: session.wouldAccept,
-                                        onWordChanged: _onWordChanging,
-                                        boardSkin: boardSkin,
-                                        letterSkin: letterSkin,
-                                        markerSkin: markerSkin,
+                                      child: PausableBoard(
+                                        paused: _paused || _countingDown,
+                                        child: GridBoard(
+                                          key: _boardKey,
+                                          letters: session.board.letters,
+                                          onPathSubmitted: _onPathSubmitted,
+                                          isPathAcceptable: session.wouldAccept,
+                                          onWordChanged: _onWordChanging,
+                                          enabled: !_countingDown && !_paused,
+                                          boardSkin: boardSkin,
+                                          letterSkin: letterSkin,
+                                          markerSkin: markerSkin,
+                                        ),
                                       ),
                                     ),
                                   );
                                 },
                               ),
                             ),
+                            if (_countingDown) Positioned.fill(child: StartCountdown(onDone: _onCountdownDone)),
                             if (_bannerText != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
