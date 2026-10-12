@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../feedback/haptics.dart';
 
 /// משוב גלובלי ללחיצה (צליל + רטט). מוגדר פעם אחת ב-app.dart כדי שכל
 /// הכפתורים באפליקציה ישמיעו את אותו צליל - בבדיקות נשאר no-op.
@@ -9,7 +9,7 @@ class PressFeedback {
   static VoidCallback onPress = () {};
 
   static void trigger({bool haptic = true}) {
-    if (haptic) HapticFeedback.lightImpact();
+    if (haptic) Haptics.light();
     onPress();
   }
 }

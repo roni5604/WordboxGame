@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/cosmetics/cosmetic_catalog.dart';
 import '../../../core/theme/app_colors.dart';
@@ -10,6 +9,7 @@ import '../../../game_engine/input/swipe_path_tracker.dart';
 import '../../../game_engine/models/grid_position.dart';
 import 'connector_painter.dart';
 import 'letter_tile.dart';
+import '../../../core/feedback/haptics.dart';
 
 /// לוח האותיות האינטראקטיבי: מזהה גרירה בין תאים שכנים, מצייר קו מחבר
 /// בזמן אמת, ומדווח את הנתיב הסופי כאשר האצבע משתחררת.
@@ -95,7 +95,7 @@ class GridBoardState extends State<GridBoard> {
       _dragPosition = localOffset;
       _isError = false;
     });
-    HapticFeedback.selectionClick();
+    Haptics.selection();
     _notifyWordChanged();
   }
 
@@ -110,9 +110,9 @@ class GridBoardState extends State<GridBoard> {
     });
     if (changed) {
       if (_path.length > previousLength) {
-        HapticFeedback.selectionClick();
+        Haptics.selection();
       } else {
-        HapticFeedback.lightImpact();
+        Haptics.light();
       }
       _notifyWordChanged();
     }

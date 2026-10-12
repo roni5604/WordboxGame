@@ -67,6 +67,10 @@ class PlayerProfile extends Equatable {
   /// נסגרה באמצע) - הניסיון נחשב שנוצל, כדי שאי אפשר יהיה "לנסות שוב".
   final String? dailyChallengeStartedDate;
 
+  /// כמה תיבות מזל נפתחו מאז התיבה האפית/אגדית האחרונה - "רשת הביטחון"
+  /// שמבטיחה תיבה אפית אחרי רצף חסר מזל (ראו RewardTables.pityThreshold).
+  final int dropsSinceEpic;
+
   const PlayerProfile({
     this.levelProgress = const {},
     this.coins = 0,
@@ -94,6 +98,7 @@ class PlayerProfile extends Equatable {
     this.dailyChallengeStreak = 0,
     this.dailyChallengeBestStreak = 0,
     this.dailyChallengeStartedDate,
+    this.dropsSinceEpic = 0,
   });
 
   /// האם האתגר של [dateKey] כבר שוחק.
@@ -133,6 +138,7 @@ class PlayerProfile extends Equatable {
     int? dailyChallengeStreak,
     int? dailyChallengeBestStreak,
     String? dailyChallengeStartedDate,
+    int? dropsSinceEpic,
   }) {
     return PlayerProfile(
       levelProgress: levelProgress ?? this.levelProgress,
@@ -162,6 +168,7 @@ class PlayerProfile extends Equatable {
       dailyChallengeStreak: dailyChallengeStreak ?? this.dailyChallengeStreak,
       dailyChallengeBestStreak: dailyChallengeBestStreak ?? this.dailyChallengeBestStreak,
       dailyChallengeStartedDate: dailyChallengeStartedDate ?? this.dailyChallengeStartedDate,
+      dropsSinceEpic: dropsSinceEpic ?? this.dropsSinceEpic,
     );
   }
 
@@ -204,5 +211,6 @@ class PlayerProfile extends Equatable {
         dailyChallengeStreak,
         dailyChallengeBestStreak,
         dailyChallengeStartedDate,
+        dropsSinceEpic,
       ];
 }

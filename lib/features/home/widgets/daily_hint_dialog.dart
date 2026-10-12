@@ -1,123 +1,110 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/motion/motion.dart';
+import '../../../core/ui/rarity_style.dart';
+import '../../../game_engine/rewards/rarity.dart';
 import '../../../providers/player_profile_provider.dart';
-import '../../../core/ui/candy_button.dart';
+import '../../rewards/reward_reveal.dart';
 
-/// פופ-אפ חגיגי שמוצג פעם ביום (כשנכנסים למשחק) ומזכה את השחקן ברמזי
-/// המתנה היומיים: יום 1 = רמז אחד, יום 2 = שניים... עד יום 7 = שבעה,
-/// ואז המחזור מתחיל שוב.
-class DailyHintDialog extends StatelessWidget {
-  final DailyHintReward reward;
+/// הבונוס היומי (רמזים כמספר היום ברצף השבועי: יום 1 = רמז אחד ... יום 7 =
+/// שבעה). כל יום הוא מתנה בדרגה גבוהה יותר - כך שהיום השביעי ("אגדי") הוא
+/// סיבה אמיתית לחזור כל יום ולא לשבור את הרצף.
+class DailyBonus {
+  DailyBonus._();
 
-  /// כפתור אופציונלי "עוד רמז תמורת צפייה". null כשאין פרסומת זמינה.
-  final Widget? extraAction;
+  static const List<Rarity> rarityByDay = [
+    Rarity.common,
+    Rarity.common,
+    Rarity.uncommon,
+    Rarity.uncommon,
+    Rarity.rare,
+    Rarity.epic,
+    Rarity.legendary,
+  ];
 
-  const DailyHintDialog({super.key, required this.reward, this.extraAction});
+  static Rarity rarityFor(int day) => rarityByDay[(day - 1).clamp(0, 6)];
+
+  static Future<void> show(BuildContext context, DailyHintReward reward, {WidgetBuilder? extraAction}) {
+    return RewardReveal.show(
+      context,
+      RewardContents(
+        rarity: rarityFor(reward.day),
+        hints: reward.hintsAwarded,
+        title: 'בונוס יומי · יום ${reward.day}',
+      ),
+      extraAction: extraAction,
+      header: (_) => DailyWeekTrack(day: reward.day),
+    );
+  }
+}
+
+/// 7 מתנות קטנות בצבעי הדרגה - מה כבר נאסף, מה היום, ומה מחכה מחר.
+class DailyWeekTrack extends StatelessWidget {
+  final int day;
+  const DailyWeekTrack({super.key, required this.day});
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.primaryDark, AppColors.primary],
-          ),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 24)],
-        ),
-        child: Column(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              '🎁',
-              style: TextStyle(fontSize: 56),
-            ).animate().scale(curve: Curves.elasticOut, duration: 600.ms),
-            const SizedBox(height: 12),
-            const Text(
-              'בונוס יומי!',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'יום ${reward.day} ברצף השבועי שלך',
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(7, (i) {
-                final dayNum = i + 1;
-                final reached = dayNum <= reward.day;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: reached ? AppColors.star : Colors.white24,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '$dayNum',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: reached ? AppColors.textDark : Colors.white70,
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(height: 24),
-            Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.lightbulb_rounded,
-                      color: AppColors.star,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '+${reward.hintsAwarded} רמזים',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                )
-                .animate()
-                .fadeIn(delay: 200.ms)
-                .scale(begin: const Offset(0.8, 0.8)),
-            if (extraAction != null) ...[
-              const SizedBox(height: 18),
-              SizedBox(width: double.infinity, child: extraAction!),
-            ],
-            const SizedBox(height: 16),
-            CandyButton(
-              label: 'תודה!',
-              icon: Icons.check_rounded,
-              palette: CandyPalette.green,
-              height: 56,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
+            for (var d = 1; d <= 7; d++) _DayPip(day: d, state: d < day ? _PipState.done : (d == day ? _PipState.today : _PipState.future))
+                .animate(delay: (d * 45).ms)
+                .fadeIn(duration: 180.ms)
+                .slideY(begin: 0.4, curve: Motion.out, duration: 320.ms),
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        Text(
+          day >= 7 ? 'השבוע הושלם! מחר מתחילים סבב חדש' : 'מחר: ${day + 1} רמזים · דרגת ${DailyBonus.rarityFor(day + 1).label}',
+          style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w700),
+        ),
+      ],
     );
+  }
+}
+
+enum _PipState { done, today, future }
+
+class _DayPip extends StatelessWidget {
+  final int day;
+  final _PipState state;
+  const _DayPip({required this.day, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = RarityStyle.of(DailyBonus.rarityFor(day));
+    final today = state == _PipState.today;
+    final size = today ? 44.0 : 36.0;
+    final pip = Container(
+      width: size,
+      height: size,
+      margin: const EdgeInsets.symmetric(horizontal: 3),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: state == _PipState.future
+            ? null
+            : LinearGradient(colors: [s.light, s.base, s.dark], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+        color: state == _PipState.future ? Colors.white.withValues(alpha: 0.12) : null,
+        border: Border.all(color: state == _PipState.future ? s.base.withValues(alpha: 0.8) : Colors.white, width: today ? 3 : 2),
+        boxShadow: today ? [BoxShadow(color: s.glow, blurRadius: 16)] : null,
+      ),
+      alignment: Alignment.center,
+      child: state == _PipState.done
+          ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
+          : Icon(
+              day == 7 ? Icons.workspace_premium_rounded : Icons.card_giftcard_rounded,
+              color: state == _PipState.future ? s.light.withValues(alpha: 0.85) : Colors.white,
+              size: today ? 24 : 18,
+            ),
+    );
+    if (!today) return pip;
+    return pip
+        .animate(onPlay: (c) => c.repeat(reverse: true))
+        .scaleXY(end: 1.1, duration: 650.ms, curve: Curves.easeInOut);
   }
 }

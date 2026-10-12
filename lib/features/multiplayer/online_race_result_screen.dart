@@ -21,6 +21,8 @@ import '../game/widgets/mascot_widget.dart';
 import 'models/race_result.dart';
 import 'models/room_models.dart';
 import 'services/multiplayer_repository.dart';
+import '../../core/feedback/haptics.dart';
+import '../../game_engine/rewards/rarity.dart';
 
 /// מסך תוצאות ל"משחק מול חברים": סבב ביניים (הסבב הבא) או חגיגת סיום
 /// עם טבלת אלופים ומסירת הקופה לזוכה.
@@ -69,6 +71,7 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
       if (widget.result.humanWon) {
         ref.read(soundServiceProvider).playLevelComplete();
         _confetti.play();
+        Haptics.celebrate(Rarity.rare);
       } else {
         ref.read(soundServiceProvider).playError();
       }

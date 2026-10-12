@@ -16,6 +16,7 @@ import '../../providers/social_provider.dart';
 import '../profile/widgets/avatar_widget.dart';
 import '../share/share_achievement_sheet.dart';
 import 'daily_challenge_game_screen.dart';
+import '../../core/feedback/haptics.dart';
 
 /// צבעי האתגר היומי - שקיעה זהובה-ורודה.
 const kDailyGradient = [Color(0xFFFFB347), Color(0xFFFF6F91), Color(0xFFB45CFF)];
@@ -53,7 +54,9 @@ class _DailyChallengeScreenState extends ConsumerState<DailyChallengeScreen> {
     }
     if (widget.args?.outcome != null) {
       Future.delayed(const Duration(milliseconds: 350), () {
-        if (mounted) _confetti.play();
+        if (!mounted) return;
+        _confetti.play();
+        Haptics.success();
       });
     }
   }

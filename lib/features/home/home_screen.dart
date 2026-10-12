@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/ads/ads_runtime.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/motion/motion.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
 import '../../core/ui/pressable.dart';
@@ -48,15 +49,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .read(playerProfileProvider.notifier)
         .claimDailyHintIfAvailable();
     if (reward != null && mounted) {
-      ref.read(soundServiceProvider).playDailyReward();
       final offerExtra = ads.canRequestAds && ads.dailyBonusAdAvailable;
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => DailyHintDialog(
-          reward: reward,
-          extraAction: offerExtra
-              ? RewardedGiftButton(
+      await DailyBonus.show(
+        context,
+        reward,
+        extraAction: offerExtra
+            ? (_) => RewardedGiftButton(
                   label: 'עוד רמז אחד — צפו בפרסומת',
                   successLabel: 'קיבלתם רמז נוסף!',
                   icon: Icons.play_circle_fill_rounded,
@@ -71,8 +69,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ref.read(soundServiceProvider).playCoin();
                   },
                 )
-              : null,
-        ),
+            : null,
       );
     }
   }
@@ -403,21 +400,17 @@ class _Pill extends StatelessWidget {
         children: [
           Icon(icon, color: iconColor, size: 20),
           const SizedBox(width: 6),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 350),
-            transitionBuilder: (child, animation) => ScaleTransition(
-              scale: CurvedAnimation(parent: animation, curve: Curves.elasticOut),
-              child: child,
-            ),
-            child: Text(
-              label,
-              key: ValueKey(label),
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-              ),
-            ),
-          ),
+          // מספרים (מטבעות/כוכבים/רמזים) "סופרים" לערך החדש כשהוא משתנה -
+          // חוזרים מתיבת מזל ורואים את המטבעות עולים.
+          if (int.tryParse(label) case final value?)
+            TweenAnimationBuilder<int>(
+              tween: IntTween(begin: value, end: value),
+              duration: const Duration(milliseconds: 900),
+              curve: Motion.out,
+              builder: (context, v, _) => Text('$v', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
+            )
+          else
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
         ],
       ),
     );
