@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../providers/player_profile_provider.dart';
+import '../analytics/analytics_service.dart';
 import 'real_money_catalog.dart';
 
 class IapState {
@@ -62,6 +63,7 @@ class IapController extends StateNotifier<IapState> {
     _subscription = billing.purchaseStream.listen(
       _onPurchases,
       onError: (Object _) {
+        _analytics.purchaseFailed(productId: 'unknown', reason: 'stream_error');
         state = state.copyWith(message: 'הרכישה לא הושלמה');
       },
     );
@@ -83,18 +85,35 @@ class IapController extends StateNotifier<IapState> {
     );
   }
 
+  AnalyticsService get _analytics => _ref.read(analyticsProvider);
+
+  /// Analytics: purchase_start when the store sheet is requested, and
+  /// purchase_failed (product_id, reason) for every way it can fail. The
+  /// successful purchase itself is logged automatically on mobile by
+  /// Firebase as `in_app_purchase` (with revenue), so it is not logged here.
   Future<String?> buy(String productId) async {
     if (kIsWeb || state.isWeb) {
       return 'הרכישה זמינה באפליקציה ל-iPhone ולאנדרואיד';
     }
+    _analytics.purchaseStart(productId: productId);
     final product = _products[productId];
     if (!state.available || product == null) {
+      _analytics.purchaseFailed(productId: productId, reason: 'store_unavailable');
       return 'החנות לא זמינה כרגע';
     }
-    final started = await InAppPurchase.instance.buyConsumable(
-      purchaseParam: PurchaseParam(productDetails: product),
-    );
-    if (!started) return 'לא ניתן להתחיל את הרכישה';
+    var started = false;
+    try {
+      started = await InAppPurchase.instance.buyConsumable(
+        purchaseParam: PurchaseParam(productDetails: product),
+      );
+    } catch (_) {
+      _analytics.purchaseFailed(productId: productId, reason: 'start_exception');
+      return 'לא ניתן להתחיל את הרכישה';
+    }
+    if (!started) {
+      _analytics.purchaseFailed(productId: productId, reason: 'not_started');
+      return 'לא ניתן להתחיל את הרכישה';
+    }
     return null;
   }
 
@@ -104,8 +123,14 @@ class IapController extends StateNotifier<IapState> {
         case PurchaseStatus.pending:
           break;
         case PurchaseStatus.canceled:
+          _analytics.purchaseFailed(productId: purchase.productID, reason: 'user_canceled');
           await _completeIfNeeded(purchase);
         case PurchaseStatus.error:
+          final code = purchase.error?.code;
+          _analytics.purchaseFailed(
+            productId: purchase.productID,
+            reason: code == null || code.isEmpty ? 'error' : 'error_$code',
+          );
           state = state.copyWith(message: 'הרכישה לא הושלמה');
           await _completeIfNeeded(purchase);
         case PurchaseStatus.restored:
@@ -124,6 +149,10 @@ class IapController extends StateNotifier<IapState> {
             coins: pack.coins,
             hints: pack.hints,
           );
+      _analytics
+        ..markPayer()
+        ..earnVirtualCurrency(currency: 'coins', value: pack.coins, source: 'purchase', item: pack.productId)
+        ..earnVirtualCurrency(currency: 'hints', value: pack.hints, source: 'purchase', item: pack.productId);
       final what = pack.hints > 0 ? '${pack.hints} רמזים' : '${pack.coins} מטבעות';
       state = state.copyWith(message: 'נוספו $what');
     }

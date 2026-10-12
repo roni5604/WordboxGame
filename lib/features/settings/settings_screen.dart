@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/ads/ads_runtime.dart';
+import '../../core/analytics/analytics_service.dart';
 import '../../core/share/share_service.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
@@ -25,6 +26,7 @@ class SettingsScreen extends ConsumerWidget {
     final notifier = ref.read(playerProfileProvider.notifier);
     final authUser = ref.watch(authStateProvider).valueOrNull;
     final isRealAccount = authUser != null && !authUser.isAnonymous;
+    final analytics = ref.read(analyticsProvider);
 
     return GameScaffold(
       colors: kSettingsGradient,
@@ -44,14 +46,20 @@ class SettingsScreen extends ConsumerWidget {
                   color: const Color(0xFFFF7A45),
                   label: 'צלילים',
                   value: profile.soundOn,
-                  onChanged: notifier.setSoundOn,
+                  onChanged: (value) {
+                    analytics.settingsChange(setting: 'sound', value: value ? 'on' : 'off');
+                    notifier.setSoundOn(value);
+                  },
                 ),
                 _ToggleRow(
                   icon: Icons.vibration_rounded,
                   color: const Color(0xFF7B3FF2),
                   label: 'רטט',
                   value: profile.hapticsOn,
-                  onChanged: notifier.setHapticsOn,
+                  onChanged: (value) {
+                    analytics.settingsChange(setting: 'haptics', value: value ? 'on' : 'off');
+                    notifier.setHapticsOn(value);
+                  },
                 ),
               ],
             ),
@@ -80,7 +88,10 @@ class SettingsScreen extends ConsumerWidget {
                     color: const Color(0xFF14B8A6),
                     label: 'פרטיות בפרסומות',
                     subtitle: 'שינוי ההסכמה לפרסומות מותאמות',
-                    onTap: () => ref.read(adsGatewayProvider).showPrivacyOptions(),
+                    onTap: () {
+                      analytics.settingsChange(setting: 'ad_privacy_options', value: 'opened');
+                      ref.read(adsGatewayProvider).showPrivacyOptions();
+                    },
                   ),
               ],
             ),
@@ -104,10 +115,13 @@ class SettingsScreen extends ConsumerWidget {
                   color: const Color(0xFFE11D48),
                   label: 'המליצו לחברים',
                   subtitle: 'שתפו קישור למשחק',
-                  onTap: () => ShareService.system(
-                    context,
-                    text: 'מצאתי משחק מילים בעברית ממכר - "מצא ת׳מילה" 🔤\nבואו נתחרה! ${AppLinks.webBase}',
-                  ),
+                  onTap: () {
+                    analytics.share(method: 'system', contentType: 'app_invite');
+                    ShareService.system(
+                      context,
+                      text: 'מצאתי משחק מילים בעברית ממכר - "מצא ת׳מילה" 🔤\nבואו נתחרה! ${AppLinks.webBase}',
+                    );
+                  },
                 ),
               ],
             ),
@@ -170,6 +184,7 @@ class SettingsScreen extends ConsumerWidget {
     );
     if (!ok) return;
     final repo = ref.read(authRepositoryProvider);
+    AnalyticsService.instance.settingsChange(setting: 'sign_out', value: 'confirmed');
     await repo.signOut();
     await repo.signInAsGuest();
     if (context.mounted) context.go('/home');
@@ -184,6 +199,7 @@ class SettingsScreen extends ConsumerWidget {
       confirmPalette: CandyPalette.red,
     );
     if (!ok) return;
+    AnalyticsService.instance.settingsChange(setting: 'reset_progress', value: 'confirmed');
     await notifier.resetProgress();
     if (context.mounted) {
       GameToast.show(context, message: 'ההתקדמות אופסה', icon: Icons.restart_alt_rounded);

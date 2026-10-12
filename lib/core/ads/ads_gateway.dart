@@ -26,6 +26,12 @@ abstract class AdsGateway extends ChangeNotifier {
   /// true רק אחרי שהצופה הרוויח את הפרס (לא אם סגר מוקדם או שאין מודעה).
   Future<bool> showRewarded();
 
+  /// Why the last [showRewarded] / [showInterstitialIfAllowed] call did not
+  /// show an ad (e.g. `not_loaded`, `show_error`, `timeout`), or null when it
+  /// was shown (even if the viewer closed it early). Used for the analytics
+  /// event ad_show_failed.
+  String? get lastShowFailureReason => null;
+
   /// מציג אינטרסטיאל רק אם [AdsPolicy] מאפשר. true אם המודעה הוצגה.
   Future<bool> showInterstitialIfAllowed({required int levelNumber});
 

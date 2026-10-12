@@ -59,6 +59,8 @@ class _NativeAdPlacementState extends State<NativeAdPlacement> {
         ),
       ),
     );
+    // No onPaidEvent -> ad_impression here: the linked AdMob app logs it to
+    // Firebase automatically (see the note in ads_mobile_gateway.dart).
     _ad = ad;
     ad.load();
   }

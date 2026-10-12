@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
@@ -155,6 +156,7 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
     final share = room.pot ~/ tied.length;
     if (share > 0) {
       ref.read(playerProfileProvider.notifier).addCoins(share);
+      AnalyticsService.instance.earnVirtualCurrency(currency: 'coins', value: share, source: 'other', item: 'mp_pot');
     }
     setState(() {
       _potBanner = tied.length == 1 ? 'הזוכה מקבל/ת ${room.pot} מטבעות!' : 'תיקו — $share מטבעות לכל אחד';
@@ -209,6 +211,7 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
         vsFriends: true,
         seriesLabel: room != null && room.isSeries ? '${room.wins[_myUid] ?? 0} ניצחונות בסדרה' : null,
       ),
+      contentType: 'race_win_friends',
     );
   }
 

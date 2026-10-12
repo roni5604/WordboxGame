@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
 import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/candy_button.dart';
@@ -80,6 +81,29 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
   /// "+N" בלוח התוצאות החי.
   final Map<String, (int, int)> _gains = {};
 
+  // Analytics: mp_match_start when the round starts locally, mp_match_end once.
+  // Plain singleton (not ref): also used from dispose().
+  final AnalyticsService _analytics = AnalyticsService.instance;
+  DateTime? _matchStartedAt;
+  int _matchPlayers = 0;
+  bool _matchEnded = false;
+
+  void _logMatchEnd(String result) {
+    final startedAt = _matchStartedAt;
+    if (startedAt == null || _matchEnded) return;
+    _matchEnded = true;
+    final roundSeconds = _room?.roundSeconds;
+    var duration = DateTime.now().difference(startedAt).inSeconds;
+    if (roundSeconds != null && duration > roundSeconds) duration = roundSeconds;
+    _analytics.mpMatchEnd(
+      mode: 'friends',
+      players: _matchPlayers,
+      result: result,
+      score: _session?.score ?? 0,
+      durationSec: duration < 0 ? 0 : duration,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -142,6 +166,9 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
 
     if (!mounted) return;
     setState(() => _session = session);
+    _matchStartedAt = DateTime.now();
+    _matchPlayers = room.players.length;
+    _analytics.mpMatchStart(mode: 'friends', players: _matchPlayers, gridSize: room.gridSize);
     _startTicker(room);
   }
 
@@ -260,6 +287,16 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     }
     _repo.finishRoom(widget.roomCode, winnerUid: winnerUid).catchError((_) {});
 
+    final String matchResult;
+    if (winnerUid != null) {
+      matchResult = winnerUid == _myUid ? 'win' : 'lose';
+    } else {
+      final topScore = ranked.isEmpty ? 0 : ranked.first.result.score;
+      final mine = ranked.where((e) => e.uid == _myUid);
+      matchResult = mine.isNotEmpty && mine.first.result.score == topScore ? 'draw' : 'lose';
+    }
+    _logMatchEnd(matchResult);
+
     if (!mounted) return;
     final participants = [for (final entry in ranked) entry.result];
     context.pushReplacement(
@@ -283,6 +320,7 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
   }
 
   Future<void> _exitToHome() async {
+    _logMatchEnd('abandon');
     try {
       await _repo.leaveRoom(widget.roomCode);
     } catch (_) {
@@ -319,6 +357,7 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
 
   @override
   void dispose() {
+    _logMatchEnd('abandon');
     _roomSub?.cancel();
     _ticker?.cancel();
     _bannerTimer?.cancel();

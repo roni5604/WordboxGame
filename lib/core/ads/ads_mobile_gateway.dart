@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../analytics/analytics_service.dart';
 import 'ads_config.dart';
 import 'ads_gateway.dart';
 import 'ads_native_placement.dart';
@@ -14,6 +15,16 @@ import 'ads_quota_store.dart';
 
 /// AdMob ל-iOS ולאנדרואיד: הסכמה (UMP), ATT ב-iOS, טעינה מראש של
 /// Rewarded ו-Interstitial, ומתנות לפי [AdsPolicy].
+///
+/// Analytics note (ad_impression): we intentionally do NOT set
+/// `onPaidEvent` on the ad objects to log the GA4 `ad_impression` event
+/// (ad_platform='admob', ad_source, ad_format, ad_unit_name,
+/// value=valueMicros/1e6, currency). AdMob is linked to the Firebase project,
+/// and a linked AdMob app logs `ad_impression` automatically - logging it
+/// here as well would double-count ad revenue. If the AdMob-Firebase link
+/// is ever removed, add `ad.onPaidEvent = (ad, valueMicros, precision,
+/// currencyCode) { ... }` in the load callbacks below and log it through
+/// AnalyticsService instead.
 class AdsMobileGateway extends AdsGateway {
   AdsMobileGateway({AdsQuotaStore? quota}) : _quota = quota ?? AdsQuotaStore();
 
@@ -24,6 +35,7 @@ class AdsMobileGateway extends AdsGateway {
   bool _canRequestAds = false;
   bool _privacyOptionsRequired = false;
   bool _showing = false;
+  String? _lastShowFailureReason;
   bool _rewardedLoading = false;
   bool _interstitialLoading = false;
 
@@ -65,6 +77,9 @@ class AdsMobileGateway extends AdsGateway {
   bool get privacyOptionsRequired => _privacyOptionsRequired;
 
   @override
+  String? get lastShowFailureReason => _lastShowFailureReason;
+
+  @override
   Future<void> ensureInitialized() {
     return _initFuture ??= _initialize();
   }
@@ -86,6 +101,7 @@ class AdsMobileGateway extends AdsGateway {
     try {
       await _quota.load();
       await _requestConsent();
+      await _syncAnalyticsConsent();
       if (Platform.isIOS) await _requestAtt();
       _canRequestAds = await ConsentInformation.instance.canRequestAds();
       final privacy = await ConsentInformation.instance
@@ -130,6 +146,24 @@ class AdsMobileGateway extends AdsGateway {
       await ConsentForm.loadAndShowConsentFormIfRequired((_) {});
     } catch (e) {
       debugPrint('Consent form skipped: $e');
+    }
+  }
+
+  /// Passes the UMP result to Google Analytics Consent Mode v2 (see
+  /// [AnalyticsService.applyAdsConsent]). Firebase is initialized before
+  /// this runs (main.dart), as Google requires for UMP + Consent Mode.
+  Future<void> _syncAnalyticsConsent() async {
+    try {
+      final status = await ConsentInformation.instance.getConsentStatus();
+      final state = switch (status) {
+        ConsentStatus.notRequired => AdsConsentState.notRequired,
+        ConsentStatus.obtained => AdsConsentState.obtained,
+        ConsentStatus.required => AdsConsentState.required,
+        ConsentStatus.unknown => AdsConsentState.unknown,
+      };
+      await AnalyticsService.instance.applyAdsConsent(state);
+    } catch (e) {
+      debugPrint('Analytics consent sync skipped: $e');
     }
   }
 
@@ -211,9 +245,14 @@ class AdsMobileGateway extends AdsGateway {
 
   @override
   Future<bool> showRewarded() async {
-    if (!isSupported || !canRequestAds || _showing) return false;
+    _lastShowFailureReason = null;
+    if (!isSupported || !canRequestAds || _showing) {
+      _lastShowFailureReason = !isSupported ? 'unsupported' : (!canRequestAds ? 'no_consent' : 'busy');
+      return false;
+    }
     final ad = _rewarded;
     if (ad == null) {
+      _lastShowFailureReason = 'not_loaded';
       await _loadRewarded();
       return false;
     }
@@ -235,6 +274,7 @@ class AdsMobileGateway extends AdsGateway {
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         debugPrint('Rewarded failed to show: ${error.message}');
+        _lastShowFailureReason = 'show_error_${error.code}';
         ad.dispose();
         _showing = false;
         notifyListeners();
@@ -251,6 +291,7 @@ class AdsMobileGateway extends AdsGateway {
       );
     } catch (e) {
       debugPrint('Rewarded show threw: $e');
+      _lastShowFailureReason = 'show_exception';
       _showing = false;
       if (!earned.isCompleted) earned.complete(false);
     }
@@ -259,6 +300,7 @@ class AdsMobileGateway extends AdsGateway {
 
   @override
   Future<bool> showInterstitialIfAllowed({required int levelNumber}) async {
+    _lastShowFailureReason = null;
     if (!isSupported || _showing) return false;
     await _quota.load();
     final ad = _interstitial;
@@ -270,7 +312,21 @@ class AdsMobileGateway extends AdsGateway {
       canRequestAds: _canRequestAds,
       adLoaded: ad != null,
     );
-    if (!allowed || ad == null) return false;
+    if (!allowed || ad == null) {
+      // Due by the frequency policy but no ad ready = a real show failure.
+      if (ad == null &&
+          AdsPolicy.shouldShowInterstitial(
+            levelNumber: levelNumber,
+            levelsSinceLastInterstitial: _quota.levelsSinceInterstitial,
+            lastFullScreenAt: _quota.lastFullScreenAt,
+            now: DateTime.now(),
+            canRequestAds: _canRequestAds,
+            adLoaded: true,
+          )) {
+        _lastShowFailureReason = 'not_loaded';
+      }
+      return false;
+    }
 
     _showing = true;
     _interstitial = null;
@@ -289,6 +345,7 @@ class AdsMobileGateway extends AdsGateway {
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         debugPrint('Interstitial failed to show: ${error.message}');
+        _lastShowFailureReason = 'show_error_${error.code}';
         ad.dispose();
         _showing = false;
         notifyListeners();
@@ -301,6 +358,7 @@ class AdsMobileGateway extends AdsGateway {
       await ad.show();
     } catch (e) {
       debugPrint('Interstitial show threw: $e');
+      _lastShowFailureReason = 'show_exception';
       _showing = false;
       if (!shown.isCompleted) shown.complete(false);
     }

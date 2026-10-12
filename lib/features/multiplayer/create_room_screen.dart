@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../providers/multiplayer_repository_provider.dart';
 import '../../core/ui/candy_button.dart';
@@ -76,6 +77,9 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
     });
 
     final spent = await ref.read(playerProfileProvider.notifier).spendCoins(_entryFee);
+    if (spent) {
+      AnalyticsService.instance.spendVirtualCurrency(currency: 'coins', value: _entryFee, itemName: 'room_entry_fee');
+    }
     if (!spent) {
       if (!mounted) return;
       setState(() {
@@ -126,6 +130,12 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
       context.pushReplacement('/multiplayer/online/room/${room.roomCode}');
     } catch (e) {
       await ref.read(playerProfileProvider.notifier).addCoins(_entryFee);
+      AnalyticsService.instance.earnVirtualCurrency(
+        currency: 'coins',
+        value: _entryFee,
+        source: 'other',
+        item: 'room_fee_refund',
+      );
       if (!mounted) return;
       setState(() {
         _isCreating = false;

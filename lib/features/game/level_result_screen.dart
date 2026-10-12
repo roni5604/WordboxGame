@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/ads/ads_runtime.dart';
+import '../../core/analytics/analytics_service.dart';
 import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/feedback/haptics.dart';
@@ -266,7 +267,16 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
 
   Future<void> _skipFromResult() async {
     final cost = CoinCosts.skipLevel(widget.levelNumber);
+    final highestBefore = ref.read(playerProfileProvider).valueOrNull?.highestUnlockedLevel ?? 1;
     final ok = await ref.read(playerProfileProvider.notifier).skipLevel(levelNumber: widget.levelNumber, cost: cost);
+    if (ok) {
+      AnalyticsService.instance
+        ..spendVirtualCurrency(currency: 'coins', value: cost, itemName: 'level_skip')
+        ..worldUnlockedIfCrossed(
+          highestBefore: highestBefore,
+          highestAfter: highestBefore > widget.levelNumber ? highestBefore : widget.levelNumber + 1,
+        );
+    }
     if (!mounted) return;
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -275,7 +285,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
           action: SnackBarAction(
             label: 'לחנות',
             onPressed: () {
-              if (mounted) context.push('/store');
+              if (mounted) context.push('/store?from=result_no_coins');
             },
           ),
         ),
@@ -303,7 +313,12 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
     try {
       await _levelRecorded;
       if (showAd && mounted) {
-        await ref.read(adsGatewayProvider).showInterstitialIfAllowed(levelNumber: widget.levelNumber);
+        final ads = ref.read(adsGatewayProvider);
+        final shown = await ads.showInterstitialIfAllowed(levelNumber: widget.levelNumber);
+        final reason = ads.lastShowFailureReason;
+        if (!shown && reason != null) {
+          AnalyticsService.instance.adShowFailed(placement: 'level_next', format: 'interstitial', reason: reason);
+        }
       }
     } finally {
       if (mounted) go();
@@ -346,6 +361,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
         newWorld: result.isWorldFinale,
         worldTitle: result.newTierTitle,
       ),
+      contentType: result.isWorldFinale ? 'world_unlocked' : 'level_result',
     );
   }
 
