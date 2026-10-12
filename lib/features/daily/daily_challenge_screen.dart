@@ -85,6 +85,7 @@ class _DailyChallengeScreenState extends ConsumerState<DailyChallengeScreen> {
             'השגתי $score נקודות באתגר היומי #${challenge.number} של "מצא ת׳מילה"! 📅\n'
             'אותו לוח לכולם - מי מנצח/ת אותי היום? 😎',
       ),
+      contentType: 'daily_result',
     );
   }
 

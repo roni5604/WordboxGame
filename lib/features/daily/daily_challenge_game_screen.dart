@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
 import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/candy_button.dart';
@@ -53,6 +54,30 @@ class _DailyChallengeGameScreenState extends ConsumerState<DailyChallengeGameScr
   String? _bannerText;
   bool _bannerIsError = false;
   Timer? _bannerTimer;
+
+  // Analytics: daily_start when the clock starts, daily_end exactly once.
+  // Plain singleton (not ref): also used from dispose().
+  final AnalyticsService _analytics = AnalyticsService.instance;
+  bool _dailyStarted = false;
+  bool _dailyEnded = false;
+
+  int get _playedSeconds =>
+      (_challenge.timeLimit - _remaining).inSeconds.clamp(0, _challenge.timeLimit.inSeconds);
+
+  void _logDailyEnd(String reason) {
+    if (!_dailyStarted || _dailyEnded) return;
+    _dailyEnded = true;
+    final score = _session?.score ?? 0;
+    _analytics.dailyEnd(
+      dailyDate: _challenge.dateKey,
+      // The daily has no pass/fail goal: success = finished with any score.
+      success: score > 0,
+      score: score,
+      timeSec: _playedSeconds,
+      wordsFound: _session?.foundWordsCount ?? 0,
+      reason: reason,
+    );
+  }
 
   @override
   void initState() {
@@ -102,6 +127,8 @@ class _DailyChallengeGameScreenState extends ConsumerState<DailyChallengeGameScr
 
   @override
   void dispose() {
+    // Left mid-run (e.g. browser navigation): recorded as 0 next time.
+    _logDailyEnd('abandon');
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _bannerTimer?.cancel();
@@ -112,6 +139,8 @@ class _DailyChallengeGameScreenState extends ConsumerState<DailyChallengeGameScr
     if (!mounted) return;
     setState(() => _countingDown = false);
     ref.read(playerProfileProvider.notifier).markDailyStarted(_challenge);
+    _dailyStarted = true;
+    _analytics.dailyStart(dailyDate: _challenge.dateKey, gridSize: _challenge.gridSize);
     _startTimer();
   }
 
@@ -145,22 +174,26 @@ class _DailyChallengeGameScreenState extends ConsumerState<DailyChallengeGameScr
     );
     if (!mounted) return;
     if (choice == PauseChoice.exit) {
-      _finish();
+      _finish(reason: 'quit');
     } else {
       setState(() => _paused = false);
       if (!_finished && _remaining > Duration.zero) _startTimer();
     }
   }
 
-  Future<void> _finish() async {
+  Future<void> _finish({String reason = 'time_up'}) async {
     if (_finished) return;
     _finished = true;
     _ticker?.cancel();
     final session = _session;
     if (session == null) return;
+    _logDailyEnd(reason);
     final outcome = await ref
         .read(playerProfileProvider.notifier)
         .recordDailyChallenge(challenge: _challenge, score: session.score, words: session.foundWordsCount);
+    if (outcome != null) {
+      _analytics.earnVirtualCurrency(currency: 'coins', value: outcome.coins, source: 'daily', item: 'daily_challenge');
+    }
     if (!mounted) return;
     ref.read(soundServiceProvider).playLevelComplete();
     context.pushReplacement('/daily', extra: DailyChallengeArgs(outcome: outcome));

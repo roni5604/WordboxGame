@@ -8,6 +8,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import 'app.dart';
 import 'core/ads/ads_runtime.dart';
+import 'core/analytics/analytics_service.dart';
 import 'core/config/app_config.dart';
 import 'core/ui/game_backdrop.dart';
 import 'data/services/firebase_bootstrap.dart';
@@ -34,6 +35,10 @@ Future<void> main() async {
       debugPrint('Firebase bootstrap skipped: $e');
     }
   }
+
+  // Analytics (GA4): no-op when Firebase is off or failed to initialize.
+  // Must run before the ads/UMP flow below so the consent result reaches it.
+  unawaited(AnalyticsService.instance.init());
 
   // באתר מתחילים לטעון את תג הפרסומת לפני הפריים הראשון, כדי ש-Google
   // יחבר את adBreak לפני שהמשחק עולה. במובייל מחכים לפריים: טופס ההסכמה

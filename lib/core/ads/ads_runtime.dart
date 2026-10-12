@@ -65,6 +65,9 @@ class _AdsGatewayBinding extends AdsGateway {
   Future<bool> showRewarded() => _inner.showRewarded();
 
   @override
+  String? get lastShowFailureReason => _inner.lastShowFailureReason;
+
+  @override
   Future<bool> showInterstitialIfAllowed({required int levelNumber}) =>
       _inner.showInterstitialIfAllowed(levelNumber: levelNumber);
 

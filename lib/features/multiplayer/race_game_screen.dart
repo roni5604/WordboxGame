@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
 import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/candy_button.dart';
@@ -64,6 +65,27 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
   /// להסבר המלא; מוצגת גם כאן כדי שהעיצוב יהיה עקבי בין כל מסכי המשחק.
   String _draggingWord = '';
 
+  // Analytics: mp_match_start when the clock starts, mp_match_end once.
+  // Plain singleton (not ref): also used from dispose().
+  final AnalyticsService _analytics = AnalyticsService.instance;
+  bool _matchStarted = false;
+  bool _matchEnded = false;
+
+  int get _playedSeconds =>
+      (widget.config.timeLimit - _remaining).inSeconds.clamp(0, widget.config.timeLimit.inSeconds);
+
+  void _logMatchEnd(String result) {
+    if (!_matchStarted || _matchEnded) return;
+    _matchEnded = true;
+    _analytics.mpMatchEnd(
+      mode: 'bots',
+      players: widget.config.totalPlayers,
+      result: result,
+      score: _session?.score ?? 0,
+      durationSec: _playedSeconds,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -98,9 +120,11 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
         if (!_finished && _remaining > Duration.zero) _startTimer();
       case PauseChoice.restart:
         _finished = true;
+        _logMatchEnd('abandon');
         context.pushReplacement('/multiplayer/race', extra: widget.config);
       case PauseChoice.exit:
         _finished = true;
+        _logMatchEnd('abandon');
         context.go('/home');
     }
   }
@@ -137,6 +161,10 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
   void _onCountdownDone() {
     if (!mounted) return;
     setState(() => _countingDown = false);
+    if (!_matchStarted) {
+      _matchStarted = true;
+      _analytics.mpMatchStart(mode: 'bots', players: widget.config.totalPlayers, gridSize: widget.config.gridSize);
+    }
     _startTimer();
   }
 
@@ -242,6 +270,19 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
           return b.wordsFound.compareTo(a.wordsFound);
         });
 
+    // Same ranking the result screen shows (score, then words found); a draw
+    // is a tie with the top score and word count.
+    final top = participants.first;
+    final tiedTop = participants.where((p) => p.score == top.score && p.wordsFound == top.wordsFound);
+    final me = participants.firstWhere((p) => p.isHuman);
+    final String result;
+    if (!tiedTop.contains(me)) {
+      result = 'lose';
+    } else {
+      result = tiedTop.length > 1 ? 'draw' : 'win';
+    }
+    _logMatchEnd(result);
+
     context.pushReplacement(
       '/multiplayer/race/result',
       extra: RaceResult(rankedParticipants: participants, config: widget.config),
@@ -280,6 +321,7 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
 
   @override
   void dispose() {
+    _logMatchEnd('abandon');
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _bannerTimer?.cancel();

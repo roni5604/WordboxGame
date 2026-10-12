@@ -20,6 +20,9 @@ class DoubleCoinsCta extends ConsumerWidget {
         label: 'צפו והכפילו את $coins המטבעות',
         successLabel: 'המטבעות הוכפלו!',
         icon: Icons.play_circle_fill_rounded,
+        placement: 'level_double_coins',
+        rewardCurrency: 'coins',
+        rewardAmount: coins,
         onReward: () async {
           await ref.read(playerProfileProvider.notifier).addCoins(coins);
           ref.read(soundServiceProvider).playCoin();

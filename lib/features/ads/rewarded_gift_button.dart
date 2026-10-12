@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/ads/ads_runtime.dart';
+import '../../core/analytics/analytics_service.dart';
 import '../../core/theme/app_colors.dart';
 
 /// כפתור "צפו וקבלו" משותף. מוסתר לגמרי כשאין תמיכה בפרסומות (Web),
@@ -16,11 +17,20 @@ class RewardedGiftButton extends ConsumerStatefulWidget {
   final bool quotaAvailable;
   final RewardedButtonStyle style;
 
+  /// Analytics: where the offer is shown (ad_offer_shown / ad_reward_earned /
+  /// ad_show_failed) and what it grants (earn_virtual_currency, source=ad).
+  final String placement;
+  final String rewardCurrency;
+  final int rewardAmount;
+
   const RewardedGiftButton({
     super.key,
     required this.label,
     required this.icon,
     required this.onReward,
+    required this.placement,
+    required this.rewardCurrency,
+    required this.rewardAmount,
     this.successLabel = 'המתנה התקבלה!',
     this.quotaAvailable = true,
     this.style = RewardedButtonStyle.filled,
@@ -33,11 +43,29 @@ class RewardedGiftButton extends ConsumerStatefulWidget {
 class _RewardedGiftButtonState extends ConsumerState<RewardedGiftButton> {
   bool _busy = false;
   bool _done = false;
+  bool _offerLogged = false;
+
+  String get _reward => '${widget.rewardCurrency}_${widget.rewardAmount}';
 
   Future<void> _watch() async {
     if (_busy || _done) return;
     setState(() => _busy = true);
-    final earned = await ref.read(adsGatewayProvider).showRewarded();
+    final ads = ref.read(adsGatewayProvider);
+    final analytics = ref.read(analyticsProvider);
+    final earned = await ads.showRewarded();
+    if (earned) {
+      analytics
+        ..adRewardEarned(placement: widget.placement, reward: _reward)
+        ..earnVirtualCurrency(
+          currency: widget.rewardCurrency,
+          value: widget.rewardAmount,
+          source: 'ad',
+          item: widget.placement,
+        );
+    } else {
+      final reason = ads.lastShowFailureReason;
+      if (reason != null) analytics.adShowFailed(placement: widget.placement, format: 'rewarded', reason: reason);
+    }
     if (!mounted) return;
     if (!earned) {
       setState(() => _busy = false);
@@ -84,6 +112,13 @@ class _RewardedGiftButtonState extends ConsumerState<RewardedGiftButton> {
     } else {
       label = widget.label;
       enabled = true;
+    }
+
+    // ad_offer_shown: once per widget, the first time the offer is actually
+    // available to tap.
+    if (enabled && !_offerLogged) {
+      _offerLogged = true;
+      ref.read(analyticsProvider).adOfferShown(placement: widget.placement, reward: _reward);
     }
 
     final onPressed = enabled ? _watch : null;

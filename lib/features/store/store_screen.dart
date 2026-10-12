@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/ads/ads_runtime.dart';
+import '../../core/analytics/analytics_service.dart';
 import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/purchases/iap_controller.dart';
 import '../../core/purchases/real_money_catalog.dart';
@@ -33,11 +34,31 @@ const _packs = [
 ];
 
 /// חנות: רמזים במטבעות, סקינים, ורכישת מטבעות/רמזים בכסף אמיתי באפליקציה.
-class StoreScreen extends ConsumerWidget {
-  const StoreScreen({super.key});
+class StoreScreen extends ConsumerStatefulWidget {
+  /// Analytics store_open source (e.g. home, home_coins, profile,
+  /// level_no_coins) - passed as `/store?from=...`.
+  final String source;
+
+  const StoreScreen({super.key, this.source = 'other'});
+
+  @override
+  ConsumerState<StoreScreen> createState() => _StoreScreenState();
+}
+
+class _StoreScreenState extends ConsumerState<StoreScreen> {
+  @override
+  void initState() {
+    super.initState();
+    ref.read(analyticsProvider).storeOpen(source: widget.source);
+  }
 
   Future<void> _buy(BuildContext context, WidgetRef ref, _HintPack pack) async {
     final ok = await ref.read(playerProfileProvider.notifier).buyHints(amount: pack.hints, cost: pack.cost);
+    if (ok) {
+      AnalyticsService.instance
+        ..spendVirtualCurrency(currency: 'coins', value: pack.cost, itemName: 'hint_pack_${pack.hints}')
+        ..earnVirtualCurrency(currency: 'hints', value: pack.hints, source: 'other', item: 'hint_pack_${pack.hints}');
+    }
     if (!context.mounted) return;
     ok ? ref.read(soundServiceProvider).playCoin() : ref.read(soundServiceProvider).playError();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -50,7 +71,7 @@ class StoreScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final profileAsync = ref.watch(playerProfileProvider);
     final authUser = ref.watch(authStateProvider).valueOrNull;
     final isGuest = authUser == null || authUser.isAnonymous;
@@ -285,7 +306,11 @@ class _CosmeticsTab extends ConsumerWidget {
   const _CosmeticsTab({required this.profile});
 
   Future<void> _buy(BuildContext context, WidgetRef ref, CosmeticSlot slot, String id, int cost) async {
+    final alreadyOwned = profile.ownedFor(slot.name).contains(id);
     final ok = await ref.read(playerProfileProvider.notifier).buyOrEquipCosmetic(slot: slot, id: id, cost: cost);
+    if (ok && !alreadyOwned) {
+      AnalyticsService.instance.spendVirtualCurrency(currency: 'coins', value: cost, itemName: 'skin_${slot.name}_$id');
+    }
     if (!context.mounted) return;
     ok ? ref.read(soundServiceProvider).playCoin() : ref.read(soundServiceProvider).playError();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -440,6 +465,7 @@ class _RealMoneyTab extends ConsumerWidget {
                       onPressed: iap.isWeb
                           ? null
                           : () async {
+                              // purchase_start / purchase_failed are logged in IapController.
                               final error = await ref.read(iapProvider.notifier).buy(pack.productId);
                               if (error != null && context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));

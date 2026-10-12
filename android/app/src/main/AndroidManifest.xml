@@ -31,6 +31,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Firebase Analytics: screen_view is logged by the app with clean
+             screen names (lib/core/analytics/analytics_route_observer.dart),
+             so the automatic "MainActivity" screen reporting is turned off. -->
+        <meta-data
+            android:name="google_analytics_automatic_screen_reporting_enabled"
+            android:value="false" />
         <!-- מזהה בדיקה של Google. להחליף במזהה אמיתי מ-AdMob לפני העלאה לחנות. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/ads/ads_runtime.dart';
+import '../../core/analytics/analytics_service.dart';
 import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/candy_button.dart';
@@ -163,13 +164,48 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
   List<GridPosition>? _tutorialPath;
   bool _showTutorialOverlay = false;
 
+  // Analytics (level_start / level_end / level_quit) - see analytics_service.dart.
+  late final AnalyticsService _analytics;
+  Future<int>? _attempt;
+  DateTime? _levelStartedAt;
+  bool _levelClosed = false;
+  int _hintsUsed = 0;
+  int _shufflesUsed = 0;
+
   @override
   void initState() {
     super.initState();
+    _analytics = ref.read(analyticsProvider);
     _config = CampaignLevels.byLevelNumber(widget.levelNumber);
     _remaining = _config.timeLimit;
     WidgetsBinding.instance.addObserver(this);
     _initSession();
+  }
+
+  /// Seconds on the game clock since level_start (pauses/ads excluded).
+  int get _playedSeconds => (_config.timeLimit - _remaining).inSeconds.clamp(0, _config.timeLimit.inSeconds);
+
+  int get _wallSeconds => _levelStartedAt == null ? 0 : DateTime.now().difference(_levelStartedAt!).inSeconds;
+
+  /// level_quit: the run ended without a result (exit / restart / skip /
+  /// screen closed). Logged at most once per run, and never after level_end.
+  void _logLevelQuit(String quitType) {
+    final attempt = _attempt;
+    if (_levelClosed || attempt == null) return;
+    _levelClosed = true;
+    final timeSec = _playedSeconds;
+    final words = _session?.foundWordsCount ?? 0;
+    final score = _session?.score ?? 0;
+    attempt.then((n) {
+      _analytics.levelQuit(
+        config: _config,
+        attempt: n,
+        timeSec: timeSec,
+        wordsFound: words,
+        score: score,
+        quitType: quitType,
+      );
+    });
   }
 
   /// יציאה מהאפליקציה באמצע שלב (שיחה נכנסת, מעבר לאפליקציה אחרת) -
@@ -199,9 +235,11 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
         if (wasRunning && !_finished && _remaining > Duration.zero) _startTimer();
       case PauseChoice.restart:
         _finished = true;
+        _logLevelQuit('restart');
         context.pushReplacement('/level/${widget.levelNumber}/play');
       case PauseChoice.exit:
         _finished = true;
+        _logLevelQuit('exit');
         context.go('/campaign');
     }
   }
@@ -234,6 +272,8 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
 
     if (!mounted) return;
     setState(() => _session = session);
+    _levelStartedAt = DateTime.now();
+    _attempt = _analytics.levelStart(_config);
     await _maybeShowTutorial();
   }
 
@@ -345,7 +385,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
         action: SnackBarAction(
           label: 'לחנות',
           onPressed: () {
-            if (mounted) context.push('/store');
+            if (mounted) context.push('/store?from=level_no_coins');
           },
         ),
       ),
@@ -361,6 +401,15 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
       return;
     }
     if (!await _ensureCoins(CoinCosts.revealLetter)) return;
+    _hintsUsed++;
+    _analytics
+      ..spendVirtualCurrency(currency: 'coins', value: CoinCosts.revealLetter, itemName: 'reveal_letter')
+      ..hintUsed(
+        levelId: widget.levelNumber,
+        hintType: 'reveal_letter',
+        cost: CoinCosts.revealLetter,
+        costCurrency: 'coins',
+      );
     if (!mounted) return;
     ref.read(soundServiceProvider).playHint();
     _boardKey.currentState?.showHint([pos], duration: const Duration(seconds: 4));
@@ -371,6 +420,10 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     final session = _session;
     if (session == null || _finished) return;
     if (!await _ensureCoins(CoinCosts.shuffle)) return;
+    _shufflesUsed++;
+    _analytics
+      ..spendVirtualCurrency(currency: 'coins', value: CoinCosts.shuffle, itemName: 'shuffle')
+      ..hintUsed(levelId: widget.levelNumber, hintType: 'shuffle', cost: CoinCosts.shuffle, costCurrency: 'coins');
     if (!mounted) return;
     session.reshuffleLetters(Random());
     _boardKey.currentState?.clearHint();
@@ -390,11 +443,19 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
       confirmPalette: CandyPalette.gold,
     );
     if (!confirmed || !mounted || _finished) return;
+    final highestBefore = ref.read(playerProfileProvider).valueOrNull?.highestUnlockedLevel ?? 1;
     final ok = await ref.read(playerProfileProvider.notifier).skipLevel(levelNumber: widget.levelNumber, cost: cost);
     if (!ok || !mounted) {
       _showNeedCoins();
       return;
     }
+    _analytics
+      ..spendVirtualCurrency(currency: 'coins', value: cost, itemName: 'level_skip')
+      ..worldUnlockedIfCrossed(
+        highestBefore: highestBefore,
+        highestAfter: max(highestBefore, widget.levelNumber + 1),
+      );
+    _logLevelQuit('skip');
     _finished = true;
     _ticker?.cancel();
     ref.read(soundServiceProvider).playCoin();
@@ -425,7 +486,12 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     }
 
     final used = await ref.read(playerProfileProvider.notifier).useHint();
-    if (!used || !mounted) return;
+    if (!used) return;
+    _hintsUsed++;
+    _analytics
+      ..spendVirtualCurrency(currency: 'hints', value: 1, itemName: 'word_hint')
+      ..hintUsed(levelId: widget.levelNumber, hintType: 'word_hint', cost: 1, costCurrency: 'hints');
+    if (!mounted) return;
 
     ref.read(soundServiceProvider).playHint();
     _boardKey.currentState?.showHint(word.path);
@@ -464,16 +530,24 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
         return false;
       }
 
+      _analytics.adOfferShown(placement: 'level_hint', reward: 'hints_1');
       final watch = await showRewardedHintDialog(context, remainingToday: ads.adHintsRemaining);
       if (!mounted || !watch) return false;
 
       final earned = await ads.showRewarded();
+      if (!earned) {
+        final reason = ads.lastShowFailureReason;
+        if (reason != null) _analytics.adShowFailed(placement: 'level_hint', format: 'rewarded', reason: reason);
+      }
       if (!mounted) return false;
       if (!earned) {
         _showBanner('לא הושלמה הצפייה, אין רמז', isError: true);
         return false;
       }
 
+      _analytics
+        ..adRewardEarned(placement: 'level_hint', reward: 'hints_1')
+        ..earnVirtualCurrency(currency: 'hints', value: 1, source: 'ad', item: 'level_hint');
       await ref.read(playerProfileProvider.notifier).grantHints(1);
       await ads.recordAdHintGranted();
       ref.read(soundServiceProvider).playCoin();
@@ -542,6 +616,17 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     final secondsLeftWhenFinished = _remaining.inSeconds;
     final worldIndex = _config.tier.index;
 
+    // Analytics: why the run ended, straight from the game logic - score
+    // goal reached (win), every word on the board found before the goal
+    // (out_of_moves), or the clock ran out (time_up).
+    final endReason = earlyFinish
+        ? 'win'
+        : (session.isFullyCompleted && _remaining > Duration.zero ? 'out_of_moves' : 'time_up');
+    final endTimeSec = _playedSeconds;
+    final endWallSec = _wallSeconds;
+    final highestBefore = ref.read(playerProfileProvider).valueOrNull?.highestUnlockedLevel ?? 1;
+    _levelClosed = true;
+
     // תגמול חד-פעמי (תיבת מזל / גלגל מזל) יוענק רק בפעם הראשונה שהשלב
     // הזה מושלם בפועל - לא בכל שיחזור שלו (ראו
     // PlayerProfileNotifier.isFirstCompletion).
@@ -570,6 +655,36 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
       await notifier.grantHints(finaleBonusHints);
     }
 
+    final attempt = await (_attempt ?? Future<int>.value(0));
+    _analytics
+      ..levelEnd(
+        config: _config,
+        attempt: attempt,
+        success: earnedAnyStars,
+        score: session.score,
+        stars: stars,
+        wordsFound: session.foundWordsCount,
+        wordsPossible: session.totalPossibleWords,
+        timeSec: endTimeSec,
+        wallSec: endWallSec,
+        hintsUsed: _hintsUsed,
+        shufflesUsed: _shufflesUsed,
+        reason: endReason,
+        coinsEarned: actualCoinsEarned,
+        firstClear: isFirstCompletion && earnedAnyStars,
+      )
+      ..earnVirtualCurrency(currency: 'coins', value: actualCoinsEarned, source: 'level', item: _config.kind.name)
+      ..earnVirtualCurrency(
+        currency: 'hints',
+        value: isWorldFinale ? finaleBonusHints : 0,
+        source: 'level',
+        item: 'world_finale_bonus',
+      )
+      ..worldUnlockedIfCrossed(
+        highestBefore: highestBefore,
+        highestAfter: earnedAnyStars ? max(highestBefore, widget.levelNumber + 1) : highestBefore,
+      );
+
     // תיבת מזל: כל 7 שלבים גלובליים, פעם ראשונה בלבד ובתנאי שהושג לפחות
     // כוכב אחד (כמו כל תגמול אחר בשלב).
     LuckyBoxReward? luckyBoxReward;
@@ -580,6 +695,12 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
       // לשחק עוד שלב ולהשיג שוב 3 כוכבים.
       luckyBoxReward = await notifier.openLuckyDrop(worldIndex: worldIndex, kind: DropKind.starDrop);
     }
+    if (luckyBoxReward != null) {
+      final dropName = luckyBoxReward.kind.name;
+      _analytics
+        ..earnVirtualCurrency(currency: 'coins', value: luckyBoxReward.coins, source: 'gift', item: dropName)
+        ..earnVirtualCurrency(currency: 'hints', value: luckyBoxReward.hints, source: 'gift', item: dropName);
+    }
 
     // גלגל מזל: רק בסיום שלב פינאלה, פעם ראשונה בלבד.
     FortuneWheelPrize? wheelPrize;
@@ -589,6 +710,16 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
       wheelPrize = prize;
       wheelPrizeIndex = index;
       await notifier.grantWheelPrize(prize);
+      final (rewardType, rewardValue) = switch (prize) {
+        FortuneWheelPrize(coins: > 0, hints: > 0) => ('coins_and_hints', prize.coins),
+        FortuneWheelPrize(coins: > 0) => ('coins', prize.coins),
+        FortuneWheelPrize(hints: > 0) => ('hints', prize.hints),
+        _ => ('double_coins', prize.doubleCoinsLevels),
+      };
+      _analytics
+        ..wheelSpin(rewardType: rewardType, rewardValue: rewardValue)
+        ..earnVirtualCurrency(currency: 'coins', value: prize.coins, source: 'wheel')
+        ..earnVirtualCurrency(currency: 'hints', value: prize.hints, source: 'wheel');
     }
 
     if (!mounted) return;
@@ -630,6 +761,8 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
 
   @override
   void dispose() {
+    // Left the screen mid-run some other way (e.g. browser navigation).
+    _logLevelQuit('abandon');
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _bannerTimer?.cancel();

@@ -64,6 +64,7 @@ class _RaceResultScreenState extends ConsumerState<RaceResultScreen> {
         ],
         vsFriends: false,
       ),
+      contentType: 'race_win_bots',
     );
   }
 

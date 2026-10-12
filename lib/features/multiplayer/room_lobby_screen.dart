@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/share/share_service.dart';
 import '../../core/ui/candy_button.dart';
@@ -80,6 +81,12 @@ class _RoomLobbyScreenState extends ConsumerState<RoomLobbyScreen> {
       await _repo.leaveRoom(widget.roomCode);
       if (shouldRefund) {
         await ref.read(playerProfileProvider.notifier).addCoins(room.entryFee);
+        AnalyticsService.instance.earnVirtualCurrency(
+          currency: 'coins',
+          value: room.entryFee,
+          source: 'other',
+          item: 'room_fee_refund',
+        );
       }
     } catch (_) {
       // עזיבה טובה-מאמץ - לא חוסמים את היציאה מהמסך גם אם נכשלה.
@@ -104,6 +111,7 @@ class _RoomLobbyScreenState extends ConsumerState<RoomLobbyScreen> {
   }
 
   void _copyCode() {
+    AnalyticsService.instance.share(method: 'copy_code', contentType: 'room_invite');
     Clipboard.setData(ClipboardData(text: widget.roomCode));
     GameToast.show(context, message: 'הקוד הועתק! שלחו אותו לחברים 📋', icon: Icons.copy_rounded);
   }
@@ -117,6 +125,7 @@ class _RoomLobbyScreenState extends ConsumerState<RoomLobbyScreen> {
   }
 
   Future<void> _copyLink() async {
+    AnalyticsService.instance.share(method: 'copy_link', contentType: 'room_invite');
     await Clipboard.setData(ClipboardData(text: AppLinks.joinRoom(widget.roomCode)));
     if (mounted) GameToast.show(context, message: 'הקישור לחדר הועתק 🔗', icon: Icons.link_rounded);
   }
@@ -240,7 +249,10 @@ class _RoomLobbyScreenState extends ConsumerState<RoomLobbyScreen> {
                   roomCode: room.roomCode,
                   onCopy: _copyCode,
                   onCopyLink: _copyLink,
-                  onMore: () => ShareService.system(context, text: _inviteText),
+                  onMore: () {
+                    AnalyticsService.instance.share(method: 'system', contentType: 'room_invite');
+                    ShareService.system(context, text: _inviteText);
+                  },
                 ),
                 if (social.isAvailable) ...[
                   const SizedBox(height: 12),

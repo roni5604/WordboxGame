@@ -29,6 +29,7 @@ class AdsWebGateway extends AdsGateway {
   bool _initialized = false;
   bool _canRequestAds = false;
   bool _showing = false;
+  String? _lastShowFailureReason;
 
   /// בלי מזהה AdSense אמיתי נשארים על מודעת הדוגמה של Google,
   /// גם באתר החי, כדי שהפרסומות יופיעו לפני פתיחת חשבון.
@@ -57,6 +58,9 @@ class AdsWebGateway extends AdsGateway {
 
   @override
   bool get privacyOptionsRequired => false;
+
+  @override
+  String? get lastShowFailureReason => _lastShowFailureReason;
 
   @override
   Future<void> ensureInitialized() {
@@ -164,7 +168,11 @@ class AdsWebGateway extends AdsGateway {
 
   @override
   Future<bool> showRewarded() async {
-    if (!isSupported || !canRequestAds || _showing) return false;
+    _lastShowFailureReason = null;
+    if (!isSupported || !canRequestAds || _showing) {
+      _lastShowFailureReason = !canRequestAds ? 'not_ready' : 'busy';
+      return false;
+    }
     _showing = true;
     notifyListeners();
 
@@ -183,6 +191,7 @@ class AdsWebGateway extends AdsGateway {
       }.toJS);
     } catch (e) {
       debugPrint('Web rewarded threw: $e');
+      _lastShowFailureReason = 'show_exception';
       _coverGame(false);
       _showing = false;
       notifyListeners();
@@ -194,6 +203,7 @@ class AdsWebGateway extends AdsGateway {
 
   @override
   Future<bool> showInterstitialIfAllowed({required int levelNumber}) async {
+    _lastShowFailureReason = null;
     if (!isSupported || _showing) return false;
     await _quota.load();
     final allowed = AdsPolicy.shouldShowInterstitial(
@@ -218,6 +228,7 @@ class AdsWebGateway extends AdsGateway {
       }.toJS);
     } catch (e) {
       debugPrint('Web interstitial threw: $e');
+      _lastShowFailureReason = 'show_exception';
       _coverGame(false);
       _showing = false;
       notifyListeners();
@@ -232,6 +243,7 @@ class AdsWebGateway extends AdsGateway {
     await Future<void>.delayed(const Duration(seconds: 12));
     if (done.isCompleted || _rewardStarted) return;
     debugPrint('Web ad did not start');
+    _lastShowFailureReason = 'not_started';
     _coverGame(false);
     _showing = false;
     notifyListeners();
@@ -242,6 +254,7 @@ class AdsWebGateway extends AdsGateway {
     return done.future.timeout(
       const Duration(seconds: 90),
       onTimeout: () {
+        _lastShowFailureReason = 'timeout';
         _coverGame(false);
         _showing = false;
         notifyListeners();
@@ -258,6 +271,11 @@ class AdsWebGateway extends AdsGateway {
   }) async {
     final status = _breakStatus(info);
     debugPrint('Web ad break done: $status');
+    // Ad Placement API statuses: viewed / dismissed mean an ad was shown;
+    // notReady, timeout, error, noAdPreloaded, frequencyCapped... mean not.
+    if (status != 'viewed' && status != 'dismissed' && !success) {
+      _lastShowFailureReason = status.isEmpty ? 'unknown' : status;
+    }
     _coverGame(false);
     _showing = false;
     if (success) {

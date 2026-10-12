@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
 import '../../core/share/share_service.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_dialog.dart';
@@ -52,6 +53,7 @@ class SocialActions {
           'הקוד שלי: $code\n'
           '${name.isNotEmpty ? '($name)\n' : ''}'
           'הכנסו למסך החברים ← "הוספת חבר" והקלידו את הקוד:\n${AppLinks.friends()}';
+      AnalyticsService.instance.share(method: whatsApp ? 'whatsapp' : 'system', contentType: 'friend_code');
       if (whatsApp) {
         final ok = await ShareService.whatsApp(text);
         if (!ok && context.mounted) await ShareService.system(context, text: text);
@@ -66,6 +68,7 @@ class SocialActions {
   }
 
   static Future<void> copyFriendCode(BuildContext context, String code) async {
+    AnalyticsService.instance.share(method: 'copy_code', contentType: 'friend_code');
     await Clipboard.setData(ClipboardData(text: code));
     if (context.mounted) {
       GameToast.show(context, message: 'הקוד $code הועתק 📋', icon: Icons.copy_rounded);

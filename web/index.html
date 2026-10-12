@@ -181,6 +181,26 @@
   <link rel="manifest" href="manifest.json">
 
   <!--
+    Firebase Analytics (GA4) on the web. firebase_core would otherwise inject
+    firebase-analytics.js inside Firebase.initializeApp and wait for it; when
+    an ad blocker blocks that file, Auth/Firestore would hang as well. So the
+    analytics module is skipped there and loaded separately by
+    lib/core/analytics/analytics_web_loader_web.dart through this helper,
+    using the exact same SDK version/CDN as firebase-app.js.
+  -->
+  <script>
+    window.flutterfire_ignore_scripts = ['analytics'];
+    window.wordboxLoadAnalytics = function (version) {
+      if (window.firebase_analytics) return Promise.resolve(true);
+      var url = 'https://www.gstatic.com/firebasejs/' + version + '/firebase-analytics.js';
+      return import(url).then(function (mod) {
+        window.firebase_analytics = mod;
+        return true;
+      }, function () { return false; });
+    };
+  </script>
+
+  <!--
     Ad Placement API למשחקי HTML5. הפונקציות חייבות להיות בדף לפני התג.
     את כתובת התג והמזהה מוסיף AdsWebGateway רק כשפרסומות פעילות,
     כדי שבילד release בלי חשבון AdSense לא יטען מודעות בדיקה.

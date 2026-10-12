@@ -155,7 +155,7 @@ class ProfileScreen extends ConsumerWidget {
                 palette: CandyPalette.gold,
                 height: 56,
                 fontSize: 17,
-                onPressed: () => context.push('/store'),
+                onPressed: () => context.push('/store?from=profile'),
               ).animate().fadeIn(delay: 420.ms),
             ],
           );

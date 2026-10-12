@@ -28,7 +28,7 @@ class FirebaseAuthRepository implements AuthRepository {
 
   FirebaseAuthRepository({fb.FirebaseAuth? auth}) : _auth = auth ?? fb.FirebaseAuth.instance;
 
-  AuthUser _mapUser(fb.User user) {
+  AuthUser _mapUser(fb.User user, {bool isNewUser = false}) {
     AuthProviderType provider = AuthProviderType.guest;
     fb.UserInfo? providerInfo;
     if (!user.isAnonymous) {
@@ -62,6 +62,7 @@ class FirebaseAuthRepository implements AuthRepository {
       photoUrl: photoUrl,
       isAnonymous: user.isAnonymous,
       provider: provider,
+      isNewUser: isNewUser,
     );
   }
 
@@ -180,7 +181,7 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<AuthUser> signInAsGuest() async {
     try {
       final result = await _auth.signInAnonymously();
-      return _mapUser(result.user!);
+      return _mapUser(result.user!, isNewUser: result.additionalUserInfo?.isNewUser ?? false);
     } catch (e) {
       throw _friendlyError(e);
     }
@@ -191,7 +192,7 @@ class FirebaseAuthRepository implements AuthRepository {
     try {
       if (kIsWeb) {
         final userCred = await _linkOrSignInWithPopup(fb.GoogleAuthProvider());
-        return _mapUser(userCred.user!);
+        return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
       }
 
       if (!_googleInitialized) {
@@ -202,7 +203,7 @@ class FirebaseAuthRepository implements AuthRepository {
       final idToken = account.authentication.idToken;
       final credential = fb.GoogleAuthProvider.credential(idToken: idToken);
       final userCred = await _linkOrSignIn(credential);
-      return _mapUser(userCred.user!);
+      return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
     } on GoogleSignInException catch (e) {
       throw AuthException(
         e.code.name == 'canceled' ? 'ההתחברות בוטלה.' : 'ההתחברות עם Google נכשלה (${e.code.name}).',
@@ -220,7 +221,7 @@ class FirebaseAuthRepository implements AuthRepository {
           ..addScope('email')
           ..addScope('name');
         final userCred = await _linkOrSignInWithPopup(provider);
-        return _mapUser(userCred.user!);
+        return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
       }
 
       if (!Platform.isIOS && !Platform.isMacOS) {
@@ -239,7 +240,7 @@ class FirebaseAuthRepository implements AuthRepository {
         accessToken: appleCredential.authorizationCode,
       );
       final userCred = await _linkOrSignIn(credential);
-      return _mapUser(userCred.user!);
+      return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
     } on SignInWithAppleAuthorizationException catch (e) {
       throw AuthException(
         e.code == AuthorizationErrorCode.canceled ? 'ההתחברות בוטלה.' : 'ההתחברות עם Apple נכשלה.',
@@ -255,7 +256,7 @@ class FirebaseAuthRepository implements AuthRepository {
     try {
       if (kIsWeb) {
         final userCred = await _linkOrSignInWithPopup(fb.FacebookAuthProvider());
-        return _mapUser(userCred.user!);
+        return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
       }
 
       final result = await FacebookAuth.instance.login(permissions: ['email', 'public_profile']);
@@ -265,7 +266,7 @@ class FirebaseAuthRepository implements AuthRepository {
       final token = result.accessToken!.tokenString;
       final credential = fb.FacebookAuthProvider.credential(token);
       final userCred = await _linkOrSignIn(credential);
-      return _mapUser(userCred.user!);
+      return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
     } catch (e) {
       if (e is AuthException) rethrow;
       throw _friendlyError(e);
@@ -276,7 +277,7 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<AuthUser> signInWithEmail({required String email, required String password}) async {
     try {
       final userCred = await _auth.signInWithEmailAndPassword(email: email, password: password);
-      return _mapUser(userCred.user!);
+      return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
     } catch (e) {
       throw _friendlyError(e);
     }
@@ -292,7 +293,7 @@ class FirebaseAuthRepository implements AuthRepository {
       final credential = fb.EmailAuthProvider.credential(email: email, password: password);
       final userCred = await _linkOrSignIn(credential);
       await userCred.user!.updateDisplayName(displayName);
-      return _mapUser(userCred.user!);
+      return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
     } catch (e) {
       throw _friendlyError(e);
     }

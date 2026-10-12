@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/pressable.dart';
@@ -70,11 +71,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _controller = PageController();
   int _index = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    // "איך משחקים" מהתפריט (standalone) אינו ההדרכה הראשונית.
+    if (!widget.standalone) ref.read(analyticsProvider).tutorialBegin();
+  }
+
   Future<void> _finish() async {
     if (widget.standalone) {
       if (mounted) context.pop();
       return;
     }
+    ref.read(analyticsProvider).tutorialComplete(skipped: _index < _pages.length - 1);
     await ref.read(playerProfileProvider.notifier).setOnboardingCompleted();
     if (mounted) context.go('/home');
   }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/ads/ads_runtime.dart';
+import '../../core/analytics/analytics_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/motion/motion.dart';
 import '../../core/ui/candy_button.dart';
@@ -48,6 +49,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final reward = await ref
         .read(playerProfileProvider.notifier)
         .claimDailyHintIfAvailable();
+    if (reward != null) {
+      AnalyticsService.instance.earnVirtualCurrency(
+            currency: 'hints',
+            value: reward.hintsAwarded,
+            source: 'daily',
+            item: 'daily_login_day_${reward.day}',
+          );
+    }
     if (reward != null && mounted) {
       final offerExtra = ads.canRequestAds && ads.dailyBonusAdAvailable;
       await DailyBonus.show(
@@ -59,6 +68,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   successLabel: 'קיבלתם רמז נוסף!',
                   icon: Icons.play_circle_fill_rounded,
                   style: RewardedButtonStyle.contrast,
+                  placement: 'daily_bonus_extra_hint',
+                  rewardCurrency: 'hints',
+                  rewardAmount: 1,
                   onReward: () async {
                     await ref
                         .read(playerProfileProvider.notifier)
@@ -148,7 +160,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                             icon: Icons.paid_rounded,
                                             iconColor: Colors.amberAccent,
                                             label: '${profile.coins}',
-                                            onTap: () => context.push('/store'),
+                                            onTap: () => context.push('/store?from=home_coins'),
                                           ),
                                           const SizedBox(width: 8),
                                           // רמזים שמורים לחשבונות אמיתיים בלבד.
@@ -164,7 +176,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                               icon: Icons.lightbulb_rounded,
                                               iconColor: AppColors.star,
                                               label: '${profile.hints}',
-                                              onTap: () => context.push('/store'),
+                                              onTap: () => context.push('/store?from=home_hints'),
                                             ),
                                         ],
                                       ),
@@ -323,7 +335,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                             icon: Icons.storefront_rounded,
                                             label: 'חנות',
                                             palette: CandyPalette.gold,
-                                            onTap: () => context.push('/store'),
+                                            onTap: () => context.push('/store?from=home'),
                                           ),
                                           Builder(
                                             builder: (context) {

@@ -46,6 +46,9 @@ class WebRewardAdCard extends ConsumerWidget {
                 successLabel: 'הרמז אצלכם!',
                 icon: Icons.play_circle_fill_rounded,
                 quotaAvailable: remaining > 0,
+                placement: 'store_web_ad_card',
+                rewardCurrency: 'hints',
+                rewardAmount: 1,
                 onReward: () async {
                   await ref.read(playerProfileProvider.notifier).grantHints(1);
                   await ref.read(adsGatewayProvider).recordAdHintGranted();

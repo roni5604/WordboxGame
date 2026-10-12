@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../analytics/analytics_route_observer.dart';
 import '../platform/top_bar_tint.dart';
 import '../../features/auth/auth_screen.dart';
 import '../../features/daily/daily_challenge_game_screen.dart';
@@ -51,7 +52,8 @@ final appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   // באתר: הפס העליון של הדפדפן מוחשך כשנפתח דיאלוג (ראו top_bar_tint.dart).
-  observers: [TopTintObserver()],
+  // screen_view לכל מסך (שמות נקיים, בלי קודי חדר) - ראו analytics_route_observer.dart.
+  observers: [TopTintObserver(), AnalyticsRouteObserver()],
   routes: [
     GoRoute(path: '/', pageBuilder: (context, state) => gamePage(state, const SplashScreen())),
     GoRoute(
@@ -174,7 +176,11 @@ final appRouter = GoRouter(
     GoRoute(path: '/daily/play', pageBuilder: (context, state) => gamePage(state, const DailyChallengeGameScreen())),
     GoRoute(path: '/profile', pageBuilder: (context, state) => popupPage(state, const ProfileScreen())),
     GoRoute(path: '/settings', pageBuilder: (context, state) => appPage(state, const SettingsScreen())),
-    GoRoute(path: '/store', pageBuilder: (context, state) => popupPage(state, const StoreScreen())),
+    GoRoute(
+      path: '/store',
+      pageBuilder: (context, state) =>
+          popupPage(state, StoreScreen(source: state.uri.queryParameters['from'] ?? 'other')),
+    ),
     GoRoute(
       path: '/auth',
       pageBuilder: (context, state) => appPage(

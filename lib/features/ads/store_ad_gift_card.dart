@@ -69,6 +69,9 @@ class StoreAdGiftCard extends ConsumerWidget {
               successLabel: 'הרמז אצלכם!',
               icon: Icons.lightbulb_rounded,
               quotaAvailable: remaining > 0,
+              placement: 'store_gift_hint',
+              rewardCurrency: 'hints',
+              rewardAmount: 1,
               onReward: () async {
                 await ref.read(playerProfileProvider.notifier).grantHints(1);
                 await ref.read(adsGatewayProvider).recordStoreRewardGranted();
@@ -82,6 +85,9 @@ class StoreAdGiftCard extends ConsumerWidget {
                 successLabel: 'המטבעות אצלכם!',
                 icon: Icons.paid_rounded,
                 quotaAvailable: remaining > 0,
+                placement: 'store_gift_coins',
+                rewardCurrency: 'coins',
+                rewardAmount: coins,
                 onReward: () async {
                   await ref
                       .read(playerProfileProvider.notifier)

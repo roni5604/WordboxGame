@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../core/analytics/analytics_service.dart';
 import '../../core/share/share_service.dart';
 import '../../core/ui/game_dialog.dart';
 import '../../core/ui/pressable.dart';
@@ -93,19 +94,27 @@ class ShareAchievement {
 
 /// פותח את חלון השיתוף: תצוגה מקדימה של כרטיס ההישג, ושלושה כפתורים
 /// גדולים - פייסבוק, וואטסאפ, ו"עוד" (גיליון השיתוף של המערכת, עם התמונה).
-Future<void> showShareAchievementSheet(BuildContext context, ShareAchievement achievement) {
+///
+/// [contentType] is the analytics `share` content_type (level_result,
+/// world_unlocked, race_win, daily_result...).
+Future<void> showShareAchievementSheet(
+  BuildContext context,
+  ShareAchievement achievement, {
+  String contentType = 'achievement',
+}) {
   return showModalBottomSheet<void>(
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.white,
-    builder: (_) => _ShareSheet(achievement: achievement),
+    builder: (_) => _ShareSheet(achievement: achievement, contentType: contentType),
   );
 }
 
 class _ShareSheet extends StatefulWidget {
   final ShareAchievement achievement;
-  const _ShareSheet({required this.achievement});
+  final String contentType;
+  const _ShareSheet({required this.achievement, required this.contentType});
 
   @override
   State<_ShareSheet> createState() => _ShareSheetState();
@@ -128,8 +137,9 @@ class _ShareSheetState extends State<_ShareSheet> {
     }
   }
 
-  Future<void> _run(Future<void> Function() action) async {
+  Future<void> _run(String method, Future<void> Function() action) async {
     if (_busy) return;
+    AnalyticsService.instance.share(method: method, contentType: widget.contentType);
     setState(() => _busy = true);
     try {
       await action();
@@ -138,7 +148,7 @@ class _ShareSheetState extends State<_ShareSheet> {
     }
   }
 
-  Future<void> _facebook() => _run(() async {
+  Future<void> _facebook() => _run('facebook', () async {
     // פייסבוק לא מאפשר יותר למלא טקסט מראש בפוסט, אז מעתיקים אותו ללוח
     // כדי שיהיה אפשר פשוט להדביק.
     await Clipboard.setData(ClipboardData(text: widget.achievement.message));
@@ -148,11 +158,11 @@ class _ShareSheetState extends State<_ShareSheet> {
     await ShareService.facebook();
   });
 
-  Future<void> _whatsApp() => _run(() async {
+  Future<void> _whatsApp() => _run('whatsapp', () async {
     await ShareService.whatsApp(widget.achievement.messageWithLink);
   });
 
-  Future<void> _more() => _run(() async {
+  Future<void> _more() => _run('system', () async {
     final png = await _capture();
     if (!mounted) return;
     await ShareService.system(context, text: widget.achievement.messageWithLink, imagePng: png, subject: 'מצא ת׳מילה');

@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/auth_user.dart';
 import '../../providers/auth_provider.dart';
@@ -60,8 +61,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   Future<void> _run(String action, Future<AuthUser> Function() task) async {
     setState(() => _busyAction = action);
+    final before = ref.read(authRepositoryProvider).currentUser;
     try {
       final user = await task();
+      if (action != 'signout') _logAuth(before, user);
       if (!mounted) return;
       // אחרי כל התחברות מוצלחת לחשבון אמיתי (לא אורח/ת), מסנכרנים את השם
       // מהספק (Google/Apple/Facebook/מייל) לפרופיל - כך שהשם והתמונה
@@ -85,6 +88,28 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       ).showSnackBar(SnackBar(backgroundColor: AppColors.error, content: Text('שגיאה: $e')));
     } finally {
       if (mounted) setState(() => _busyAction = null);
+    }
+  }
+
+  /// sign_up / login (method only: google|apple|facebook|guest|email).
+  /// sign_up = Firebase created a new account, or a guest was upgraded in
+  /// place (same uid via linkWithCredential), or a new guest identity was
+  /// created; signing in to an existing account is a login.
+  void _logAuth(AuthUser? before, AuthUser user) {
+    final analytics = AnalyticsService.instance;
+    final method = user.provider.name;
+    final bool isSignUp;
+    if (user.isNewUser) {
+      isSignUp = true;
+    } else if (user.isAnonymous) {
+      isSignUp = widget.isInitial || before == null || before.uid != user.uid;
+    } else {
+      isSignUp = before != null && before.isAnonymous && before.uid == user.uid;
+    }
+    if (isSignUp) {
+      analytics.signUp(method);
+    } else {
+      analytics.login(method);
     }
   }
 

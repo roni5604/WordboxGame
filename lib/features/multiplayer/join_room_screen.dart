@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
@@ -163,6 +164,9 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
     });
 
     final spent = await ref.read(playerProfileProvider.notifier).spendCoins(fee);
+    if (spent) {
+      AnalyticsService.instance.spendVirtualCurrency(currency: 'coins', value: fee, itemName: 'room_entry_fee');
+    }
     if (!spent) {
       if (!mounted) return;
       setState(() {
@@ -185,6 +189,7 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
       context.pushReplacement('/multiplayer/online/room/${joined.roomCode}');
     } catch (e) {
       await ref.read(playerProfileProvider.notifier).addCoins(fee);
+      AnalyticsService.instance.earnVirtualCurrency(currency: 'coins', value: fee, source: 'other', item: 'room_fee_refund');
       if (!mounted) return;
       setState(() {
         _isJoining = false;

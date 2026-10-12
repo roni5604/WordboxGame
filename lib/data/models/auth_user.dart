@@ -14,6 +14,11 @@ class AuthUser extends Equatable {
   final bool isAnonymous;
   final AuthProviderType provider;
 
+  /// true when the sign-in call that produced this object created a brand-new
+  /// account (Firebase `additionalUserInfo.isNewUser`). Only used for the
+  /// analytics sign_up / login split; deliberately not part of [props].
+  final bool isNewUser;
+
   const AuthUser({
     required this.uid,
     this.displayName,
@@ -21,6 +26,7 @@ class AuthUser extends Equatable {
     this.photoUrl,
     required this.isAnonymous,
     required this.provider,
+    this.isNewUser = false,
   });
 
   @override
