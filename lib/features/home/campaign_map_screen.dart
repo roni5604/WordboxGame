@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,6 +16,7 @@ import 'widgets/level_node.dart';
 import 'widgets/path_painter.dart';
 import 'widgets/world_map_backdrop.dart';
 import '../../core/platform/top_bar_tint.dart';
+import '../../core/feedback/haptics.dart';
 
 const double _nodeSpacingY = 136;
 const double _amplitude = 90;
@@ -229,7 +229,7 @@ class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> {
                                   isNextToPlay: levels[i].levelNumber == profile.highestUnlockedLevel,
                                   onTap: () => context.push('/level/${levels[i].levelNumber}/intro'),
                                   onLockedTap: () {
-                                    HapticFeedback.mediumImpact();
+                                    Haptics.medium();
                                     GameToast.show(
                                       context,
                                       message:

@@ -14,6 +14,8 @@ import '../game/widgets/mascot_widget.dart';
 import '../share/share_achievement_sheet.dart';
 import 'models/race_result.dart';
 import 'widgets/race_podium.dart';
+import '../../core/feedback/haptics.dart';
+import '../../game_engine/rewards/rarity.dart';
 
 class RaceResultScreen extends ConsumerStatefulWidget {
   final RaceResult result;
@@ -36,6 +38,7 @@ class _RaceResultScreenState extends ConsumerState<RaceResultScreen> {
       if (widget.result.humanWon) {
         ref.read(soundServiceProvider).playLevelComplete();
         _confetti.play();
+        Haptics.celebrate(Rarity.rare);
       } else {
         ref.read(soundServiceProvider).playError();
       }

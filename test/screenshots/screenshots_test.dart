@@ -3,6 +3,7 @@
 // HEEBO_TTF), כדי שלא יאט את ה-CI:
 //   SCREENSHOTS_DIR=/tmp/shots HEEBO_TTF=/path/Heebo.ttf flutter test test/screenshots
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wordbox_hebrew/game_engine/rewards/reward_tables.dart';
+import 'package:wordbox_hebrew/features/game/widgets/fortune_wheel_dialog.dart';
+import 'package:wordbox_hebrew/features/home/widgets/daily_hint_dialog.dart';
+import 'package:wordbox_hebrew/features/rewards/reward_reveal.dart';
 import 'package:wordbox_hebrew/core/audio/sound_service.dart';
 import 'package:wordbox_hebrew/core/router/transitions.dart';
 import 'package:wordbox_hebrew/providers/sound_provider.dart';
@@ -204,7 +209,10 @@ Future<void> _shoot(
     await tester.pump(const Duration(milliseconds: 50));
   }
   if (interact != null) await interact(tester);
-  await tester.pump(settle);
+  // צעדים קטנים (ולא קפיצה אחת) - כדי שאנימציות פיזיקליות יתקדמו כמו במכשיר.
+  for (var waited = Duration.zero; waited < settle; waited += const Duration(milliseconds: 50)) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 
   // טעינת תמונות (אוואטארים, קמע) לפני הצילום.
   await tester.runAsync(() async {
@@ -225,6 +233,30 @@ Future<void> _shoot(
   File('$_outDir/$name.png').writeAsBytesSync(bytes!);
   await tester.pumpWidget(const SizedBox());
   await tester.pump(const Duration(seconds: 5));
+}
+
+/// רקע כהה כמו ה-barrier של הדיאלוג, ועליו המסך עצמו.
+Widget _host(Widget child) => ColoredBox(color: const Color(0xFF2A1450), child: ColoredBox(color: const Color(0xD9100822), child: child));
+
+Widget _reveal(Rarity rarity, {DropVisual visual = DropVisual.giftBox}) => _host(RewardReveal(
+      contents: RewardContents(
+        rarity: rarity,
+        title: visual == DropVisual.star ? 'כוכב מזל' : 'תיבת מזל',
+        visual: visual,
+        coins: [18, 34, 66, 128, 290][rarity.index],
+        hints: [0, 1, 1, 2, 4][rarity.index],
+        doubleCoinsLevels: rarity == Rarity.legendary ? 2 : 0,
+      ),
+      random: math.Random(7),
+    ));
+
+Future<void> _tapReveal(WidgetTester tester, int taps) async {
+  await tester.pump(const Duration(milliseconds: 800));
+  for (var i = 0; i < taps; i++) {
+    await tester.tapAt(const Offset(196, 420));
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pump(const Duration(milliseconds: 200));
+  }
 }
 
 void main() {
@@ -400,6 +432,57 @@ void main() {
     'profile': (t) => _shoot(t, 'profile', () => const ProfileScreen()),
     'rules': (t) => _shoot(t, 'rules', () => const RulesScreen()),
     'store': (t) => _shoot(t, 'store', () => const StoreScreen()),
+    // מסך פתיחת המתנות - בשלבים שונים ובכל הדרגות.
+    'reveal_intro': (t) => _shoot(t, 'reveal_intro', () => _reveal(Rarity.legendary), settle: const Duration(milliseconds: 900)),
+    'reveal_charge': (t) => _shoot(
+          t,
+          'reveal_charge',
+          () => _reveal(Rarity.legendary),
+          interact: (t) => _tapReveal(t, 2),
+          settle: const Duration(milliseconds: 260),
+        ),
+    for (final r in Rarity.values)
+      'reveal_${r.name}': (t) => _shoot(
+            t,
+            'reveal_${r.name}',
+            () => _reveal(r, visual: r == Rarity.rare ? DropVisual.star : DropVisual.giftBox),
+            interact: (t) => _tapReveal(t, 6),
+            settle: const Duration(milliseconds: 1100),
+          ),
+    'reveal_done': (t) => _shoot(
+          t,
+          'reveal_done',
+          () => _reveal(Rarity.epic),
+          interact: (t) => _tapReveal(t, 6),
+          settle: const Duration(milliseconds: 4500),
+        ),
+    'daily_bonus': (t) => _shoot(
+          t,
+          'daily_bonus',
+          () => _host(RewardReveal(
+            contents: RewardContents(rarity: DailyBonus.rarityFor(5), hints: 5, title: 'בונוס יומי · יום 5'),
+            header: (_) => const DailyWeekTrack(day: 5),
+            random: math.Random(3),
+          )),
+          interact: (t) => _tapReveal(t, 1),
+          settle: const Duration(milliseconds: 400),
+        ),
+    'wheel': (t) => _shoot(
+          t,
+          'wheel',
+          () => _host(FortuneWheelDialog(prizeIndex: 5, prize: RewardTables.wheelPrizes[5])),
+          settle: const Duration(milliseconds: 900),
+        ),
+    'wheel_spin': (t) => _shoot(
+          t,
+          'wheel_spin',
+          () => _host(FortuneWheelDialog(prizeIndex: 3, prize: RewardTables.wheelPrizes[3])),
+          interact: (t) async {
+            await t.pump(const Duration(milliseconds: 800));
+            await t.tap(find.text('סובבו!'));
+          },
+          settle: const Duration(milliseconds: 2600),
+        ),
   };
 
   for (final entry in shots.entries) {

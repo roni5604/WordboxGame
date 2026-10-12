@@ -19,7 +19,7 @@ class SoundService {
   /// נגני האודיו נוצרים רק בצליל הראשון (ולא בעליית האפליקציה) - חוסך
   /// עבודה בפריים הראשון.
   List<AudioPlayer>? _poolStorage;
-  List<AudioPlayer> get _pool => _poolStorage ??= List.generate(4, (_) {
+  List<AudioPlayer> get _pool => _poolStorage ??= List.generate(6, (_) {
     final p = AudioPlayer();
     // fire-and-forget עם catchError: בסביבת בדיקות (widget tests) אין
     // ערוץ פלטפורמה אמיתי לאודיו, וזה לא אמור להפיל שום טסט.
@@ -75,6 +75,32 @@ class SoundService {
 
   /// כוכב הושג במהלך השלב (חגיגת-ביניים, בנוסף לחגיגה הגדולה בסיום).
   Future<void> playStarGained() => _play('star_gained.wav', volume: 0.7);
+
+  /// לחיצה על תיבה סגורה - הצליל עולה עם כל לחיצה ([step] 0..3).
+  Future<void> playCharge(int step) => _play('charge_${step.clamp(0, 3)}.wav', volume: 0.7);
+
+  /// התיבה עלתה דרגת נדירות.
+  Future<void> playRarityUp() => _play('rarity_up.wav', volume: 0.8);
+
+  /// פתיחת פרס - פנפרה שגדלה לפי הדרגה (0=רגיל ... 4=אגדי).
+  Future<void> playReveal(int rarityIndex) {
+    final file = switch (rarityIndex) {
+      <= 1 => 'reveal_common.wav',
+      2 => 'reveal_rare.wav',
+      3 => 'reveal_epic.wav',
+      _ => 'reveal_legendary.wav',
+    };
+    return _play(file, volume: 0.85);
+  }
+
+  /// זיקוק מתפוצץ.
+  Future<void> playFirework() => _play('firework.wav', volume: 0.5);
+
+  /// "קליק" של המחוג בגלגל המזל.
+  Future<void> playWheelTick() => _play('wheel_tick.wav', volume: 0.35);
+
+  /// איסוף פרס.
+  Future<void> playCollect() => _play('collect.wav', volume: 0.75);
 
   void dispose() {
     for (final p in _poolStorage ?? const <AudioPlayer>[]) {

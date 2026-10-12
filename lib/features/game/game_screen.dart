@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -39,6 +38,7 @@ import 'widgets/timer_bar.dart';
 import 'widgets/words_goal_panel.dart';
 import '../../core/platform/top_bar_tint.dart';
 import '../../core/platform/browser_back_guard.dart';
+import '../../core/feedback/haptics.dart';
 
 /// תוצאת שלב שהושלם - מועברת למסך התוצאה דרך go_router `extra`.
 class GameScreenResult extends Equatable {
@@ -137,6 +137,8 @@ class GameScreen extends ConsumerStatefulWidget {
 }
 
 class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObserver {
+  // הגרלת "כוכב מזל" (ראו _finishLevel).
+  final Random _dropRandom = Random();
   GameSession? _session;
   late LevelConfig _config;
   Duration _remaining = Duration.zero;
@@ -312,7 +314,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
   /// לדרוס אותה (שתי ההודעות חולקות את אותו banner/timer).
   void _celebrateStarGained(int stars) {
     ref.read(soundServiceProvider).playStarGained();
-    HapticFeedback.mediumImpact();
+    Haptics.heavy();
     final starsText = '⭐' * stars;
     Future.delayed(const Duration(milliseconds: 950), () {
       if (!mounted || _finished) return;
@@ -492,6 +494,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     switch (result.status) {
       case WordSubmitStatus.accepted:
         ref.read(soundServiceProvider).playSuccess();
+        Haptics.success();
         _showBanner('${result.displayWord}  +${result.pointsAwarded}');
         setState(() {});
         final newStars = session.currentStars;
@@ -511,11 +514,13 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
         break;
       case WordSubmitStatus.duplicate:
         ref.read(soundServiceProvider).playError();
+        Haptics.error();
         _showBanner('כבר מצאת את "${result.displayWord}"', isError: true);
         _boardKey.currentState?.flashError();
         break;
       case WordSubmitStatus.invalidWord:
         ref.read(soundServiceProvider).playError();
+        Haptics.error();
         _showBanner('לא נמצאה מילה כזו', isError: true);
         _boardKey.currentState?.flashError();
         break;
@@ -569,8 +574,11 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     // כוכב אחד (כמו כל תגמול אחר בשלב).
     LuckyBoxReward? luckyBoxReward;
     if (isFirstCompletion && earnedAnyStars && widget.levelNumber % RewardTables.luckyBoxLevelInterval == 0) {
-      luckyBoxReward = RewardTables.rollLuckyBox(worldIndex: worldIndex);
-      await notifier.grantLuckyBoxReward(luckyBoxReward);
+      luckyBoxReward = await notifier.openLuckyDrop(worldIndex: worldIndex);
+    } else if (isFirstCompletion && stars == 3 && !isWorldFinale && _dropRandom.nextDouble() < RewardTables.starDropChance) {
+      // "כוכב מזל": הפתעה לא צפויה על שלב מושלם - חיזוק אקראי שגורם לרצות
+      // לשחק עוד שלב ולהשיג שוב 3 כוכבים.
+      luckyBoxReward = await notifier.openLuckyDrop(worldIndex: worldIndex, kind: DropKind.starDrop);
     }
 
     // גלגל מזל: רק בסיום שלב פינאלה, פעם ראשונה בלבד.

@@ -7,7 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../../core/ads/ads_runtime.dart';
 import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/feedback/haptics.dart';
 import '../../core/ui/candy_button.dart';
+import '../../core/ui/celebration_layer.dart';
+import '../../game_engine/rewards/rarity.dart';
 import '../../core/ui/game_backdrop.dart';
 import '../../core/ui/pressable.dart';
 import '../share/share_achievement_sheet.dart';
@@ -17,7 +20,8 @@ import '../../game_engine/models/level_config.dart';
 import '../../providers/sound_provider.dart';
 import 'game_screen.dart';
 import 'widgets/fortune_wheel_dialog.dart';
-import 'widgets/lucky_box_dialog.dart';
+import '../rewards/lucky_box_progress.dart';
+import '../rewards/reward_reveal.dart';
 import 'widgets/mascot_widget.dart';
 
 /// עבור תוצאה טובה (2-3 כוכבים) מציגים את הבלש מילולי חוגג עם השחקן/ית -
@@ -208,6 +212,8 @@ class LevelResultScreen extends ConsumerStatefulWidget {
 class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
   late final ConfettiController _confetti;
   late final Future<void> _levelRecorded;
+  final _fireworks = GlobalKey<CelebrationLayerState>();
+  static const _goldSparks = [Color(0xFFFFE066), Color(0xFFFFB800), Color(0xFFFFFFFF), Color(0xFFFF7A45)];
   bool _leaving = false;
 
   @override
@@ -221,6 +227,21 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
       ref.read(soundServiceProvider).playLevelComplete();
       // חוגגים בקונפטי בכל שלב שהושלם בהצלחה (כוכב אחד ומעלה).
       if (widget.result.stars >= 1 || isWorldFinale) _confetti.play();
+      // 3 כוכבים / סיום עולם - גם זיקוקים זהובים ורטט חגיגי. שלב רגיל מקבל
+      // רק קונפטי ורטט "הצלחה" - החגיגה הגדולה שמורה לרגעים שהרוויחו אותה.
+      final fx = _fireworks.currentState;
+      if (isWorldFinale) {
+        Haptics.celebrate(Rarity.epic);
+        for (var i = 0; i < 6; i++) {
+          Future.delayed(Duration(milliseconds: 150 + i * 280), () => _fireworks.currentState?.firework(colors: _goldSparks, big: i.isOdd));
+        }
+      } else if (widget.result.stars >= 3) {
+        Haptics.celebrate(Rarity.rare);
+        fx?.firework(colors: _goldSparks);
+        Future.delayed(const Duration(milliseconds: 380), () => _fireworks.currentState?.firework(colors: _goldSparks, big: true));
+      } else if (widget.result.stars >= 1) {
+        Haptics.success();
+      }
     });
     // תגמולי מזל (תיבת מזל / גלגל מזל) מוצגים כדיאלוג נפרד, אחרי שהחגיגה
     // הראשית על המסך כבר נראתה - גלגל המזל (סיום עולם) קודם לתיבת המזל
@@ -239,7 +260,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
     }
     if (!mounted || _leaving) return;
     if (luckyBox != null) {
-      await LuckyBoxDialog.show(context, luckyBox);
+      await RewardReveal.show(context, RewardContents.fromLuckyBox(luckyBox));
     }
   }
 
@@ -413,12 +434,13 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                 colors: const [AppColors.star, AppColors.primary, AppColors.success, Colors.white],
               ),
             ),
+            Positioned.fill(child: CelebrationLayer(key: _fireworks, onFireworkPop: () => ref.read(soundServiceProvider).playFirework())),
             LayoutBuilder(
               builder: (context, constraints) {
                 // מסך נמוך (iPhone SE / אנדרואיד קטן): הדמות והכוכבים קטנים
                 // יותר, כך שהכרטיס וכפתור השיתוף נראים בלי לגלול.
-                final compact = constraints.maxHeight < 600;
-                final s = constraints.maxHeight < 500 ? 0.58 : (compact ? 0.72 : 1.0);
+                final compact = constraints.maxHeight < 680;
+                final s = constraints.maxHeight < 540 ? 0.58 : (compact ? 0.72 : 1.0);
                 return SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   child: ConstrainedBox(
@@ -467,6 +489,10 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                           _ResultCard(
                             result: result,
                             scoreRequired: config.scoreRequired,
+                            levelNumber: widget.levelNumber,
+                            // במסך נמוך מאוד מוותרים על פס "תיבת המזל הבאה" כדי
+                            // שכפתור השיתוף לא ייעלם מתחת לכפתורים.
+                            showBoxProgress: constraints.maxHeight >= 520,
                           ).animate().fadeIn(delay: 900.ms).slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic),
                           if (passed) ...[
                             const SizedBox(height: 14),
@@ -559,8 +585,15 @@ class _StarsArc extends StatelessWidget {
 class _ResultCard extends StatelessWidget {
   final GameScreenResult result;
   final int scoreRequired;
+  final int levelNumber;
+  final bool showBoxProgress;
 
-  const _ResultCard({required this.result, required this.scoreRequired});
+  const _ResultCard({
+    required this.result,
+    required this.scoreRequired,
+    required this.levelNumber,
+    this.showBoxProgress = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -604,6 +637,10 @@ class _ResultCard extends StatelessWidget {
           const SizedBox(height: 8),
           _StatRow(label: 'מטבעות שהורווחו', value: '+${result.coinsEarned}', valueColor: Colors.amber.shade800),
           if (result.stars > 0) DoubleCoinsCta(coins: result.coinsEarned),
+          if (showBoxProgress && result.stars > 0 && result.luckyBoxReward == null) ...[
+            const SizedBox(height: 10),
+            LuckyBoxProgress(levelNumber: levelNumber),
+          ],
         ],
       ),
     );

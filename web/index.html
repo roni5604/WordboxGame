@@ -55,6 +55,15 @@
   -->
   <style>
     html, body { background: #FF8A3D; margin: 0; }
+    /* תחושה של אפליקציה ולא של אתר (Emil Kowalski - mobile-native): בלי
+       הבהוב אפור בלחיצה, בלי "משיכה לרענון"/גומי של כל הדף, בלי תפריט
+       לחיצה-ארוכה על תמונות, ובלי הגדלת טקסט אוטומטית בסיבוב המסך. */
+    html {
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    html, body { overscroll-behavior: none; -webkit-touch-callout: none; }
 
     /* מסך טעינה ב-HTML - מוצג מיד, עוד לפני ש-Flutter נטען, ותואם למסך
        הפתיחה של האפליקציה (lib/features/splash/splash_screen.dart). נעלם

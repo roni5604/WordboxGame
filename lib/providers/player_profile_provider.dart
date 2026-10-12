@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/cosmetics/cosmetic_catalog.dart';
@@ -138,8 +140,33 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   /// מזכה פרס מ"תיבת מזל" (ראו lib/game_engine/rewards/reward_tables.dart) -
   /// מטבעות, ולעיתים גם רמז/ים.
   Future<void> grantLuckyBoxReward(LuckyBoxReward reward) => _mutate(
-        (c) => c.copyWith(coins: c.coins + reward.coins, hints: c.hints + reward.hints),
+        (c) => c.copyWith(
+          coins: c.coins + reward.coins,
+          hints: c.hints + reward.hints,
+          doubleCoinsLevelsRemaining: c.doubleCoinsLevelsRemaining + reward.doubleCoinsLevels,
+          // רשת הביטחון סופרת רק תיבות מזל (לא כוכבי מזל).
+          dropsSinceEpic: reward.kind != DropKind.luckyBox
+              ? c.dropsSinceEpic
+              : (reward.rarity.index >= Rarity.epic.index ? 0 : c.dropsSinceEpic + 1),
+        ),
       );
+
+  /// מגריל תיבת מזל / כוכב מזל (כולל "רשת הביטחון" של הפרופיל) ומזכה אותה.
+  Future<LuckyBoxReward> openLuckyDrop({
+    required int worldIndex,
+    DropKind kind = DropKind.luckyBox,
+    Random? random,
+  }) async {
+    final current = state.valueOrNull;
+    final reward = RewardTables.rollLuckyBox(
+      worldIndex: worldIndex,
+      kind: kind,
+      random: random,
+      dropsSinceEpic: current?.dropsSinceEpic ?? 0,
+    );
+    await grantLuckyBoxReward(reward);
+    return reward;
+  }
 
   /// מזכה פרס מגלגל המזל - מטבעות ו/או רמזים ו/או בונוס "מטבעות כפולות"
   /// לכמה שלבים הבאים (מצטבר עם בונוס קיים, אם יש).

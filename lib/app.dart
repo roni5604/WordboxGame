@@ -5,9 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/platform/web_safe_area.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/ui/app_scroll_behavior.dart';
 import 'core/ui/pressable.dart';
 import 'features/social/social_host.dart';
+import 'providers/player_profile_provider.dart';
 import 'providers/sound_provider.dart';
+import 'core/feedback/haptics.dart';
 
 /// ה-App Widget הראשי: עברית כברירת מחדל, כיווניות RTL, ו-go_router
 /// כמנוע הניווט המשותף לנייד ולאתר.
@@ -24,6 +27,12 @@ class _WordboxAppState extends ConsumerState<WordboxApp> {
     super.initState();
     // כל לחיצה על כפתור באפליקציה משמיעה את אותו "טאפ" עדין.
     PressFeedback.onPress = () => ref.read(soundServiceProvider).playButtonTap();
+    // הגדרת "רטט" בפרופיל קובעת את כל הרטט באפליקציה (גם באתר).
+    ref.listenManual(
+      playerProfileProvider,
+      (previous, next) => Haptics.enabled = next.valueOrNull?.hapticsOn ?? true,
+      fireImmediately: true,
+    );
   }
 
   @override
@@ -33,6 +42,7 @@ class _WordboxAppState extends ConsumerState<WordboxApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: appRouter,
+      scrollBehavior: const AppScrollBehavior(),
       locale: const Locale('he', 'IL'),
       supportedLocales: const [Locale('he', 'IL'), Locale('en', 'US')],
       localizationsDelegates: const [
