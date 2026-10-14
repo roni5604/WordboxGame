@@ -136,18 +136,30 @@ Future<void> _loadFonts() async {
   final icons = File('$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf').readAsBytesSync();
   final iconLoader = FontLoader('MaterialIcons')..addFont(Future.value(ByteData.view(Uint8List.fromList(icons).buffer)));
   await iconLoader.load();
+  // אימוג'י (👋 וכו') - אם יש גופן אימוג'י במערכת, שלא יופיעו ריבועים ריקים.
+  const emojiPath = '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf';
+  if (File(emojiPath).existsSync()) {
+    final emoji = File(emojiPath).readAsBytesSync();
+    await (FontLoader('NotoColorEmoji')..addFont(Future.value(ByteData.view(Uint8List.fromList(emoji).buffer)))).load();
+  }
 }
 
 ThemeData _theme() {
   final base = ThemeData(
     useMaterial3: true,
     fontFamily: 'Heebo',
+    fontFamilyFallback: const ['NotoColorEmoji'],
     colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
     scaffoldBackgroundColor: AppColors.background,
     pageTransitionsTheme: kPageTransitionsTheme,
   );
   return base.copyWith(
-    textTheme: base.textTheme.apply(bodyColor: AppColors.textDark, displayColor: AppColors.textDark, fontFamily: 'Heebo'),
+    textTheme: base.textTheme.apply(
+      bodyColor: AppColors.textDark,
+      displayColor: AppColors.textDark,
+      fontFamily: 'Heebo',
+      fontFamilyFallback: const ['NotoColorEmoji'],
+    ),
   );
 }
 
@@ -225,7 +237,7 @@ Future<void> _shoot(
 
   final boundary = _boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
   final bytes = await tester.runAsync(() async {
-    final image = await boundary.toImage(pixelRatio: 1);
+    final image = await boundary.toImage(pixelRatio: double.parse(Platform.environment['SHOT_RATIO'] ?? '1'));
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     return data!.buffer.asUint8List();
   });
