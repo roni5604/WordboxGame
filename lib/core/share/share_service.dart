@@ -19,6 +19,24 @@ class AppLinks {
   static String joinRoom(String roomCode) => '$webBase#/join/$roomCode';
 
   static String friends() => '$webBase#/friends';
+
+  /// מדיניות פרטיות, תנאי שימוש ובקשת מחיקת חשבון - דפים סטטיים שנפרסים
+  /// יחד עם האתר (web/*.html). את אותם קישורים מזינים ב-App Store Connect
+  /// וב-Google Play Console.
+  static const privacyPolicy = '${webBase}privacy.html';
+  static const terms = '${webBase}terms.html';
+  static const deleteAccount = '${webBase}delete-account.html';
+  static const supportEmail = 'roniro5604@gmail.com';
+
+  /// פותח קישור בדפדפן החיצוני. מחזיר false אם לא הצליח.
+  static Future<bool> open(String url) async {
+    try {
+      return await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('open link failed: $e');
+      return false;
+    }
+  }
 }
 
 /// שיתוף לרשתות: וואטסאפ, פייסבוק, וגיליון השיתוף של המערכת.

@@ -21,4 +21,14 @@ class AppConfig {
     'MULTIPLAYER_ENABLED',
     defaultValue: true,
   );
+
+  /// התחברות עם Google באפליקציה (iOS/Android). דורשת הפעלת Google ב-Firebase
+  /// Authentication, טביעות SHA באנדרואיד, והורדה מחדש של google-services.json
+  /// ו-GoogleService-Info.plist. אחרי זה בונים עם GOOGLE_LOGIN_NATIVE=true.
+  /// באתר Google תמיד זמין.
+  static const bool googleLoginNative = bool.fromEnvironment('GOOGLE_LOGIN_NATIVE');
+
+  /// התחברות עם Facebook באפליקציה. דורשת אפליקציית Facebook ומזהים ב-
+  /// android/key.properties וב-ios/Flutter/AppSecrets.xcconfig.
+  static const bool facebookLoginNative = bool.fromEnvironment('FACEBOOK_LOGIN_NATIVE');
 }

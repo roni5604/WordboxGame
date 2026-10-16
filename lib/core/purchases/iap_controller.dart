@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/player_profile_provider.dart';
 import '../analytics/analytics_service.dart';
@@ -121,7 +122,8 @@ class IapController extends StateNotifier<IapState> {
     for (final purchase in purchases) {
       switch (purchase.status) {
         case PurchaseStatus.pending:
-          break;
+          // למשל תשלום במזומן/אישור הורה ב-Google Play - הזיכוי יגיע כשיאושר.
+          state = state.copyWith(message: 'הרכישה ממתינה לאישור. החבילה תתווסף ברגע שתאושר');
         case PurchaseStatus.canceled:
           _analytics.purchaseFailed(productId: purchase.productID, reason: 'user_canceled');
           await _completeIfNeeded(purchase);
@@ -141,10 +143,34 @@ class IapController extends StateNotifier<IapState> {
     }
   }
 
+  static const _grantedPrefsKey = 'iap_granted_purchase_ids';
+
+  /// מזהי רכישות שכבר זוכו - נשמרים במכשיר כדי שרכישה שהחנות שולחת שוב
+  /// (למשל אם האפליקציה נסגרה לפני completePurchase) לא תזוכה פעמיים.
+  Future<bool> _markGranted(String key) async {
+    if (_handled.contains(key)) return false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final granted = prefs.getStringList(_grantedPrefsKey) ?? <String>[];
+      if (granted.contains(key)) {
+        _handled.add(key);
+        return false;
+      }
+      granted.add(key);
+      // שומרים רק את האחרונות - מספיק כדי לזהות שליחה חוזרת.
+      final trimmed = granted.length > 200 ? granted.sublist(granted.length - 200) : granted;
+      await prefs.setStringList(_grantedPrefsKey, trimmed);
+    } catch (_) {
+      // אם האחסון נכשל עדיין מזכים - עדיף על פני רכישה שלא התקבלה.
+    }
+    _handled.add(key);
+    return true;
+  }
+
   Future<void> _grant(PurchaseDetails purchase) async {
     final key = purchase.purchaseID ?? '${purchase.productID}:${purchase.transactionDate}';
     final pack = RealMoneyCatalog.byId(purchase.productID);
-    if (pack != null && _handled.add(key)) {
+    if (pack != null && await _markGranted(key)) {
       await _ref.read(playerProfileProvider.notifier).grantRealMoneyReward(
             coins: pack.coins,
             hints: pack.hints,

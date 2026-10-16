@@ -93,4 +93,14 @@ class LocalAuthRepository implements AuthRepository {
   Future<void> signOut() async {
     // "יציאה" עבור אורח היא לא רלוונטית באמת - פשוט נשארים אורחים.
   }
+
+  @override
+  Future<void> deleteAccount() async {
+    // אין נתונים בענן במצב מקומי - מוחקים את מזהה האורח, כך שבכניסה הבאה
+    // נוצר מזהה חדש לגמרי.
+    final box = await _openBox();
+    await box.clear();
+    _current = null;
+    _controller.add(null);
+  }
 }

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_service.dart';
+import '../../core/config/app_config.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/auth_user.dart';
 import '../../providers/auth_provider.dart';
@@ -41,6 +42,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   String? _busyAction;
 
   bool get _appleAvailable => kIsWeb || Platform.isIOS || Platform.isMacOS;
+
+  // באפליקציה (iOS/Android) Google ו-Facebook דורשים הגדרה ילידית נוספת
+  // (Client ID / Facebook App ID). עד שמפעילים אותם בבילד, הכפתורים מוסתרים
+  // כדי שבודקי החנות לא יפגשו כפתור שלא עובד. ראו AppConfig.
+  bool get _googleAvailable => kIsWeb || AppConfig.googleLoginNative;
+  bool get _facebookAvailable => kIsWeb || AppConfig.facebookLoginNative;
 
   @override
   void dispose() {
@@ -180,16 +187,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ),
                   const SizedBox(height: 20),
                 ] else ...[
-                  _AuthButton(
-                    label: 'המשך עם Google',
-                    icon: Icons.g_mobiledata_rounded,
-                    iconColor: const Color(0xFFEA4335),
-                    background: Colors.white,
-                    foreground: AppColors.textDark,
-                    busy: _busyAction == 'google',
-                    onTap: () => _run('google', repo.signInWithGoogle),
-                  ),
-                  const SizedBox(height: 12),
+                  if (_googleAvailable) ...[
+                    _AuthButton(
+                      label: 'המשך עם Google',
+                      icon: Icons.g_mobiledata_rounded,
+                      iconColor: const Color(0xFFEA4335),
+                      background: Colors.white,
+                      foreground: AppColors.textDark,
+                      busy: _busyAction == 'google',
+                      onTap: () => _run('google', repo.signInWithGoogle),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   if (_appleAvailable) ...[
                     _AuthButton(
                       label: 'המשך עם Apple',
@@ -202,15 +211,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  _AuthButton(
-                    label: 'המשך עם Facebook',
-                    icon: Icons.facebook_rounded,
-                    iconColor: Colors.white,
-                    background: const Color(0xFF1877F2),
-                    foreground: Colors.white,
-                    busy: _busyAction == 'facebook',
-                    onTap: () => _run('facebook', repo.signInWithFacebook),
-                  ),
+                  if (_facebookAvailable)
+                    _AuthButton(
+                      label: 'המשך עם Facebook',
+                      icon: Icons.facebook_rounded,
+                      iconColor: Colors.white,
+                      background: const Color(0xFF1877F2),
+                      foreground: Colors.white,
+                      busy: _busyAction == 'facebook',
+                      onTap: () => _run('facebook', repo.signInWithFacebook),
+                    ),
                   const SizedBox(height: 20),
                   Row(
                     children: [

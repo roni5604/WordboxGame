@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -7,6 +10,20 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// חתימה ומזהים לבילד החנות - נקראים מ-android/key.properties (לא ב-git).
+// ראו android/key.properties.example ו-docs/STORE_LAUNCH_CHECKLIST.md.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+fun releaseProp(name: String, fallback: String): String =
+    (keystoreProperties.getProperty(name) ?: System.getenv(name) ?: fallback).trim()
+
+// מזהה הבדיקה הרשמי של Google - בטוח לפיתוח, לא מציג פרסומות אמיתיות.
+val admobTestAppId = "ca-app-pub-3940256099942544~3347511713"
+val admobAppId = releaseProp("ADMOB_APP_ID_ANDROID", admobTestAppId)
 
 android {
     namespace = "com.wordboxil.wordbox_hebrew"
@@ -31,13 +48,38 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        manifestPlaceholders["admobAppId"] = admobAppId
+        resValue("string", "facebook_app_id", releaseProp("FACEBOOK_APP_ID", "000000000000000"))
+        resValue("string", "facebook_client_token", releaseProp("FACEBOOK_CLIENT_TOKEN", "placeholder"))
+        resValue("string", "fb_login_protocol_scheme", "fb" + releaseProp("FACEBOOK_APP_ID", "000000000000000"))
+    }
+
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) }
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // עם android/key.properties - חתימת העלאה אמיתית ל-Google Play.
+            // בלי הקובץ - חתימת debug, כדי ש-`flutter run --release` עדיין יעבוד
+            // (Google Play ידחה קובץ כזה).
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn("WARNING: android/key.properties missing - release build is debug-signed and cannot be uploaded to Google Play.")
+                signingConfigs.getByName("debug")
+            }
+            if (admobAppId == admobTestAppId) {
+                logger.warn("WARNING: ADMOB_APP_ID_ANDROID not set - the release build uses the AdMob TEST app id.")
+            }
         }
     }
 }

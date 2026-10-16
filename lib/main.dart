@@ -20,6 +20,8 @@ Future<void> main() async {
   // / Dynamic Island למעלה, ומאחורי פס הבית / כפתורי הניווט למטה. התוכן
   // עצמו נשאר באזור הבטוח (SafeArea / GameScaffold).
   if (!kIsWeb) {
+    // המשחק מעוצב לטלפון בעמידה בלבד.
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(kLightSystemBars);
   }

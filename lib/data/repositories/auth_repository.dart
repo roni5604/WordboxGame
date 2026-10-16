@@ -25,4 +25,10 @@ abstract class AuthRepository {
   });
 
   Future<void> signOut();
+
+  /// מוחק לצמיתות את החשבון ואת כל הנתונים שלו בענן (התקדמות, כרטיס
+  /// ציבורי, חברים, בקשות והזמנות) ומנתק. נדרש ע"י App Store (5.1.1(v))
+  /// ו-Google Play לכל אפליקציה שמאפשרת יצירת חשבון.
+  /// זורק [RecentLoginRequiredException] אם צריך להתחבר מחדש קודם.
+  Future<void> deleteAccount();
 }

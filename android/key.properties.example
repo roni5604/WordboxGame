@@ -1,0 +1,16 @@
+# העתיקו לקובץ android/key.properties ומלאו. הקובץ הזה לא נשמר ב-git.
+#
+# יצירת מפתח העלאה (פעם אחת! לשמור גיבוי של הקובץ והסיסמאות):
+#   keytool -genkey -v -keystore ~/upload-keystore.jks -keyalg RSA \
+#           -keysize 2048 -validity 10000 -alias upload
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=/Users/YOUR_USER/upload-keystore.jks
+
+# AdMob → Apps → (אפליקציית Android) → App settings → App ID
+ADMOB_APP_ID_ANDROID=ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY
+
+# רק אם מפעילים התחברות עם Facebook
+#FACEBOOK_APP_ID=000000000000000
+#FACEBOOK_CLIENT_TOKEN=xxxxxxxxxxxxxxxx

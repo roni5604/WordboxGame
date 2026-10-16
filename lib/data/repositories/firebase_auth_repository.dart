@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -10,6 +11,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import '../models/auth_user.dart';
+import '../services/account_data_eraser.dart';
 import 'auth_repository.dart';
 
 /// מימוש אמיתי מבוסס Firebase Authentication - פעיל רק אחרי
@@ -312,6 +314,39 @@ class FirebaseAuthRepository implements AuthRepository {
       // אם ה-SDK של ספק כלשהו לא הופעל, אין צורך להיכשל על היציאה.
     }
     await _auth.signOut();
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    // Firebase דורש התחברות "טרייה" (כ-5 דקות) כדי למחוק משתמש. בודקים
+    // מראש, כדי לא למחוק את הנתונים ואז להיכשל במחיקת החשבון עצמו.
+    final lastSignIn = user.metadata.lastSignInTime;
+    if (!user.isAnonymous &&
+        (lastSignIn == null || DateTime.now().difference(lastSignIn) > const Duration(minutes: 4))) {
+      throw const RecentLoginRequiredException();
+    }
+
+    try {
+      await AccountDataEraser(FirebaseFirestore.instance).eraseUser(user.uid);
+    } catch (e) {
+      throw AuthException('מחיקת הנתונים נכשלה. בדקו את החיבור לאינטרנט ונסו שוב. ($e)');
+    }
+
+    try {
+      await user.delete();
+    } on fb.FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        // משתמש/ת אורח/ת: הנתונים כבר נמחקו, ונשאר רק מזהה אנונימי בלי
+        // שום מידע אישי - מספיק להתנתק ממנו.
+        if (!user.isAnonymous) throw const RecentLoginRequiredException();
+      } else {
+        throw _friendlyError(e);
+      }
+    }
+    await signOut();
   }
 
   String _generateNonce([int length = 32]) {
