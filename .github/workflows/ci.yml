@@ -39,7 +39,7 @@ jobs:
         # בדיקות שנכשלו מופיעות גם כהערות (annotations) ב-PR.
         run: |
           flutter test --machine > test-results.jsonl || status=$?
-          python3 - <<'PY'
+          python3 - <<'PY' || true
           import json
           tests, errors = {}, {}
           for line in open('test-results.jsonl', encoding='utf-8'):
@@ -49,9 +49,9 @@ jobs:
                   continue
               if e.get('type') == 'testStart':
                   t = e['test']
-                  tests[t['id']] = (t.get('name', ''), t.get('root_url') or t.get('url') or '', t.get('root_line') or t.get('line') or 1)
+                  tests[t.get('id')] = (t.get('name', ''), t.get('root_url') or t.get('url') or '', t.get('root_line') or t.get('line') or 1)
               elif e.get('type') == 'error':
-                  errors.setdefault(e['testID'], []).append(e.get('error', '') + '\n' + e.get('stackTrace', ''))
+                  errors.setdefault(e.get('testID'), []).append(e.get('error', '') + '\n' + e.get('stackTrace', ''))
           done_failed = []
           for line in open('test-results.jsonl', encoding='utf-8'):
               try:
@@ -59,7 +59,7 @@ jobs:
               except ValueError:
                   continue
               if e.get('type') == 'testDone' and e.get('result') != 'success' and not e.get('hidden'):
-                  done_failed.append(e['testID'])
+                  done_failed.append(e.get('testID'))
           print(f'::notice::tests={len(tests)} with_errors={len(errors)} failed={len(done_failed)}')
           for tid in done_failed:
               if tid not in errors:
