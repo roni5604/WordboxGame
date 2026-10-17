@@ -36,7 +36,13 @@ jobs:
           exit ${status:-0}
 
       - name: Run tests
-        run: flutter test
+        # בדיקות שנכשלו מופיעות גם כהערות (annotations) ב-PR.
+        run: |
+          flutter test --reporter expanded > test-output.txt 2>&1 || status=$?
+          tail -n 200 test-output.txt
+          grep -E "\[E\]|Expected:|Actual:|Which:|TimeoutException|Error:" test-output.txt \
+            | head -n 30 | sed 's/^/::error::/' || true
+          exit ${status:-0}
 
       - name: Build web (smoke test)
         run: flutter build web --release
