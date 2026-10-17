@@ -114,6 +114,44 @@ describe('players (התקדמות פרטית)', () => {
     );
   });
 
+  test('פרופיל מלא כמו ש-saveProfile כותב (משתמש/ת חדש/ה, ואז קריאה)', async () => {
+    const me = db('guest1');
+    await assertSucceeds(getDoc(doc(me, 'players/guest1')));
+    const full = {
+      levelProgress: {},
+      coins: 0,
+      highestUnlockedLevel: 1,
+      soundOn: true,
+      hapticsOn: true,
+      onboardingCompleted: false,
+      displayName: 'שחקן/ית',
+      avatarId: 'detective',
+      hints: 5,
+      hintStreakDay: 0,
+      lastHintClaimDate: null,
+      authIntroShown: false,
+      level1TutorialSeen: false,
+      doubleCoinsLevelsRemaining: 0,
+      boardSkinId: 'classic',
+      letterSkinId: 'classic',
+      markerSkinId: 'classic',
+      ownedBoardSkins: ['classic'],
+      ownedLetterSkins: ['classic'],
+      ownedMarkerSkins: ['classic'],
+      dailyChallengeDate: null,
+      dailyChallengeScore: 0,
+      dailyChallengeWords: 0,
+      dailyChallengeStreak: 0,
+      dailyChallengeBestStreak: 0,
+      dailyChallengeStartedDate: null,
+      dropsSinceEpic: 0,
+      updatedAt: serverTimestamp(),
+    };
+    await assertSucceeds(setDoc(doc(me, 'players/guest1'), full, { merge: true }));
+    await assertSucceeds(getDoc(doc(me, 'players/guest1')));
+    await assertSucceeds(setDoc(doc(me, 'players/guest1'), { ...full, coins: 40, levelProgress: { 1: { stars: 3, bestScore: 40, completed: true } } }, { merge: true }));
+  });
+
   test('אי אפשר לקרוא או לכתוב התקדמות של מישהו אחר', async () => {
     await seed((f) => setDoc(doc(f, 'players/alice'), { coins: 1 }));
     await assertFails(getDoc(doc(db('bob'), 'players/alice')));

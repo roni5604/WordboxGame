@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../data/services/auth_session.dart';
 import '../../../core/security/input_rules.dart';
 import '../models/room_models.dart';
 import 'multiplayer_repository.dart';
@@ -56,10 +57,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   Future<String> ensureSignedIn() => _ensureUid();
 
   Future<String> _ensureUid() async {
-    final current = _auth.currentUser;
-    if (current != null) return current.uid;
-    final credential = await _auth.signInAnonymously();
-    return credential.user!.uid;
+    return AuthSession.ensureUid(_auth);
   }
 
   @override

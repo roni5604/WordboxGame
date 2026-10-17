@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../data/services/auth_session.dart';
 import '../../../core/security/input_rules.dart';
 import '../models/social_models.dart';
 import 'social_repository.dart';
@@ -38,10 +39,7 @@ class FirestoreSocialRepository implements SocialRepository {
 
   @override
   Future<String> ensureSignedIn() async {
-    final current = _auth.currentUser;
-    if (current != null) return current.uid;
-    final credential = await _auth.signInAnonymously();
-    return credential.user!.uid;
+    return AuthSession.ensureUid(_auth);
   }
 
   @override
