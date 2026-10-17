@@ -9,6 +9,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../data/models/player_profile.dart';
 import 'browser_notifications_stub.dart' if (dart.library.js_interop) 'browser_notifications_web.dart' as browser;
 import 'reminder_planner.dart';
+import 'social_notification_keys.dart';
 
 /// התראות למשתמש/ת:
 ///
@@ -18,6 +19,8 @@ import 'reminder_planner.dart';
 /// - **כל הפלטפורמות**: התראה מיידית כשמגיעה הזמנה למשחק או בקשת חברות
 ///   בזמן שהאפליקציה/הלשונית ברקע ([showSocial]). באתר דרך Notification API
 ///   של הדפדפן.
+/// - **Push מהשרת** (push_service.dart): מגיע גם כשהאפליקציה סגורה, באותם
+///   ערוצים ועם אותם מזהים ([SocialNotificationKey]), כך שאין כפילויות.
 ///
 /// כל הפעולות בטוחות לקריאה גם לפני [init] או כשאין תמיכה - הן פשוט לא
 /// עושות כלום (כך גם בבדיקות).
@@ -81,6 +84,7 @@ class NotificationService {
         onDidReceiveNotificationResponse: (response) => _open(response.payload),
       );
       _initialized = true;
+      await _createAndroidChannels();
       final launch = await _plugin.getNotificationAppLaunchDetails();
       if (launch?.didNotificationLaunchApp ?? false) {
         _pendingLaunchRoute = launch?.notificationResponse?.payload;
@@ -90,13 +94,40 @@ class NotificationService {
     }
   }
 
+  /// ב-Android הערוץ נוצר רק כשמוצגת בו התראה ראשונה - אבל push מהשרת
+  /// מגיע לערוץ 'social' גם לפני שהאפליקציה הציגה בו משהו, אז יוצרים מראש.
+  Future<void> _createAndroidChannels() async {
+    final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (android == null) return;
+    for (final details in [_reminderDetails.android!, _socialAndroid()]) {
+      await android.createNotificationChannel(AndroidNotificationChannel(
+        details.channelId,
+        details.channelName,
+        description: details.channelDescription,
+        importance: details.importance,
+      ));
+    }
+  }
+
   String? _pendingLaunchRoute;
+  bool _launchRouteTaken = false;
 
   /// אם האפליקציה נפתחה מלחיצה על התראה - המסך שאליו היא מובילה (פעם אחת).
   String? takeLaunchRoute() {
+    _launchRouteTaken = true;
     final route = _pendingLaunchRoute;
     _pendingLaunchRoute = null;
     return route;
+  }
+
+  /// לחיצה על push מהשרת. [launch] - ההתראה היא שפתחה את האפליקציה: אם
+  /// מסך הבית עוד לא עלה, הוא ינווט לשם בעצמו ([takeLaunchRoute]).
+  void openFromPush(String? route, {bool launch = false}) {
+    if (launch && !_launchRouteTaken) {
+      if (route != null && route.startsWith('/')) _pendingLaunchRoute = route;
+      return;
+    }
+    _open(route);
   }
 
   void _open(String? route) {
@@ -213,19 +244,23 @@ class NotificationService {
     macOS: DarwinNotificationDetails(threadIdentifier: 'reminders'),
   );
 
-  static const _socialDetails = NotificationDetails(
-    android: AndroidNotificationDetails(
-      'social',
-      'חברים והזמנות',
-      channelDescription: 'הזמנות למשחק ובקשות חברות',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: 'ic_stat_notify',
-      color: Color(0xFF7B3FF2),
-    ),
-    iOS: DarwinNotificationDetails(threadIdentifier: 'social', interruptionLevel: InterruptionLevel.timeSensitive),
-    macOS: DarwinNotificationDetails(threadIdentifier: 'social'),
-  );
+  /// ערוץ 'social' - גם ה-push מהשרת נשלח אליו (functions/src/messages.ts).
+  static AndroidNotificationDetails _socialAndroid({String? tag}) => AndroidNotificationDetails(
+        'social',
+        'חברים והזמנות',
+        channelDescription: 'הזמנות למשחק, בקשות חברות ותוצאות של חברים',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: 'ic_stat_notify',
+        color: const Color(0xFF7B3FF2),
+        tag: tag,
+      );
+
+  static NotificationDetails _socialDetails(SocialNotificationKey key) => NotificationDetails(
+        android: _socialAndroid(tag: key.tag),
+        iOS: const DarwinNotificationDetails(threadIdentifier: 'social', interruptionLevel: InterruptionLevel.timeSensitive),
+        macOS: const DarwinNotificationDetails(threadIdentifier: 'social'),
+      );
 
   /// מבטל את התזכורות הקודמות ומתזמן מחדש לפי המצב הנוכחי.
   Future<void> reschedule(PlayerProfile profile, {required bool isGuest, DateTime? now}) async {
@@ -259,16 +294,23 @@ class NotificationService {
     } catch (_) {}
   }
 
-  /// התראה מיידית על אירוע חברתי (הזמנה, בקשת חברות). הקורא/ת אחראי/ת
-  /// לקרוא לזה רק כשהאפליקציה ברקע - בחזית יש חלון בתוך המשחק.
-  Future<void> showSocial({required int id, required String title, required String body, String? route}) async {
+  /// התראה מיידית על אירוע חברתי (הזמנה, בקשת חברות, חבר/ה שעקף/ה אותי).
+  /// [key] זהה ל-push של אותו אירוע, כך שאם שניהם מגיעים רואים התראה אחת.
+  Future<void> showSocial({
+    required SocialNotificationKey key,
+    required String title,
+    required String body,
+    String? route,
+  }) async {
     if (!_initialized || !await isEnabled()) return;
     if (kIsWeb) {
-      browser.showBrowserNotification(title: title, body: body, tag: 'social-$id', onClick: () => _open(route));
+      browser.showBrowserNotification(title: title, body: body, tag: key.tag, onClick: () => _open(route));
       return;
     }
     try {
-      await _plugin.show(id: id, title: title, body: body, notificationDetails: _socialDetails, payload: route);
+      // ב-Android ה-push מוצג כ-(tag, 0), אז ההתראה המקומית באותו מקום בדיוק.
+      final id = defaultTargetPlatform == TargetPlatform.android ? 0 : key.id;
+      await _plugin.show(id: id, title: title, body: body, notificationDetails: _socialDetails(key), payload: route);
     } catch (_) {}
   }
 

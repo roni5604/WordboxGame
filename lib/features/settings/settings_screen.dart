@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/ads/ads_runtime.dart';
 import '../../core/analytics/analytics_service.dart';
 import '../../core/notifications/notification_service.dart';
+import '../../core/notifications/push_service.dart';
 import '../../core/share/share_service.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
@@ -433,6 +436,7 @@ class _NotificationsToggleState extends ConsumerState<_NotificationsToggle> {
     final analytics = ref.read(analyticsProvider);
     if (!value) {
       await service.setEnabled(false);
+      unawaited(PushService.instance.sync());
       analytics.settingsChange(setting: 'notifications', value: 'off');
       if (mounted) setState(() => _on = false);
       return;
@@ -440,6 +444,7 @@ class _NotificationsToggleState extends ConsumerState<_NotificationsToggle> {
     await service.setEnabled(true);
     final granted = await service.hasPermission() || await service.requestPermission();
     analytics.settingsChange(setting: 'notifications', value: granted ? 'on' : 'denied');
+    if (granted) unawaited(PushService.instance.sync());
     if (!mounted) return;
     setState(() => _on = granted);
     if (!granted) {

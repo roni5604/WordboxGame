@@ -67,6 +67,9 @@ flutter build web --release
 firebase deploy --only hosting
 ```
 
+> התראות push מהשרת (הזמנות, בקשות חברות) דורשות Cloud Functions ותוכנית
+> Blaze - ראו [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md).
+
 ## שלב 6: הפעלת התחברות עם Google / Apple / מייל
 
 הקוד לכל שיטות ההתחברות כבר קיים ומוכן ב-

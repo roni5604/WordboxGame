@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/notifications/notification_service.dart';
+import '../../core/notifications/social_notification_keys.dart';
 import '../../core/ui/game_dialog.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
@@ -145,8 +146,10 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
       if (_seenInvites.add(invite.id)) {
         _pendingInvites.add(invite);
         if (_inBackground && invite.isActive()) {
+          // אותו מזהה כמו ב-push מהשרת (functions/src/messages.ts) - אם
+          // שניהם מגיעים, ההתראה פשוט מתחלפת.
           NotificationService.instance.showSocial(
-            id: 2000 + invite.id.hashCode % 1000,
+            key: SocialNotificationKey.invite(invite.id),
             title: '🎮 ${invite.fromName} מזמין/ה אתכם למשחק',
             body: 'לוח ${invite.gridSize}×${invite.gridSize} · ההזמנה בתוקף לדקה. היכנסו עכשיו!',
             route: '/home',
@@ -184,12 +187,12 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
   void _onRequests(List<FriendRequest> requests) {
     final ids = requests.map((r) => r.id).toSet();
     if (_requestsPrimed && _inBackground) {
-      final fresh = requests.where((r) => !_knownRequestIds.contains(r.id)).toList();
-      if (fresh.isNotEmpty) {
+      // התראה לכל בקשה, עם אותו מזהה כמו ה-push שלה מהשרת.
+      for (final request in requests.where((r) => !_knownRequestIds.contains(r.id))) {
         NotificationService.instance.showSocial(
-          id: 3000,
+          key: SocialNotificationKey.friendRequest(request.id),
           title: '💌 בקשת חברות חדשה',
-          body: fresh.length == 1 ? '${fresh.first.fromName} רוצה להיות חבר/ה שלכם' : 'יש ${fresh.length} בקשות חברות חדשות',
+          body: '${request.fromName} רוצה להיות חבר/ה שלכם',
           route: '/friends?tab=1',
         );
       }

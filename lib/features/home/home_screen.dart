@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import '../../core/analytics/analytics_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/motion/motion.dart';
 import '../../core/notifications/notification_service.dart';
+import '../../core/notifications/push_service.dart';
 import '../../core/ui/game_dialog.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
@@ -131,7 +134,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!yes || !mounted) return;
     final granted = await service.requestPermission();
     AnalyticsService.instance.settingsChange(setting: 'notifications', value: granted ? 'on' : 'denied');
-    if (!granted || !mounted) return;
+    if (!granted) return;
+    unawaited(PushService.instance.sync());
+    if (!mounted) return;
     final user = ref.read(authStateProvider).valueOrNull;
     final latest = ref.read(playerProfileProvider).valueOrNull ?? profile;
     await service.reschedule(latest, isGuest: user == null || user.isAnonymous);

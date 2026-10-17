@@ -188,16 +188,25 @@
     analytics module is skipped there and loaded separately by
     lib/core/analytics/analytics_web_loader_web.dart through this helper,
     using the exact same SDK version/CDN as firebase-app.js.
+    The same goes for firebase-messaging.js (push): it is loaded only when web
+    push is configured, by lib/core/notifications/messaging_web_loader_web.dart.
   -->
   <script>
-    window.flutterfire_ignore_scripts = ['analytics'];
-    window.wordboxLoadAnalytics = function (version) {
-      if (window.firebase_analytics) return Promise.resolve(true);
-      var url = 'https://www.gstatic.com/firebasejs/' + version + '/firebase-analytics.js';
+    window.flutterfire_ignore_scripts = ['analytics', 'messaging'];
+    function wordboxLoadFirebaseModule(name, version) {
+      var global = 'firebase_' + name;
+      if (window[global]) return Promise.resolve(true);
+      var url = 'https://www.gstatic.com/firebasejs/' + version + '/firebase-' + name + '.js';
       return import(url).then(function (mod) {
-        window.firebase_analytics = mod;
+        window[global] = mod;
         return true;
       }, function () { return false; });
+    }
+    window.wordboxLoadAnalytics = function (version) {
+      return wordboxLoadFirebaseModule('analytics', version);
+    };
+    window.wordboxLoadMessaging = function (version) {
+      return wordboxLoadFirebaseModule('messaging', version);
     };
   </script>
 

@@ -172,6 +172,53 @@ describe('players (התקדמות פרטית)', () => {
 });
 
 // ---------------------------------------------------------------------------
+describe('players/{uid}/devices (רישום ל-push)', () => {
+  const TOKEN = 'fcm-token:APA91b_abc-123';
+  const device = (overrides = {}) => ({ token: TOKEN, platform: 'android', updatedAt: serverTimestamp(), ...overrides });
+
+  test('שחקן/ית רושם/ת מכשיר, מרענן/ת ומוחק/ת אותו', async () => {
+    const me = db('alice');
+    await assertSucceeds(setDoc(doc(me, `players/alice/devices/${TOKEN}`), device()));
+    await assertSucceeds(setDoc(doc(me, `players/alice/devices/${TOKEN}`), device()));
+    await assertSucceeds(getDocs(collection(me, 'players/alice/devices')));
+    await assertSucceeds(deleteDoc(doc(me, `players/alice/devices/${TOKEN}`)));
+  });
+
+  test('אי אפשר לרשום מכשיר אצל מישהו אחר או לקרוא את המכשירים שלו', async () => {
+    await seed((f) => setDoc(doc(f, `players/alice/devices/${TOKEN}`), device()));
+    const eve = db('eve');
+    await assertFails(setDoc(doc(eve, 'players/alice/devices/eve-token'), device({ token: 'eve-token' })));
+    await assertFails(getDocs(collection(eve, 'players/alice/devices')));
+    await assertFails(getDoc(doc(eve, `players/alice/devices/${TOKEN}`)));
+    await assertFails(deleteDoc(doc(eve, `players/alice/devices/${TOKEN}`)));
+    await assertFails(getDoc(doc(anon(), `players/alice/devices/${TOKEN}`)));
+  });
+
+  test('רישום לא תקין נחסם', async () => {
+    const me = db('alice');
+    const path = `players/alice/devices/${TOKEN}`;
+    // הטוקן בשדה חייב להיות מזהה המסמך
+    await assertFails(setDoc(doc(me, path), device({ token: 'other' })));
+    await assertFails(setDoc(doc(me, path), device({ platform: 'symbian' })));
+    await assertFails(setDoc(doc(me, path), device({ extra: true })));
+    await assertFails(setDoc(doc(me, path), device({ updatedAt: Timestamp.fromDate(new Date(2020, 0, 1)) })));
+    await assertFails(setDoc(doc(me, `players/alice/devices/${'x'.repeat(1100)}`), device({ token: 'x'.repeat(1100) })));
+  });
+
+  test('מחיקת חשבון: מוחקים גם את המכשירים', async () => {
+    await seed(async (f) => {
+      await setDoc(doc(f, 'players/alice'), { coins: 1 });
+      await setDoc(doc(f, `players/alice/devices/${TOKEN}`), device());
+    });
+    const me = db('alice');
+    const batch = writeBatch(me);
+    batch.delete(doc(me, `players/alice/devices/${TOKEN}`));
+    batch.delete(doc(me, 'players/alice'));
+    await assertSucceeds(batch.commit());
+  });
+});
+
+// ---------------------------------------------------------------------------
 describe('publicProfiles (כרטיס ציבורי)', () => {
   test('פרסום כרטיס ודופק נוכחות', async () => {
     const me = db('alice');
