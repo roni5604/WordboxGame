@@ -198,7 +198,7 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   Future<void> grantHints(int amount) =>
       _mutate((c) => c.copyWith(hints: c.hints + amount));
 
-  /// מסנכרן את שם התצוגה מספק ההתחברות (Google/Apple/Facebook/מייל) לתוך
+  /// מסנכרן את שם התצוגה מספק ההתחברות (Google/Apple/מייל) לתוך
   /// הפרופיל המקומי - נקרא אוטומטית מיד אחרי כל התחברות מוצלחת לחשבון
   /// אמיתי (לא אורח/ת), כך שהשם במשחק תמיד ישקף את החשבון המחובר. תמונת
   /// הפרופיל (photoUrl) לא נשמרת כאן - היא נלקחת "חיה" מ-authStateProvider

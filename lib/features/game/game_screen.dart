@@ -1018,7 +1018,7 @@ class _GameHeader extends ConsumerWidget {
         title: 'רמזים שמורים לרשומים',
         ribbon: CandyPalette.gold,
         message:
-            'הרשמו בחינם עם Google, Apple, Facebook או מייל וקבלו רמזי מתנה '
+            'הרשמו בחינם עם Google, Apple או מייל וקבלו רמזי מתנה '
             'מיד ובונוס יומי - בלי לאבד את ההתקדמות הנוכחית שלכם.',
         actions: [
           CandyButton(

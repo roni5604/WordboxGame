@@ -15,7 +15,7 @@ import '../../providers/player_profile_provider.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/platform/top_bar_tint.dart';
 
-/// מסך התחברות/הרשמה: Google, Apple, Facebook, מייל+סיסמה, או המשך
+/// מסך התחברות/הרשמה: Google, Apple, מייל+סיסמה, או המשך
 /// כאורח/ת. נגיש דרך מסך הפרופיל. עובד תמיד (גם בלי Firebase מוגדר) -
 /// אם השרת לא הופעל עדיין, לחיצה על ספק אמיתי מציגה הסבר ידידותי במקום
 /// לקרוס, והמשך כאורח/ת עדיין זמין תמיד.
@@ -43,11 +43,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   bool get _appleAvailable => kIsWeb || Platform.isIOS || Platform.isMacOS;
 
-  // באפליקציה (iOS/Android) Google ו-Facebook דורשים הגדרה ילידית נוספת
-  // (Client ID / Facebook App ID). עד שמפעילים אותם בבילד, הכפתורים מוסתרים
-  // כדי שבודקי החנות לא יפגשו כפתור שלא עובד. ראו AppConfig.
+  // באפליקציה (iOS/Android) Google דורש הגדרה ילידית נוספת (Client ID).
+  // עד שמפעילים אותו בבילד הכפתור מוסתר, כדי שבודקי החנות לא יפגשו כפתור
+  // שלא עובד. ראו AppConfig.
   bool get _googleAvailable => kIsWeb || AppConfig.googleLoginNative;
-  bool get _facebookAvailable => kIsWeb || AppConfig.facebookLoginNative;
 
   @override
   void dispose() {
@@ -74,7 +73,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (action != 'signout') _logAuth(before, user);
       if (!mounted) return;
       // אחרי כל התחברות מוצלחת לחשבון אמיתי (לא אורח/ת), מסנכרנים את השם
-      // מהספק (Google/Apple/Facebook/מייל) לפרופיל - כך שהשם והתמונה
+      // מהספק (Google/Apple/מייל) לפרופיל - כך שהשם והתמונה
       // (הנלקחת חיה מ-authStateProvider) יתעדכנו בכל מקום במשחק.
       await ref.read(playerProfileProvider.notifier).syncFromAuthUser(user);
       if (!mounted) return;
@@ -98,7 +97,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
-  /// sign_up / login (method only: google|apple|facebook|guest|email).
+  /// sign_up / login (method only: google|apple|guest|email).
   /// sign_up = Firebase created a new account, or a guest was upgraded in
   /// place (same uid via linkWithCredential), or a new guest identity was
   /// created; signing in to an existing account is a login.
@@ -211,16 +210,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  if (_facebookAvailable)
-                    _AuthButton(
-                      label: 'המשך עם Facebook',
-                      icon: Icons.facebook_rounded,
-                      iconColor: Colors.white,
-                      background: const Color(0xFF1877F2),
-                      foreground: Colors.white,
-                      busy: _busyAction == 'facebook',
-                      onTap: () => _run('facebook', repo.signInWithFacebook),
-                    ),
                   const SizedBox(height: 20),
                   Row(
                     children: [

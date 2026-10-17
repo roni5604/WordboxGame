@@ -255,10 +255,10 @@ class AnalyticsService {
 
   void tutorialComplete({required bool skipped}) => _log('tutorial_complete', {'skipped': skipped});
 
-  /// method: google | apple | facebook | guest | email
+  /// method: google | apple | guest | email
   void signUp(String method) => _log('sign_up', {'method': method});
 
-  /// method: google | apple | facebook | guest | email
+  /// method: google | apple | guest | email
   void login(String method) => _log('login', {'method': method});
 
   /// virtual_currency_name: coins | hints.

@@ -30,7 +30,7 @@ class PlayerProfile extends Equatable {
   /// היומי נתבע לכל היותר פעם ביום קלנדרי אחד.
   final String? lastHintClaimDate;
 
-  /// האם מסך ההתחברות הראשוני (Google/Apple/Facebook/מייל/אורח) כבר
+  /// האם מסך ההתחברות הראשוני (Google/Apple/מייל/אורח) כבר
   /// הוצג ונבחרה בו אפשרות - נבדק בכניסה הראשונה לאפליקציה, לפני ההדרכה.
   /// לאחר מכן לא מוצג שוב אוטומטית (אפשר עדיין להתחבר דרך הפרופיל).
   final bool authIntroShown;

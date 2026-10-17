@@ -13,7 +13,6 @@
 | [Google Play Console](https://play.google.com/console/signup) | 25$ חד-פעמי | חשבון **אישי** חדש חייב **בדיקה סגורה עם 12 בודקים במשך 14 יום** לפני שמותר לפרסם לכולם. כדאי להתחיל מוקדם. |
 | [Apple Developer Program](https://developer.apple.com/programs/enroll/) | 99$ לשנה | צריך Mac עם Xcode מלא לבנייה ולהעלאה (או שירות ענן כמו Codemagic). |
 | [AdMob](https://admob.google.com) | חינם | לאותו חשבון Google של Firebase. |
-| [AdSense](https://adsense.google.com) | חינם | רק לפרסומות באתר. דורש דומיין משלכם (לא תת-תיקייה ב-github.io). |
 
 ---
 
@@ -33,10 +32,6 @@
    `android/app/google-services.json` ואת `ios/Runner/GoogleService-Info.plist`,
    להעתיק את `REVERSED_CLIENT_ID` ל-`AppSecrets.xcconfig`, ולבנות עם
    `"GOOGLE_LOGIN_NATIVE": "true"`. עד אז הכפתור מוסתר באפליקציה (באתר הוא עובד).
-5. **Facebook (לא חובה)**: אפליקציה ב-developers.facebook.com עם Facebook Login,
-   להפעיל ב-Firebase, למלא את המזהים ב-`android/key.properties` וב-
-   `ios/Flutter/AppSecrets.xcconfig`, ולבנות עם `"FACEBOOK_LOGIN_NATIVE": "true"`.
-   ההמלצה: להשיק בלי, ולהוסיף בגרסה הבאה.
 
 ---
 
@@ -180,9 +175,8 @@
 ## אתר (Web)
 
 - נפרס אוטומטית ל-GitHub Pages בכל push ל-main.
-- פרסומות באתר: AdSense לא מאשר אתרים בתת-תיקייה של github.io. כדי להרוויח
-  מהאתר צריך דומיין משלכם (למשל `play.ronimichaeli.com`), לחבר אותו ל-GitHub
-  Pages או ל-Firebase Hosting, ולבנות עם `ADSENSE_CLIENT`.
+- באתר מוצגת כרגע מודעת הדוגמה של Google בלבד (בלי הכנסות). פרסומות אמיתיות
+  באתר נדחו למשימות העתידיות, אחרי שיהיה דומיין.
 
 ---
 
@@ -191,16 +185,27 @@
 - [x] מחיקת חשבון מתוך המשחק (הגדרות ← חשבון) + דף מחיקה ציבורי.
 - [x] מדיניות פרטיות ותנאי שימוש כדפים באתר, עם קישורים מההגדרות + "צרו קשר".
 - [x] חתימת release מ-`android/key.properties`.
-- [x] מזהי AdMob/Facebook/Google מחוץ לקוד (`key.properties`, `AppSecrets.xcconfig`,
+- [x] מזהי AdMob/Google מחוץ לקוד (`key.properties`, `AppSecrets.xcconfig`,
       `config/release.json`), לא נשמרים ב-git.
 - [x] Sign in with Apple entitlement.
 - [x] נעילה לאורך; iOS ל-iPhone בלבד (לא צריך צילומי מסך של iPad).
 - [x] `ITSAppUsesNonExemptEncryption = NO` (לא צריך מסמכי הצפנה).
-- [x] כפתורי Google/Facebook מוסתרים באפליקציה עד שמגדירים אותם.
+- [x] התחברות עם Facebook הוסרה לגמרי. כפתור Google מוסתר באפליקציה עד שמגדירים אותו.
 - [x] פרסומות: AdMob (מתנה, מסך מלא, מובנית), UMP, ATT, SKAdNetwork, מכסות יומיות.
 - [x] רכישות: 6 חבילות, מחירים מקומיים, מניעת זיכוי כפול, רכישה ממתינה.
 - [x] אייקונים, צלילים, Analytics.
 - [x] CI: ניתוח, בדיקות, בילד אתר ובילד App Bundle.
+
+## משימות עתידיות: דומיין ופרסומות באתר
+
+כשיהיה דומיין (למשל `play.ronimichaeli.com`):
+- [ ] לחבר את הדומיין ל-GitHub Pages או ל-Firebase Hosting, עם HTTPS.
+- [ ] לעדכן את `AppLinks.webBase` ב-`lib/core/share/share_service.dart` ואת
+      כתובות ה-`og:` ב-`web/index.html` לדומיין החדש.
+- [ ] לפתוח חשבון [AdSense](https://adsense.google.com) ולאשר בו את הדומיין.
+- [ ] להוסיף לבילד האתר `--dart-define=ADSENSE_CLIENT=ca-pub-XXXXXXXXXXXXXXXX`
+      (ב-`.github/workflows/deploy-web.yml`).
+- [ ] להעלות `app-ads.txt` לשורש הדומיין, ולעדכן את כתובת האתר בדפי החנות.
 
 ## אחרי ההשקה (לא חוסם)
 

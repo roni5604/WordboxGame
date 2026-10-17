@@ -10,7 +10,3 @@ storeFile=/Users/YOUR_USER/upload-keystore.jks
 
 # AdMob → Apps → (אפליקציית Android) → App settings → App ID
 ADMOB_APP_ID_ANDROID=ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY
-
-# רק אם מפעילים התחברות עם Facebook
-#FACEBOOK_APP_ID=000000000000000
-#FACEBOOK_CLIENT_TOKEN=xxxxxxxxxxxxxxxx

@@ -67,7 +67,7 @@ flutter build web --release
 firebase deploy --only hosting
 ```
 
-## שלב 6: הפעלת התחברות עם Google / Apple / Facebook / מייל
+## שלב 6: הפעלת התחברות עם Google / Apple / מייל
 
 הקוד לכל שיטות ההתחברות כבר קיים ומוכן ב-
 [`lib/data/repositories/firebase_auth_repository.dart`](../lib/data/repositories/firebase_auth_repository.dart)
@@ -88,16 +88,6 @@ firebase deploy --only hosting
 2. בקונסולת Firebase → Authentication → Sign-in method → הפעילו **Apple**.
 3. עבור Web: ייצרו **Services ID** בפורטל Apple Developer עם ה-Redirect URI
    שמופיע בקונסולת Firebase, והזינו אותו שם.
-
-### Facebook
-1. צרו אפליקציה ב-<https://developers.facebook.com> והפעילו בה **Facebook Login**.
-2. בקונסולת Firebase → Authentication → Sign-in method → הפעילו **Facebook**
-   והזינו את ה-App ID וה-App Secret.
-3. באנדרואיד: הוסיפו `facebook_app_id` ו-`facebook_client_token` ל-
-   `android/app/src/main/res/values/strings.xml` וב-`AndroidManifest.xml`
-   (לפי הוראות חבילת `flutter_facebook_auth`).
-4. ב-iOS: הוסיפו את אותם מפתחות ל-`Info.plist` (`FacebookAppID`,
-   `FacebookClientToken`, `FacebookDisplayName`, וסכימת URL תואמת).
 
 ### מייל וסיסמה
 בקונסולת Firebase → Authentication → Sign-in method → הפעילו **Email/Password**.

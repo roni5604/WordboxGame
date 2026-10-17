@@ -50,9 +50,6 @@ android {
         versionName = flutter.versionName
 
         manifestPlaceholders["admobAppId"] = admobAppId
-        resValue("string", "facebook_app_id", releaseProp("FACEBOOK_APP_ID", "000000000000000"))
-        resValue("string", "facebook_client_token", releaseProp("FACEBOOK_CLIENT_TOKEN", "placeholder"))
-        resValue("string", "fb_login_protocol_scheme", "fb" + releaseProp("FACEBOOK_APP_ID", "000000000000000"))
     }
 
     signingConfigs {

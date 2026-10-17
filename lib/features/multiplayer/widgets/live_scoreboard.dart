@@ -21,7 +21,7 @@ class ScoreboardEntry {
   /// מוצג במקום קמע גנרי. null לבוטים/יריבים שאין להם פרופיל מקומי.
   final String? avatarId;
 
-  /// תמונת הפרופיל האמיתית (Google/Apple/Facebook) אם קיימת - מוצגת
+  /// תמונת הפרופיל האמיתית (Google/Apple) אם קיימת - מוצגת
   /// במקום האוואטאר המצויר. ראו lib/features/profile/widgets/avatar_widget.dart.
   final String? photoUrl;
 

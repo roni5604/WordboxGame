@@ -411,7 +411,7 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
 }
 
 /// "צ'יפ" קטן שמראה אם השחקן/ית מחובר/ת כאורח/ת או עם חשבון אמיתי, ומוביל
-/// למסך ההתחברות (/auth) בלחיצה - שם אפשר להתחבר עם Google/Apple/Facebook/
+/// למסך ההתחברות (/auth) בלחיצה - שם אפשר להתחבר עם Google/Apple/
 /// מייל, או פשוט לחזור אורח/ת כרגיל.
 class _AccountChip extends StatelessWidget {
   final AuthUser? user;
