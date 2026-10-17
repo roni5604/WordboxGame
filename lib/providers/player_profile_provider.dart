@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/cosmetics/cosmetic_catalog.dart';
@@ -41,6 +42,8 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
       final profile = await _repository.loadProfile();
       state = AsyncValue.data(profile);
     } catch (e, st) {
+      // נרשם ללוג (גם בבילד release) כדי שאפשר יהיה לאבחן תקלות טעינה.
+      debugPrint('Player profile load failed: $e');
       state = AsyncValue.error(e, st);
     }
   }
