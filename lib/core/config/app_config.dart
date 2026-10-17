@@ -27,4 +27,9 @@ class AppConfig {
   /// ו-GoogleService-Info.plist. אחרי זה בונים עם GOOGLE_LOGIN_NATIVE=true.
   /// באתר Google תמיד זמין.
   static const bool googleLoginNative = bool.fromEnvironment('GOOGLE_LOGIN_NATIVE');
+
+  /// התחברות עם Apple באתר. דורשת Services ID ומפתח פרטי של Apple בהגדרות
+  /// הספק ב-Firebase Authentication ("Code flow"). עד שמגדירים - הכפתור מוסתר
+  /// באתר. ב-iOS Apple תמיד זמין. בונים עם APPLE_LOGIN_WEB=true.
+  static const bool appleLoginWeb = bool.fromEnvironment('APPLE_LOGIN_WEB');
 }

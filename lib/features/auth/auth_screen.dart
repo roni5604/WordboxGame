@@ -42,7 +42,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _showEmailForm = false;
   String? _busyAction;
 
-  bool get _appleAvailable => kIsWeb || Platform.isIOS || Platform.isMacOS;
+  // באתר Apple דורש הגדרת Services ID ב-Firebase - מוסתר עד אז (ראו AppConfig).
+  bool get _appleAvailable => kIsWeb ? AppConfig.appleLoginWeb : (Platform.isIOS || Platform.isMacOS);
 
   // באפליקציה (iOS/Android) Google דורש הגדרה ילידית נוספת (Client ID).
   // עד שמפעילים אותו בבילד הכפתור מוסתר, כדי שבודקי החנות לא יפגשו כפתור
