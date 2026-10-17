@@ -7,6 +7,8 @@ import '../../core/ads/ads_runtime.dart';
 import '../../core/analytics/analytics_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/motion/motion.dart';
+import '../../core/notifications/notification_service.dart';
+import '../../core/ui/game_dialog.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
 import '../../core/ui/pressable.dart';
@@ -43,7 +45,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (ads.isSupported) {
       await ads.ensureInitialized();
     }
-    if (!mounted || isGuest) return;
+    if (!mounted) return;
+    // נפתחנו מלחיצה על התראה (למשל "האתגר היומי") - קודם לשם.
+    final launchRoute = NotificationService.instance.takeLaunchRoute();
+    if (launchRoute != null && launchRoute != '/home') {
+      context.push(launchRoute);
+      return;
+    }
+    if (isGuest) {
+      await _maybeOfferNotifications(profile);
+      return;
+    }
     // בונוס הרמזים היומי שמור לחשבונות אמיתיים בלבד - זו אחת הסיבות
     // הכי טובות להירשם, אז אין טעם להציג אותו למי שעדיין אורח/ת.
     final reward = await ref
@@ -95,6 +107,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             : null,
       );
     }
+    await _maybeOfferNotifications(profile);
+  }
+
+  /// פעם אחת, אחרי שלבי ההדרכה: מסבירים מה נשלח ורק אז מבקשים הרשאה
+  /// מהמערכת (בקשה "קרה" בכניסה הראשונה נדחית ברוב המקרים, ואז אי אפשר
+  /// לבקש שוב).
+  Future<void> _maybeOfferNotifications(PlayerProfile profile) async {
+    final service = NotificationService.instance;
+    if (!await service.shouldOfferPermission(profile) || !mounted) return;
+    await service.markOffered();
+    if (!mounted) return;
+    final yes = await showConfirmDialog(
+      context,
+      title: 'להזכיר לכם?',
+      message: 'תזכורת אחת בערב כשהבונוס היומי מחכה או כשרצף האתגר היומי בסכנה, '
+          'והודעה כשחבר/ה מזמין/ה אתכם למשחק. בלי הצפות.',
+      confirmLabel: 'כן, תזכירו לי',
+      cancelLabel: 'לא עכשיו',
+      confirmPalette: CandyPalette.green,
+      hero: const Icon(Icons.notifications_active_rounded, color: AppColors.primary, size: 56),
+    );
+    if (!yes || !mounted) return;
+    final granted = await service.requestPermission();
+    AnalyticsService.instance.settingsChange(setting: 'notifications', value: granted ? 'on' : 'denied');
+    if (!granted || !mounted) return;
+    final user = ref.read(authStateProvider).valueOrNull;
+    final latest = ref.read(playerProfileProvider).valueOrNull ?? profile;
+    await service.reschedule(latest, isGuest: user == null || user.isAnonymous);
   }
 
   @override

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wordbox_hebrew/game_engine/board_generator.dart';
+import 'package:wordbox_hebrew/game_engine/board_generator.dart' show GeneratedBoard;
 import 'package:wordbox_hebrew/game_engine/dictionary/hebrew_trie.dart';
 import 'package:wordbox_hebrew/game_engine/game_session.dart';
 import 'package:wordbox_hebrew/game_engine/models/grid_position.dart';

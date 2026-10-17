@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/ads/ads_runtime.dart';
 import '../../core/analytics/analytics_service.dart';
+import '../../core/notifications/notification_service.dart';
 import '../../core/share/share_service.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
@@ -41,7 +42,7 @@ class SettingsScreen extends ConsumerWidget {
         data: (profile) {
           final sections = <Widget>[
             _Section(
-              title: 'צלילים ורטט',
+              title: 'צלילים, רטט והתראות',
               children: [
                 _ToggleRow(
                   icon: Icons.volume_up_rounded,
@@ -63,6 +64,7 @@ class SettingsScreen extends ConsumerWidget {
                     notifier.setHapticsOn(value);
                   },
                 ),
+                if (NotificationService.instance.isSupported) const _NotificationsToggle(),
               ],
             ),
             _Section(
@@ -398,6 +400,71 @@ class _ActionRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// מתג "התראות": דולק רק כשגם ההגדרה במשחק מופעלת וגם יש הרשאה מהמערכת.
+/// הדלקה מבקשת הרשאה; אם המערכת סירבה בעבר - מסבירים איפה לאשר.
+class _NotificationsToggle extends ConsumerStatefulWidget {
+  const _NotificationsToggle();
+
+  @override
+  ConsumerState<_NotificationsToggle> createState() => _NotificationsToggleState();
+}
+
+class _NotificationsToggleState extends ConsumerState<_NotificationsToggle> {
+  bool _on = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final service = NotificationService.instance;
+    final on = await service.isEnabled() && await service.hasPermission();
+    if (mounted) setState(() => _on = on);
+  }
+
+  Future<void> _toggle(bool value) async {
+    final service = NotificationService.instance;
+    final analytics = ref.read(analyticsProvider);
+    if (!value) {
+      await service.setEnabled(false);
+      analytics.settingsChange(setting: 'notifications', value: 'off');
+      if (mounted) setState(() => _on = false);
+      return;
+    }
+    await service.setEnabled(true);
+    final granted = await service.hasPermission() || await service.requestPermission();
+    analytics.settingsChange(setting: 'notifications', value: granted ? 'on' : 'denied');
+    if (!mounted) return;
+    setState(() => _on = granted);
+    if (!granted) {
+      GameToast.show(
+        context,
+        message: 'ההתראות חסומות. אפשר לאשר אותן בהגדרות המכשיר או הדפדפן.',
+        icon: Icons.notifications_off_rounded,
+        color: const Color(0xFF7B3FF2),
+        duration: const Duration(seconds: 4),
+      );
+      return;
+    }
+    final profile = ref.read(playerProfileProvider).valueOrNull;
+    final user = ref.read(authStateProvider).valueOrNull;
+    if (profile != null) await service.reschedule(profile, isGuest: user == null || user.isAnonymous);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _ToggleRow(
+      icon: Icons.notifications_active_rounded,
+      color: const Color(0xFF2E8BFF),
+      label: 'התראות',
+      value: _on,
+      onChanged: _toggle,
     );
   }
 }
