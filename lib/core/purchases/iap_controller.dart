@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../analytics/analytics_service.dart';
 import 'real_money_catalog.dart';
@@ -86,6 +89,12 @@ class IapController extends StateNotifier<IapState> {
     );
   }
 
+  String? _obfuscatedAccountId() {
+    final uid = _ref.read(authStateProvider).valueOrNull?.uid;
+    if (uid == null || uid.isEmpty) return null;
+    return sha256.convert(utf8.encode('wordbox-iap:$uid')).toString();
+  }
+
   AnalyticsService get _analytics => _ref.read(analyticsProvider);
 
   /// Analytics: purchase_start when the store sheet is requested, and
@@ -105,7 +114,12 @@ class IapController extends StateNotifier<IapState> {
     var started = false;
     try {
       started = await InAppPurchase.instance.buyConsumable(
-        purchaseParam: PurchaseParam(productDetails: product),
+        purchaseParam: PurchaseParam(
+          productDetails: product,
+          // מזהה חשבון מוסתר (hash) - עוזר לחנויות לזהות הונאות ומאפשר
+          // בעתיד אימות קבלות בשרת, בלי לחשוף את ה-uid עצמו.
+          applicationUserName: _obfuscatedAccountId(),
+        ),
       );
     } catch (_) {
       _analytics.purchaseFailed(productId: productId, reason: 'start_exception');
@@ -147,34 +161,46 @@ class IapController extends StateNotifier<IapState> {
 
   /// מזהי רכישות שכבר זוכו - נשמרים במכשיר כדי שרכישה שהחנות שולחת שוב
   /// (למשל אם האפליקציה נסגרה לפני completePurchase) לא תזוכה פעמיים.
-  Future<bool> _markGranted(String key) async {
-    if (_handled.contains(key)) return false;
+  Future<bool> _alreadyGranted(String key) async {
+    if (_handled.contains(key)) return true;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final granted = prefs.getStringList(_grantedPrefsKey) ?? <String>[];
+      final granted = prefs.getStringList(_grantedPrefsKey) ?? const <String>[];
       if (granted.contains(key)) {
         _handled.add(key);
-        return false;
+        return true;
       }
-      granted.add(key);
+    } catch (_) {}
+    return false;
+  }
+
+  Future<void> _recordGranted(String key) async {
+    _handled.add(key);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final granted = [...?prefs.getStringList(_grantedPrefsKey), key];
       // שומרים רק את האחרונות - מספיק כדי לזהות שליחה חוזרת.
       final trimmed = granted.length > 200 ? granted.sublist(granted.length - 200) : granted;
       await prefs.setStringList(_grantedPrefsKey, trimmed);
-    } catch (_) {
-      // אם האחסון נכשל עדיין מזכים - עדיף על פני רכישה שלא התקבלה.
-    }
-    _handled.add(key);
-    return true;
+    } catch (_) {}
   }
 
   Future<void> _grant(PurchaseDetails purchase) async {
     final key = purchase.purchaseID ?? '${purchase.productID}:${purchase.transactionDate}';
     final pack = RealMoneyCatalog.byId(purchase.productID);
-    if (pack != null && await _markGranted(key)) {
-      await _ref.read(playerProfileProvider.notifier).grantRealMoneyReward(
-            coins: pack.coins,
-            hints: pack.hints,
-          );
+    if (pack != null && !await _alreadyGranted(key)) {
+      try {
+        await _ref.read(playerProfileProvider.notifier).grantRealMoneyReward(
+              coins: pack.coins,
+              hints: pack.hints,
+            );
+      } catch (_) {
+        // לא מסיימים את הרכישה מול החנות - היא תישלח שוב בהפעלה הבאה
+        // ותזוכה אז, במקום שהשחקן/ית ישלם/תשלם ולא יקבל/תקבל כלום.
+        state = state.copyWith(message: 'הרכישה התקבלה ותתווסף בהפעלה הבאה');
+        return;
+      }
+      await _recordGranted(key);
       _analytics
         ..markPayer()
         ..earnVirtualCurrency(currency: 'coins', value: pack.coins, source: 'purchase', item: pack.productId)

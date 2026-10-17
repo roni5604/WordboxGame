@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/cosmetics/cosmetic_catalog.dart';
+import '../core/security/input_rules.dart';
 import '../data/models/auth_user.dart';
 import '../data/models/level_progress.dart';
 import '../data/models/player_profile.dart';
@@ -183,7 +184,8 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   Future<void> setHapticsOn(bool value) => _mutate((c) => c.copyWith(hapticsOn: value));
   Future<void> setOnboardingCompleted() =>
       _mutate((c) => c.copyWith(onboardingCompleted: true));
-  Future<void> setDisplayName(String name) => _mutate((c) => c.copyWith(displayName: name));
+  Future<void> setDisplayName(String name) =>
+      _mutate((c) => c.copyWith(displayName: InputRules.sanitizeDisplayName(name)));
   Future<void> setAvatarId(String avatarId) =>
       _mutate((c) => c.copyWith(avatarId: avatarId));
   Future<void> setAuthIntroShown() =>
@@ -205,8 +207,8 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   /// בכל מקום שמציג אוואטאר, כדי שתמיד תהיה עדכנית בלי צורך בסנכרון נוסף.
   Future<void> syncFromAuthUser(AuthUser user) async {
     if (user.isAnonymous) return;
-    final name = user.displayName?.trim();
-    if (name == null || name.isEmpty) return;
+    final name = InputRules.sanitizeDisplayName(user.displayName);
+    if (name.isEmpty) return;
     await _mutate((c) => c.displayName == name ? c : c.copyWith(displayName: name));
   }
 

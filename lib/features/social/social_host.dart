@@ -155,7 +155,10 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
       final accepted = await showInviteDialog(dialogContext, invite);
       await _repo.respondToInvite(invite, accept: accepted).catchError((_) {});
       if (accepted && mounted) {
-        widget.router.push('/multiplayer/online/join?code=${invite.roomCode}&auto=1');
+        widget.router.push(
+          '/multiplayer/online/join?code=${Uri.encodeComponent(invite.roomCode)}',
+          extra: {'autoJoin': true, 'expectedFee': invite.entryFee},
+        );
       }
     } finally {
       _showingInvite = false;

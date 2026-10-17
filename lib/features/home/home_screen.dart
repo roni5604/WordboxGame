@@ -103,10 +103,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           loading: () => const Center(
             child: CircularProgressIndicator(color: Colors.white),
           ),
-          error: (e, st) => Center(
+          error: (e, st) => const Center(
             child: Text(
-              'שגיאה בטעינת הפרופיל: $e',
-              style: const TextStyle(color: Colors.white),
+              'לא הצלחנו לטעון את הפרופיל. נסו שוב.',
+              style: TextStyle(color: Colors.white),
             ),
           ),
           data: (profile) {

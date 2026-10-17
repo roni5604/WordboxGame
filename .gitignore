@@ -51,3 +51,6 @@ app.*.map.json
 # סודות/מזהים לבילד חנות (ראו docs/STORE_LAUNCH_CHECKLIST.md)
 ios/Flutter/AppSecrets.xcconfig
 config/release.json
+
+# בדיקות חוקי Firestore
+firestore-tests/node_modules/

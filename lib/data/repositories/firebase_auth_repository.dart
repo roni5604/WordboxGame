@@ -3,12 +3,13 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'dart:convert';
 import 'dart:math';
 
+import '../../core/security/input_rules.dart';
 import '../models/auth_user.dart';
 import '../services/account_data_eraser.dart';
 import 'auth_repository.dart';
@@ -87,15 +88,16 @@ class FirebaseAuthRepository implements AuthRepository {
       final message = switch (error.code) {
         'invalid-email' => 'כתובת המייל לא תקינה.',
         'user-disabled' => 'המשתמש הזה חסום.',
-        'user-not-found' => 'לא נמצא משתמש עם הפרטים האלו.',
-        'wrong-password' || 'invalid-credential' => 'סיסמה שגויה או פרטי התחברות לא תקינים.',
+        // הודעה אחת לשני המקרים - כדי לא לחשוף אילו כתובות מייל רשומות.
+        'user-not-found' || 'wrong-password' || 'invalid-credential' => 'המייל או הסיסמה לא נכונים.',
         'email-already-in-use' || 'credential-already-in-use' =>
           'כתובת המייל הזו כבר משויכת לחשבון אחר.',
-        'weak-password' => 'הסיסמה חלשה מדי - נסו סיסמה עם 6 תווים לפחות.',
+        'weak-password' => 'הסיסמה חלשה מדי - נסו סיסמה עם 8 תווים לפחות.',
         'network-request-failed' => 'בעיית רשת - בדקו את החיבור לאינטרנט ונסו שוב.',
         'popup-closed-by-user' || 'canceled' || 'sign_in_canceled' => 'ההתחברות בוטלה.',
         'operation-not-allowed' => 'שיטת ההתחברות הזו לא מופעלת עדיין בפרויקט.',
-        _ => 'משהו השתבש בהתחברות (${error.code}). נסו שוב.',
+        'too-many-requests' => 'יותר מדי ניסיונות. חכו כמה דקות ונסו שוב.',
+        _ => 'משהו השתבש בהתחברות. נסו שוב.',
       };
       return AuthException(message);
     }
@@ -268,10 +270,13 @@ class FirebaseAuthRepository implements AuthRepository {
     required String password,
     required String displayName,
   }) async {
+    if (password.length < 8) {
+      throw const AuthException('הסיסמה צריכה להיות באורך 8 תווים לפחות.');
+    }
     try {
       final credential = fb.EmailAuthProvider.credential(email: email, password: password);
       final userCred = await _linkOrSignIn(credential);
-      await userCred.user!.updateDisplayName(displayName);
+      await userCred.user!.updateDisplayName(InputRules.sanitizeDisplayName(displayName));
       return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
     } catch (e) {
       throw _friendlyError(e);
@@ -306,7 +311,8 @@ class FirebaseAuthRepository implements AuthRepository {
     try {
       await AccountDataEraser(FirebaseFirestore.instance).eraseUser(user.uid);
     } catch (e) {
-      throw AuthException('מחיקת הנתונים נכשלה. בדקו את החיבור לאינטרנט ונסו שוב. ($e)');
+      debugPrint('Account data erase failed: $e');
+      throw const AuthException('מחיקת הנתונים נכשלה. בדקו את החיבור לאינטרנט ונסו שוב.');
     }
 
     try {

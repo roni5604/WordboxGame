@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/security/input_rules.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../game/widgets/mascot_widget.dart';
 
@@ -52,7 +53,7 @@ class AvatarWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final option = avatarOptionFor(avatarId);
-    final hasPhoto = photoUrl != null && photoUrl!.isNotEmpty;
+    final hasPhoto = InputRules.isTrustedPhotoUrl(photoUrl);
     return Container(
       width: size,
       height: size,
@@ -118,7 +119,7 @@ class AnimatedAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasPhoto = photoUrl != null && photoUrl!.isNotEmpty;
+    final hasPhoto = InputRules.isTrustedPhotoUrl(photoUrl);
     if (hasPhoto) {
       return ClipOval(
         child: Image.network(

@@ -124,7 +124,7 @@ class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> {
     return Scaffold(
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, st) => Center(child: Text('שגיאה בטעינת הפרופיל: $e')),
+        error: (e, st) => const Center(child: Text('לא הצלחנו לטעון את הפרופיל. נסו שוב.')),
         data: (profile) {
           final levels = CampaignLevels.all;
           final width = MediaQuery.of(context).size.width;

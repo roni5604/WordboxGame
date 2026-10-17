@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../core/security/input_rules.dart';
 import '../models/social_models.dart';
 import 'social_repository.dart';
 
@@ -54,11 +55,12 @@ class FirestoreSocialRepository implements SocialRepository {
   Future<void> publishMyProfile(MyPublicInfo info) async {
     if (_lastPublished == info) return;
     final uid = await ensureSignedIn();
+    final name = InputRules.sanitizeDisplayName(info.displayName);
     await _profiles.doc(uid).set({
-      'displayName': info.displayName,
-      'displayNameLower': info.displayName.toLowerCase(),
+      'displayName': name,
+      'displayNameLower': name.toLowerCase(),
       'avatarId': info.avatarId,
-      'photoUrl': info.photoUrl,
+      'photoUrl': InputRules.isTrustedPhotoUrl(info.photoUrl) ? info.photoUrl : null,
       'friendCode': SocialRepository.friendCodeFor(uid),
       'totalStars': info.totalStars,
       'highestLevel': info.highestLevel,
@@ -122,7 +124,7 @@ class FirestoreSocialRepository implements SocialRepository {
     final results = <PublicProfile>[];
     for (int i = 0; i < unique.length; i += 30) {
       final chunk = unique.sublist(i, i + 30 > unique.length ? unique.length : i + 30);
-      final snap = await _profiles.where(FieldPath.documentId, whereIn: chunk).get();
+      final snap = await _profiles.where(FieldPath.documentId, whereIn: chunk).limit(chunk.length).get();
       for (final doc in snap.docs) {
         results.add(mapProfile(doc.id, doc.data()));
       }
@@ -136,10 +138,15 @@ class FirestoreSocialRepository implements SocialRepository {
     if (normalized.length != 6) {
       throw const SocialException('קוד חבר מורכב מ-6 תווים (אותיות באנגלית ומספרים).');
     }
-    final snap = await _profiles.where('friendCode', isEqualTo: normalized).limit(1).get();
-    if (snap.docs.isEmpty) return null;
-    final doc = snap.docs.first;
-    return mapProfile(doc.id, doc.data());
+    // קוד החבר נגזר מה-uid, אבל השדה בכרטיס נכתב ע"י הבעלים - כך שמישהו
+    // יכול להעתיק קוד של אחר. מאמתים מול ה-uid ומתעלמים ממתחזים.
+    final snap = await _profiles.where('friendCode', isEqualTo: normalized).limit(10).get();
+    for (final doc in snap.docs) {
+      if (SocialRepository.friendCodeFor(doc.id) == normalized) {
+        return mapProfile(doc.id, doc.data());
+      }
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -179,7 +186,7 @@ class FirestoreSocialRepository implements SocialRepository {
       for (int i = 0; i < uids.length; i += 30) {
         final chunk = uids.sublist(i, i + 30 > uids.length ? uids.length : i + 30);
         profileSubs.add(
-          _profiles.where(FieldPath.documentId, whereIn: chunk).snapshots().listen((snap) {
+          _profiles.where(FieldPath.documentId, whereIn: chunk).limit(chunk.length).snapshots().listen((snap) {
             for (final doc in snap.docs) {
               profiles[doc.id] = mapProfile(doc.id, doc.data());
             }
@@ -264,10 +271,14 @@ class FirestoreSocialRepository implements SocialRepository {
   Future<Map<String, dynamic>> _myCardFields(String uid) async {
     final snap = await _profiles.doc(uid).get();
     final data = snap.data() ?? const {};
+    final name = InputRules.sanitizeDisplayName(
+      (data['displayName'] as String?) ?? _lastPublished?.displayName,
+    );
+    final photo = (data['photoUrl'] as String?) ?? _lastPublished?.photoUrl;
     return {
-      'name': (data['displayName'] as String?) ?? _lastPublished?.displayName ?? 'שחקן/ית',
+      'name': name.isEmpty ? 'שחקן/ית' : name,
       'avatarId': (data['avatarId'] as String?) ?? _lastPublished?.avatarId ?? 'detective',
-      'photoUrl': (data['photoUrl'] as String?) ?? _lastPublished?.photoUrl,
+      'photoUrl': InputRules.isTrustedPhotoUrl(photo) ? photo : null,
     };
   }
 
@@ -293,7 +304,7 @@ class FirestoreSocialRepository implements SocialRepository {
       'fromName': card['name'],
       'fromAvatarId': card['avatarId'],
       'fromPhotoUrl': card['photoUrl'],
-      'toName': toName,
+      'toName': InputRules.sanitizeDisplayName(toName),
       'createdAt': FieldValue.serverTimestamp(),
     });
     return false;
@@ -385,7 +396,7 @@ class FirestoreSocialRepository implements SocialRepository {
       'fromName': card['name'],
       'fromAvatarId': card['avatarId'],
       'fromPhotoUrl': card['photoUrl'],
-      'toName': toName,
+      'toName': InputRules.sanitizeDisplayName(toName),
       'roomCode': roomCode,
       'gridSize': gridSize,
       'roundSeconds': roundSeconds,
