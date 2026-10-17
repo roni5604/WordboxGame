@@ -8,6 +8,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:screenOrientation="portrait"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
@@ -37,10 +38,11 @@
         <meta-data
             android:name="google_analytics_automatic_screen_reporting_enabled"
             android:value="false" />
-        <!-- מזהה בדיקה של Google. להחליף במזהה אמיתי מ-AdMob לפני העלאה לחנות. -->
+        <!-- מזהה אפליקציית AdMob: מגיע מ-ADMOB_APP_ID_ANDROID ב-android/key.properties
+             (ברירת מחדל: מזהה הבדיקה של Google). ראו android/app/build.gradle.kts. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713"/>
+            android:value="${admobAppId}"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -48,6 +50,12 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- פתיחת קישורי שיתוף (וואטסאפ/פייסבוק/דפדפן) מ-url_launcher. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <package android:name="com.whatsapp"/>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

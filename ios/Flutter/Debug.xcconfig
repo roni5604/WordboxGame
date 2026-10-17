@@ -1,1 +1,10 @@
 #include "Generated.xcconfig"
+
+// ערכי ברירת מחדל לפיתוח. לפני העלאה לחנות יוצרים את
+// ios/Flutter/AppSecrets.xcconfig (העתק של AppSecrets.example.xcconfig)
+// עם הערכים האמיתיים - הוא דורס את מה שכאן ולא נשמר ב-git.
+// שימו לב: ב-xcconfig "//" מתחיל הערה, ולכן אין לכתוב כאן כתובות URL.
+ADMOB_APP_ID_IOS = ca-app-pub-3940256099942544~1458002511
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.placeholder
+
+#include? "AppSecrets.xcconfig"

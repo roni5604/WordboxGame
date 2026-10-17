@@ -54,9 +54,6 @@ class _FakeAuthRepository implements AuthRepository {
   Future<AuthUser> signInWithApple() => throw const AuthException('n/a');
 
   @override
-  Future<AuthUser> signInWithFacebook() => throw const AuthException('n/a');
-
-  @override
   Future<AuthUser> signInWithEmail({required String email, required String password}) =>
       throw const AuthException('n/a');
 
@@ -67,6 +64,9 @@ class _FakeAuthRepository implements AuthRepository {
     required String displayName,
   }) =>
       throw const AuthException('n/a');
+
+  @override
+  Future<void> deleteAccount() async {}
 
   @override
   Future<void> signOut() async {}

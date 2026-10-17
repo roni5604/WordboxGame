@@ -10,6 +10,8 @@ import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
 import '../../core/ui/game_dialog.dart';
 import '../../core/ui/pressable.dart';
+import '../../data/models/auth_user.dart';
+import '../../data/services/firebase_bootstrap.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 
@@ -82,6 +84,15 @@ class SettingsScreen extends ConsumerWidget {
                     subtitle: 'שמירת ההתקדמות והחברים בכל מכשיר',
                     onTap: () => context.push('/auth'),
                   ),
+                _ActionRow(
+                  icon: Icons.delete_forever_rounded,
+                  color: const Color(0xFFB91C1C),
+                  label: 'מחיקת חשבון',
+                  subtitle: isRealAccount
+                      ? 'מחיקה לצמיתות של החשבון וכל הנתונים'
+                      : 'מחיקה לצמיתות של כל הנתונים שלי',
+                  onTap: () => _confirmDeleteAccount(context, ref),
+                ),
                 if (ads.isSupported && ads.privacyOptionsRequired)
                   _ActionRow(
                     icon: Icons.privacy_tip_rounded,
@@ -122,6 +133,32 @@ class SettingsScreen extends ConsumerWidget {
                       text: 'מצאתי משחק מילים בעברית ממכר - "מצא ת׳מילה" 🔤\nבואו נתחרה! ${AppLinks.webBase}',
                     );
                   },
+                ),
+              ],
+            ),
+            _Section(
+              title: 'פרטיות ותנאים',
+              children: [
+                _ActionRow(
+                  icon: Icons.shield_rounded,
+                  color: const Color(0xFF0EA5E9),
+                  label: 'מדיניות פרטיות',
+                  onTap: () => AppLinks.open(AppLinks.privacyPolicy),
+                ),
+                _ActionRow(
+                  icon: Icons.description_rounded,
+                  color: const Color(0xFF64748B),
+                  label: 'תנאי שימוש',
+                  onTap: () => AppLinks.open(AppLinks.terms),
+                ),
+                _ActionRow(
+                  icon: Icons.mail_rounded,
+                  color: const Color(0xFF7B3FF2),
+                  label: 'צרו קשר',
+                  subtitle: AppLinks.supportEmail,
+                  onTap: () => AppLinks.open(
+                    'mailto:${AppLinks.supportEmail}?subject=${Uri.encodeComponent('מצא ת׳מילה - פנייה')}',
+                  ),
                 ),
               ],
             ),
@@ -188,6 +225,55 @@ class SettingsScreen extends ConsumerWidget {
     await repo.signOut();
     await repo.signInAsGuest();
     if (context.mounted) context.go('/home');
+  }
+
+  Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+    final ok = await showConfirmDialog(
+      context,
+      title: 'למחוק את החשבון?',
+      message: 'החשבון, ההתקדמות, המטבעות, הרמזים והחברים יימחקו לצמיתות מכל המכשירים. '
+          'רכישות שבוצעו לא יוחזרו. אי אפשר לבטל את הפעולה הזו.',
+      confirmLabel: 'מחיקה לצמיתות',
+      confirmPalette: CandyPalette.red,
+    );
+    if (!ok || !context.mounted) return;
+
+    final repo = ref.read(authRepositoryProvider);
+    try {
+      await repo.deleteAccount();
+    } on RecentLoginRequiredException catch (e) {
+      if (!context.mounted) return;
+      final relogin = await showConfirmDialog(
+        context,
+        title: 'צריך להתחבר שוב',
+        message: e.message,
+        confirmLabel: 'להתחברות',
+        confirmPalette: CandyPalette.blue,
+      );
+      if (!relogin) return;
+      await repo.signOut();
+      await repo.signInAsGuest();
+      ref.invalidate(playerProfileProvider);
+      if (context.mounted) context.push('/auth');
+      return;
+    } on AuthException catch (e) {
+      if (context.mounted) {
+        GameToast.show(context, message: e.message, icon: Icons.error_rounded, color: const Color(0xFFF2463D));
+      }
+      return;
+    }
+
+    AnalyticsService.instance.settingsChange(setting: 'delete_account', value: 'confirmed');
+    if (!isFirebaseBackendReady()) {
+      // מצב מקומי: ההתקדמות שמורה רק במכשיר - מאפסים אותה.
+      await ref.read(playerProfileProvider.notifier).resetProgress();
+    }
+    await repo.signInAsGuest();
+    ref.invalidate(playerProfileProvider);
+    if (context.mounted) {
+      GameToast.show(context, message: 'החשבון נמחק', icon: Icons.delete_forever_rounded);
+      context.go('/home');
+    }
   }
 
   Future<void> _confirmReset(BuildContext context, PlayerProfileNotifier notifier) async {

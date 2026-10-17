@@ -36,7 +36,7 @@ class AvatarWidget extends StatelessWidget {
   final double size;
   final bool ring;
 
-  /// תמונת הפרופיל האמיתית מהספק (Google/Apple/Facebook), אם קיימת - נלקחת
+  /// תמונת הפרופיל האמיתית מהספק (Google/Apple), אם קיימת - נלקחת
   /// חיה מ-authStateProvider ע"י מי שמשתמש בווידג'ט. כשקיימת היא מוצגת
   /// במקום האוואטאר המצויר; אם הטעינה נכשלת (או שאין תמונה) חוזרים לאוואטאר.
   final String? photoUrl;
@@ -90,7 +90,7 @@ class AnimatedAvatar extends StatelessWidget {
   final double size;
   final MascotMood mood;
 
-  /// תמונת הפרופיל האמיתית מהספק (Google/Apple/Facebook), אם קיימת - ראו
+  /// תמונת הפרופיל האמיתית מהספק (Google/Apple), אם קיימת - ראו
   /// תיעוד ב-[AvatarWidget.photoUrl].
   final String? photoUrl;
 

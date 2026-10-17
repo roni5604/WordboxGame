@@ -508,7 +508,7 @@ class _GuestHintsCta extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             const Text(
-              'הרשמו בחינם עם Google, Apple, Facebook או מייל - ותקבלו 5 רמזי '
+              'הרשמו בחינם עם Google, Apple או מייל - ותקבלו 5 רמזי '
               'מתנה מיד, בונוס רמזים חדש בכל יום, ואפשרות לקנות עוד עם המטבעות '
               'שלכם.',
               textAlign: TextAlign.center,

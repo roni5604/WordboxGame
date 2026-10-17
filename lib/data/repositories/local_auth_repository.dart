@@ -11,7 +11,7 @@ import 'auth_repository.dart';
 /// עדיין יש "מזהה אורח" יציב שנשמר מקומית כדי שממשק המשתמש (פרופיל)
 /// יוכל תמיד להציג משתמש מחובר.
 ///
-/// כל ניסיון להתחבר עם חשבון אמיתי (Google/Apple/Facebook/מייל) זורק
+/// כל ניסיון להתחבר עם חשבון אמיתי (Google/Apple/מייל) זורק
 /// [AuthException] עם הסבר ידידותי שיש להפעיל קודם Firebase - כך שהכפתורים
 /// כבר עובדים ומוכנים בממשק, אך לא "מתחזים" להתחברות אמיתית שלא קיימת.
 class LocalAuthRepository implements AuthRepository {
@@ -75,9 +75,6 @@ class LocalAuthRepository implements AuthRepository {
   Future<AuthUser> signInWithApple() => throw _notConfigured;
 
   @override
-  Future<AuthUser> signInWithFacebook() => throw _notConfigured;
-
-  @override
   Future<AuthUser> signInWithEmail({required String email, required String password}) =>
       throw _notConfigured;
 
@@ -92,5 +89,15 @@ class LocalAuthRepository implements AuthRepository {
   @override
   Future<void> signOut() async {
     // "יציאה" עבור אורח היא לא רלוונטית באמת - פשוט נשארים אורחים.
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    // אין נתונים בענן במצב מקומי - מוחקים את מזהה האורח, כך שבכניסה הבאה
+    // נוצר מזהה חדש לגמרי.
+    final box = await _openBox();
+    await box.clear();
+    _current = null;
+    _controller.add(null);
   }
 }

@@ -1,15 +1,16 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'dart:convert';
 import 'dart:math';
 
 import '../models/auth_user.dart';
+import '../services/account_data_eraser.dart';
 import 'auth_repository.dart';
 
 /// מימוש אמיתי מבוסס Firebase Authentication - פעיל רק אחרי
@@ -19,7 +20,7 @@ import 'auth_repository.dart';
 /// גישה: בדפדפן (Web) נעשה שימוש ב-`signInWithPopup` ישירות מול
 /// Firebase (עובד לכל אחד מהספקים בלי SDK ילידי נוסף - רק צריך להפעיל
 /// את הספק בקונסולת Firebase). בנייד/דסקטופ נעשה שימוש ב-SDK הילידי
-/// המתאים (google_sign_in / sign_in_with_apple / flutter_facebook_auth)
+/// המתאים (google_sign_in / sign_in_with_apple)
 /// וממירים את הפלט שלו לאישור (credential) של Firebase.
 class FirebaseAuthRepository implements AuthRepository {
   final fb.FirebaseAuth _auth;
@@ -42,7 +43,7 @@ class FirebaseAuthRepository implements AuthRepository {
         _ => AuthProviderType.email,
       };
     }
-    // כשמקשרים חשבון אורח/ת לספק (Google/Apple/Facebook) עם
+    // כשמקשרים חשבון אורח/ת לספק (Google/Apple) עם
     // linkWithCredential/linkWithPopup, Firebase לא בהכרח מעדכן את השדות
     // הראשיים displayName/photoURL של המשתמש - הם נשארים null (מהאורח/ת),
     // בזמן שהמידע האמיתי מהספק קיים רק בתוך providerData. לכן, כל עוד
@@ -252,28 +253,6 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<AuthUser> signInWithFacebook() async {
-    try {
-      if (kIsWeb) {
-        final userCred = await _linkOrSignInWithPopup(fb.FacebookAuthProvider());
-        return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
-      }
-
-      final result = await FacebookAuth.instance.login(permissions: ['email', 'public_profile']);
-      if (result.status != LoginStatus.success) {
-        throw const AuthException('ההתחברות עם Facebook בוטלה או נכשלה.');
-      }
-      final token = result.accessToken!.tokenString;
-      final credential = fb.FacebookAuthProvider.credential(token);
-      final userCred = await _linkOrSignIn(credential);
-      return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
-    } catch (e) {
-      if (e is AuthException) rethrow;
-      throw _friendlyError(e);
-    }
-  }
-
-  @override
   Future<AuthUser> signInWithEmail({required String email, required String password}) async {
     try {
       final userCred = await _auth.signInWithEmailAndPassword(email: email, password: password);
@@ -302,16 +281,46 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<void> signOut() async {
     try {
-      if (!kIsWeb) {
-        if (_googleInitialized) {
-          await _googleSignIn.signOut();
-        }
-        await FacebookAuth.instance.logOut();
+      if (!kIsWeb && _googleInitialized) {
+        await _googleSignIn.signOut();
       }
     } catch (_) {
       // אם ה-SDK של ספק כלשהו לא הופעל, אין צורך להיכשל על היציאה.
     }
     await _auth.signOut();
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    // Firebase דורש התחברות "טרייה" (כ-5 דקות) כדי למחוק משתמש. בודקים
+    // מראש, כדי לא למחוק את הנתונים ואז להיכשל במחיקת החשבון עצמו.
+    final lastSignIn = user.metadata.lastSignInTime;
+    if (!user.isAnonymous &&
+        (lastSignIn == null || DateTime.now().difference(lastSignIn) > const Duration(minutes: 4))) {
+      throw const RecentLoginRequiredException();
+    }
+
+    try {
+      await AccountDataEraser(FirebaseFirestore.instance).eraseUser(user.uid);
+    } catch (e) {
+      throw AuthException('מחיקת הנתונים נכשלה. בדקו את החיבור לאינטרנט ונסו שוב. ($e)');
+    }
+
+    try {
+      await user.delete();
+    } on fb.FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        // משתמש/ת אורח/ת: הנתונים כבר נמחקו, ונשאר רק מזהה אנונימי בלי
+        // שום מידע אישי - מספיק להתנתק ממנו.
+        if (!user.isAnonymous) throw const RecentLoginRequiredException();
+      } else {
+        throw _friendlyError(e);
+      }
+    }
+    await signOut();
   }
 
   String _generateNonce([int length = 32]) {

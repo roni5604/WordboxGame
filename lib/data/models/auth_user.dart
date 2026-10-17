@@ -41,3 +41,11 @@ class AuthException implements Exception {
   @override
   String toString() => message;
 }
+
+/// נזרקת ממחיקת חשבון כשעברו יותר מכמה דקות מההתחברות האחרונה: Firebase
+/// דורש התחברות טרייה לפני מחיקת משתמש, ולכן מבקשים להתחבר שוב לפני המחיקה.
+class RecentLoginRequiredException extends AuthException {
+  const RecentLoginRequiredException()
+      : super('מטעמי אבטחה צריך להתחבר שוב לחשבון לפני המחיקה. '
+            'התנתקו, התחברו מחדש עם אותו חשבון ונסו שוב.');
+}
