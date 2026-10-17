@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// מחזיר את ה-uid של המשתמש/ת המחובר/ת, ומתחבר כאורח/ת רק אם באמת אין
 /// חיבור.
@@ -12,7 +13,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 ///   1. מחכים לאירוע הראשון של authStateChanges (= החיבור השמור שוחזר).
 ///   2. רק אז, אם אין משתמש, מתחברים כאורח/ת - פעם אחת בלבד גם אם כמה
 ///      חלקים במשחק מבקשים במקביל.
-///   3. מחכים לאסימון (token) של המשתמש החדש לפני שממשיכים.
 class AuthSession {
   AuthSession._();
 
@@ -26,7 +26,8 @@ class AuthSession {
 
   static Future<String> _resolve(FirebaseAuth auth) async {
     User? user = auth.currentUser;
-    if (user == null) {
+    // רק באתר החיבור השמור משוחזר באיחור; באפליקציה currentUser מוכן מיד.
+    if (user == null && kIsWeb) {
       try {
         user = await auth
             .authStateChanges()
@@ -39,12 +40,6 @@ class AuthSession {
     if (user != null) return user.uid;
 
     final credential = await auth.signInAnonymously();
-    final created = credential.user!;
-    try {
-      await created.getIdToken();
-    } catch (_) {
-      // לא קריטי - הבקשה הבאה תשתמש באסימון ברגע שיהיה מוכן.
-    }
-    return created.uid;
+    return credential.user!.uid;
   }
 }

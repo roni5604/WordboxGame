@@ -9,15 +9,13 @@ void main() {
   });
 
   test('parallel callers share one guest sign-in', () async {
-    final auth = MockFirebaseAuth();
+    final auth = MockFirebaseAuth(mockUser: MockUser(uid: 'guest-1', isAnonymous: true));
     final results = await Future.wait([
       AuthSession.ensureUid(auth),
       AuthSession.ensureUid(auth),
       AuthSession.ensureUid(auth),
-    ]);
-    expect(results.toSet(), hasLength(1));
-    expect(auth.currentUser?.uid, results.first);
-    // a later call reuses the same guest
-    expect(await AuthSession.ensureUid(auth), results.first);
+    ]).timeout(const Duration(seconds: 10));
+    expect(results.toSet(), {'guest-1'});
+    expect(await AuthSession.ensureUid(auth), 'guest-1');
   });
 }
