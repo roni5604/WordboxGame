@@ -36,7 +36,8 @@ jobs:
           exit ${status:-0}
 
       - name: Run tests
-        run: flutter test
+        # github reporter: בדיקות שנכשלו מופיעות כהערות ב-PR.
+        run: flutter test --reporter github
 
       - name: Build web (smoke test)
         run: flutter build web --release
