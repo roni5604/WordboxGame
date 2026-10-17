@@ -18,7 +18,8 @@
 
 ## שלב 1: Firebase
 
-1. **פריסת חוקי האבטחה** (בלי זה המשחק מול חברים ומחיקת החשבון לא יעבדו נכון):
+1. **פריסת חוקי האבטחה** (בלי זה החוקים המחוזקים לא פעילים בשרת, והמשחק מול
+   חברים ומחיקת החשבון לא יעבדו נכון). צריך לחזור על זה בכל שינוי ב-`firestore.rules`:
    ```bash
    npm i -g firebase-tools && firebase login
    firebase deploy --only firestore:rules
@@ -32,6 +33,19 @@
    `android/app/google-services.json` ואת `ios/Runner/GoogleService-Info.plist`,
    להעתיק את `REVERSED_CLIENT_ID` ל-`AppSecrets.xcconfig`, ולבנות עם
    `"GOOGLE_LOGIN_NATIVE": "true"`. עד אז הכפתור מוסתר באפליקציה (באתר הוא עובד).
+5. **אבטחת התחברות**: Authentication → Settings →
+   - **User actions → Email enumeration protection**: להפעיל.
+   - **Password policy**: מינימום 8 תווים (האפליקציה כבר דורשת 8 בהרשמה).
+   - **Authorized domains**: להשאיר רק `localhost`, `wordbox-64b19.firebaseapp.com`
+     ו-`roni5604.github.io` (ואת הדומיין העתידי).
+6. **הגבלת מפתחות ה-API**: Google Cloud Console → APIs & Services → Credentials.
+   המפתחות שבקוד גלויים בכוונה, אבל צריך להגביל אותם:
+   - מפתח ה-**Browser**: Application restrictions → Websites →
+     `https://roni5604.github.io/*`.
+   - מפתח ה-**Android**: Android apps → `com.wordboxil.wordbox_hebrew` + טביעות SHA-1.
+   - מפתח ה-**iOS**: iOS apps → `com.wordboxil.wordboxHebrew`.
+7. **תקציב והתראות**: Google Cloud → Billing → Budgets → תקציב קטן עם התראה
+   במייל, כדי לדעת מיד אם מישהו מנצל את השרת.
 
 ---
 
@@ -194,7 +208,10 @@
 - [x] פרסומות: AdMob (מתנה, מסך מלא, מובנית), UMP, ATT, SKAdNetwork, מכסות יומיות.
 - [x] רכישות: 6 חבילות, מחירים מקומיים, מניעת זיכוי כפול, רכישה ממתינה.
 - [x] אייקונים, צלילים, Analytics.
-- [x] CI: ניתוח, בדיקות, בילד אתר ובילד App Bundle.
+- [x] CI: ניתוח, בדיקות, בילד אתר, בילד App Bundle ובדיקות לחוקי Firestore.
+- [x] אבטחה: חוקי Firestore מחוזקים (בדיקת שדות, טווחים, הרשאות ורשימות), בדיקת קודי
+      חדר וקישורים, ניקוי שמות, תמונות רק מספקי ההתחברות, הודעות שגיאה כלליות,
+      בלי גיבוי ענן של נתוני האפליקציה באנדרואיד.
 
 ## משימות עתידיות: דומיין ופרסומות באתר
 
@@ -208,6 +225,17 @@
 - [ ] להעלות `app-ads.txt` לשורש הדומיין, ולעדכן את כתובת האתר בדפי החנות.
 
 ## אחרי ההשקה (לא חוסם)
+
+אבטחה:
+- [ ] **Firebase App Check** (Play Integrity / App Attest / reCAPTCHA) - מוודא
+      שרק האפליקציה האמיתית מדברת עם השרת. דורש הוספת `firebase_app_check`
+      בקוד ורישום בקונסולה, ורק אחרי בדיקה להפעיל Enforce.
+- [ ] **אימות בצד השרת** (Cloud Functions, דורש תוכנית Blaze): היום המטבעות,
+      הרמזים והניקוד במשחק מול חברים נכתבים מהטלפון. החוקים מגבילים טווחים
+      ושינויים לא חוקיים, אבל שחקן עם ידע טכני יכול לתת לעצמו מטבעות. אימות
+      קבלות רכישה בשרת שייך לאותו שלב.
+- [ ] **ניקוי אוטומטי** (Firestore TTL) לחדרים ולהזמנות ישנים.
+
 
 - [ ] Crashlytics לדיווח קריסות.
 - [ ] Native splash (`flutter_native_splash`).
