@@ -27,4 +27,10 @@ class AppConfig {
   /// ו-GoogleService-Info.plist. אחרי זה בונים עם GOOGLE_LOGIN_NATIVE=true.
   /// באתר Google תמיד זמין.
   static const bool googleLoginNative = bool.fromEnvironment('GOOGLE_LOGIN_NATIVE');
+
+  /// מפתח VAPID ציבורי ל-push באתר (Firebase Console → Project settings →
+  /// Cloud Messaging → Web Push certificates). המפתח ציבורי - לא סוד. כל עוד
+  /// הוא ריק, האתר מסתפק בהתראות כשהלשונית פתוחה ברקע (בלי push מהשרת).
+  ///   flutter build web --dart-define=WEB_PUSH_VAPID_KEY=...
+  static const String webPushVapidKey = String.fromEnvironment('WEB_PUSH_VAPID_KEY');
 }

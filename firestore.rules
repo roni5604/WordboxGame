@@ -4,8 +4,9 @@ rules_version = '2';
 // ההתקדמות האישי שלהם (players/{uid}), ולחדרי רב-משתתפים בהתאם
 // לתפקידם - ראו docs/FIREBASE_SETUP.md לפירוט המלא.
 //
-// מודל האבטחה למצב "משחק מול חברים" הוא client-trusted: אין Cloud
-// Functions, כל שחקן/ית כותב/ת רק לניקוד של עצמו/ה (מאומת מקומית מול
+// מודל האבטחה למצב "משחק מול חברים" הוא client-trusted: Cloud Functions
+// (functions/) רק שולחות push ולא מאמתות משחק, כל שחקן/ית כותב/ת רק
+// לניקוד של עצמו/ה (מאומת מקומית מול
 // הלוח/המילון, בדיוק כמו במשחק יחיד-שחקן). החוקים כאן אוכפים בעלות,
 // מונוטוניות ניקוד, ומעברי סטטוס חוקיים בלבד - לא מחליפים אימות שרת
 // אמיתי, וזו החלטה מודעת המתאימה למשחק מזדמן מול חברים (ראו התוכנית).
@@ -85,6 +86,19 @@ service cloud.firestore {
     match /players/{uid} {
       allow read, delete: if isUser(uid);
       allow create, update: if isUser(uid) && validProgress(request.resource.data);
+
+      // מכשירים רשומים ל-push (lib/data/services/push_device_store.dart).
+      // מזהה המסמך הוא טוקן ה-FCM. רק הבעלים קורא/ת וכותב/ת; פונקציות הענן
+      // (functions/) קוראות מכאן לאן לשלוח, עם הרשאות אדמין.
+      match /devices/{token} {
+        allow read, delete: if isUser(uid);
+        allow create, update: if isUser(uid)
+          && token.size() <= 1024
+          && request.resource.data.keys().hasOnly(['token', 'platform', 'updatedAt'])
+          && request.resource.data.token == token
+          && request.resource.data.platform in ['ios', 'android', 'web']
+          && request.resource.data.updatedAt == request.time;
+      }
     }
 
     // ---------------------------------------------------------------------

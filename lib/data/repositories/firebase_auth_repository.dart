@@ -9,6 +9,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'dart:convert';
 import 'dart:math';
 
+import '../../core/notifications/push_service.dart';
 import '../../core/security/input_rules.dart';
 import '../models/auth_user.dart';
 import '../services/account_data_eraser.dart';
@@ -285,6 +286,9 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() async {
+    // כל עוד עדיין מחוברים: מוחקים את רישום ה-push של המכשיר, כדי שהתראות
+    // של החשבון הזה לא ימשיכו להגיע אליו.
+    await PushService.instance.forgetDevice();
     try {
       if (!kIsWeb && _googleInitialized) {
         await _googleSignIn.signOut();

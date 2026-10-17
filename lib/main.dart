@@ -11,6 +11,7 @@ import 'core/ads/ads_runtime.dart';
 import 'core/analytics/analytics_service.dart';
 import 'core/config/app_config.dart';
 import 'core/notifications/notification_service.dart';
+import 'core/notifications/push_service.dart';
 import 'core/router/app_router.dart';
 import 'core/ui/game_backdrop.dart';
 import 'data/services/firebase_bootstrap.dart';
@@ -41,7 +42,13 @@ Future<void> main() async {
   }
 
   // התראות: לחיצה על התראה פותחת את המסך שלה (בונוס יומי, אתגר, מפה...).
-  unawaited(NotificationService.instance.init(onOpenRoute: (route) => appRouter.go(route)));
+  // Push מהשרת (הזמנות, בקשות חברות) - רק אחרי שההתראות המקומיות מוכנות,
+  // כי הרישום בודק את ההרשאה דרכן. ראו push_service.dart.
+  unawaited(
+    NotificationService.instance
+        .init(onOpenRoute: (route) => appRouter.go(route))
+        .then((_) => PushService.instance.start()),
+  );
 
   // Analytics (GA4): no-op when Firebase is off or failed to initialize.
   // Must run before the ads/UMP flow below so the consent result reaches it.

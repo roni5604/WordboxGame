@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 ///
 /// הכול נעשה מהלקוח, במסגרת חוקי האבטחה הקיימים (firestore.rules):
 ///   players/{uid}                          - ההתקדמות הפרטית
+///   players/{uid}/devices/*                - מכשירים רשומים ל-push
 ///   publicProfiles/{uid}                   - הכרטיס הציבורי
 ///   publicProfiles/{uid}/friends/*         - רשימת החברים שלי
 ///   publicProfiles/{friend}/friends/{uid}  - אני ברשימות של חברים
@@ -38,6 +39,9 @@ class AccountDataEraser {
         refs.addAll(snap.docs.map((d) => d.reference));
       }
     }
+
+    final devices = await _firestore.collection('players').doc(uid).collection('devices').get();
+    refs.addAll(devices.docs.map((d) => d.reference));
 
     refs
       ..add(profiles.doc(uid))
