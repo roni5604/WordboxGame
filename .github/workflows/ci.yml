@@ -36,8 +36,30 @@ jobs:
           exit ${status:-0}
 
       - name: Run tests
-        # github reporter: בדיקות שנכשלו מופיעות כהערות ב-PR.
-        run: flutter test --reporter github
+        # בדיקות שנכשלו מופיעות גם כהערות (annotations) ב-PR.
+        run: |
+          flutter test --machine > test-results.jsonl || status=$?
+          python3 - <<'PY'
+          import json
+          tests, errors = {}, {}
+          for line in open('test-results.jsonl', encoding='utf-8'):
+              try:
+                  e = json.loads(line)
+              except ValueError:
+                  continue
+              if e.get('type') == 'testStart':
+                  t = e['test']
+                  tests[t['id']] = (t.get('name', ''), t.get('root_url') or t.get('url') or '', t.get('root_line') or t.get('line') or 1)
+              elif e.get('type') == 'error':
+                  errors.setdefault(e['testID'], []).append(e.get('error', '') + '\n' + e.get('stackTrace', ''))
+          passed = failed = 0
+          for tid, msgs in errors.items():
+              name, url, line = tests.get(tid, ('?', '', 1))
+              path = url.split('/test/', 1)[-1] if '/test/' in url else url
+              msg = (name + ': ' + ' | '.join(msgs)).replace('\n', ' ').replace('%', '%25')[:1800]
+              print(f'::error file=test/{path},line={line}::{msg}')
+          PY
+          exit ${status:-0}
 
       - name: Build web (smoke test)
         run: flutter build web --release
