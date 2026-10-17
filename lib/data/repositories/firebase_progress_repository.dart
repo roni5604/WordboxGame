@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/level_progress.dart';
 import '../models/player_profile.dart';
+import '../services/auth_session.dart';
 import 'progress_repository.dart';
 
 /// מימוש Firebase (Firestore) של [ProgressRepository] - מסנכרן את התקדמות
@@ -30,16 +31,27 @@ class FirebaseProgressRepository implements ProgressRepository {
   }
 
   Future<String> _ensureUid() async {
-    final current = _auth.currentUser;
-    if (current != null) return current.uid;
-    final credential = await _auth.signInAnonymously();
-    return credential.user!.uid;
+    return AuthSession.ensureUid(_auth);
+  }
+
+  /// קריאה עם ניסיון חוזר אחד: מיד אחרי התחברות, השרת עלול עדיין לראות
+  /// את המשתמש הקודם לרגע (permission-denied) או שהרשת עוד לא מוכנה.
+  Future<DocumentSnapshot<Map<String, dynamic>>> _getWithRetry(
+    DocumentReference<Map<String, dynamic>> ref,
+  ) async {
+    try {
+      return await ref.get();
+    } on FirebaseException catch (e) {
+      if (e.code != 'permission-denied' && e.code != 'unavailable') rethrow;
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      return ref.get();
+    }
   }
 
   @override
   Future<PlayerProfile> loadProfile() async {
     final uid = await _ensureUid();
-    final snapshot = await _profileDoc(uid).get();
+    final snapshot = await _getWithRetry(_profileDoc(uid));
     if (!snapshot.exists) {
       // מתנת פתיחה חד-פעמית לפרופיל ענן חדש - 5 רמזי מתנה.
       const fresh = PlayerProfile(hints: 5);
