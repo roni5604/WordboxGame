@@ -54,3 +54,4 @@ config/release.json
 
 # בדיקות חוקי Firestore
 firestore-tests/node_modules/
+android/.kotlin/

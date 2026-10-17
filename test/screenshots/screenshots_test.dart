@@ -64,7 +64,10 @@ final _only = Platform.environment['SCREENSHOTS_ONLY'];
 
 class _Progress implements ProgressRepository {
   final bool daily;
-  _Progress({this.daily = false});
+
+  /// שער פרק סגור: שלב 11 נפתח, אבל חסרים כוכבים לפרק 3.
+  final bool gated;
+  _Progress({this.daily = false, this.gated = false});
 
   @override
   Future<PlayerProfile> loadProfile() async {
@@ -74,7 +77,7 @@ class _Progress implements ProgressRepository {
       displayName: 'רוני',
       coins: 340,
       hints: 6,
-      highestUnlockedLevel: 9,
+      highestUnlockedLevel: gated ? 11 : 9,
       lastHintClaimDate: today,
       onboardingCompleted: true,
       authIntroShown: true,
@@ -85,7 +88,8 @@ class _Progress implements ProgressRepository {
       dailyChallengeStreak: daily ? 4 : 0,
       dailyChallengeBestStreak: 4,
       levelProgress: {
-        for (int i = 1; i < 9; i++) i: LevelProgress(levelNumber: i, stars: i % 3 + 1, bestScore: 40, completed: true),
+        for (int i = 1; i < (gated ? 11 : 9); i++)
+          i: LevelProgress(levelNumber: i, stars: gated ? (i % 4 == 0 ? 2 : 1) : i % 3 + 1, bestScore: 40, completed: true),
       },
     );
   }
@@ -440,6 +444,8 @@ void main() {
           ),
           progress: _Progress(daily: true),
         ),
+    'gate': (t) => _shoot(t, 'gate', () => const LevelIntroScreen(levelNumber: 11), progress: _Progress(gated: true)),
+    'gate_map': (t) => _shoot(t, 'gate_map', () => const CampaignMapScreen(), progress: _Progress(gated: true)),
     'settings': (t) => _shoot(t, 'settings', () => const SettingsScreen()),
     'profile': (t) => _shoot(t, 'profile', () => const ProfileScreen()),
     'rules': (t) => _shoot(t, 'rules', () => const RulesScreen()),
