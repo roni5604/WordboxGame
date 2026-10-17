@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/game_backdrop.dart';
+import '../game/widgets/letter_tile.dart';
 import '../onboarding/widgets/mini_grid_demo.dart';
 import '../../core/ui/candy_button.dart';
 
@@ -96,6 +97,15 @@ class RulesScreen extends StatelessWidget {
           ),
           _RuleCard(
             index: 5,
+            title: 'אותיות קשות שוות יותר',
+            description:
+                'האותיות ז ט צ ג ס ק פ מופיעות בפחות מילים, ולכן הן סגולות\n'
+                'ומסומנות ב-+1. כל אות קשה במילה מוסיפה נקודה. "קפה" שווה 5\n'
+                'נקודות במקום 3 - שווה לחפש אותן!',
+            demo: const Center(child: _HardLettersDemo()),
+          ),
+          _RuleCard(
+            index: 6,
             title: 'הזמן רץ - מהרו!',
             description:
                 'לכל שלב יש זמן קצוב. פס ההתקדמות בראש המסך יתחיל להאדים כשנשאר\n'
@@ -103,7 +113,7 @@ class RulesScreen extends StatelessWidget {
             icon: Icons.timer_rounded,
           ),
           _RuleCard(
-            index: 6,
+            index: 7,
             title: 'כוכבים בכל שלב',
             description:
                 'היעד של כל שלב הוא כמות נקודות. מילה ארוכה מקרבת אתכם ליעד\n'
@@ -112,7 +122,16 @@ class RulesScreen extends StatelessWidget {
             icon: Icons.stars_rounded,
           ),
           _RuleCard(
-            index: 7,
+            index: 8,
+            title: 'פרקים: כוכבים פותחים את הדרך',
+            description:
+                'כל 5 שלבים הם פרק. כדי להיכנס לפרק הבא צריך מספיק כוכבים\n'
+                'מהשלבים הקודמים - או לפתוח אותו במטבעות. חסרים כוכבים?\n'
+                'חזרו לשלב קודם ונסו להגיע לשלושה כוכבים.',
+            icon: Icons.lock_open_rounded,
+          ),
+          _RuleCard(
+            index: 9,
             title: 'רב-משתתפים: מי הכי מהיר/ה?',
             description:
                 'בתחרות (נגד המחשב או נגד חברים בזמן אמת) כולם פותרים את אותו לוח.\n'
@@ -227,6 +246,29 @@ class _SofitDemo extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// הדגמה של אריחים רגילים מול אריחים "קשים" (סגולים עם +1), באותו עיצוב
+/// כמו בלוח עצמו.
+class _HardLettersDemo extends StatelessWidget {
+  const _HardLettersDemo();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Directionality(
+      textDirection: TextDirection.rtl,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LetterTile(letter: 'ק', size: 46, hard: true),
+          SizedBox(width: 10),
+          LetterTile(letter: 'פ', size: 46, hard: true),
+          SizedBox(width: 10),
+          LetterTile(letter: 'ה', size: 46),
+        ],
+      ),
     );
   }
 }

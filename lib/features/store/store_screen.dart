@@ -27,10 +27,11 @@ class _HintPack {
   const _HintPack({required this.hints, required this.cost, required this.label, this.bestValue = false});
 }
 
+/// רמז עולה בערך 2-3 שלבים של מטבעות (היה 40 / 150 / 300).
 const _packs = [
-  _HintPack(hints: 1, cost: 40, label: 'רמז בודד'),
-  _HintPack(hints: 5, cost: 150, label: 'חבילת 5', bestValue: true),
-  _HintPack(hints: 12, cost: 300, label: 'חבילת ענק'),
+  _HintPack(hints: 1, cost: 60, label: 'רמז בודד'),
+  _HintPack(hints: 5, cost: 270, label: 'חבילת 5', bestValue: true),
+  _HintPack(hints: 12, cost: 600, label: 'חבילת ענק'),
 ];
 
 /// חנות: רמזים במטבעות, סקינים, ורכישת מטבעות/רמזים בכסף אמיתי באפליקציה.
@@ -508,9 +509,9 @@ class _GuestHintsCta extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             const Text(
-              'הרשמו בחינם עם Google, Apple או מייל - ותקבלו 5 רמזי '
-              'מתנה מיד, בונוס רמזים חדש בכל יום, ואפשרות לקנות עוד עם המטבעות '
-              'שלכם.',
+              'הרשמו בחינם עם Google, Apple או מייל - ותקבלו רמזי '
+              'מתנה מיד, בונוס יומי עם רמזים ומטבעות, ואפשרות לקנות עוד עם '
+              'המטבעות שלכם.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
             ),

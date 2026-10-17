@@ -7,6 +7,7 @@ import '../../../core/cosmetics/cosmetic_catalog.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../game_engine/input/swipe_path_tracker.dart';
 import '../../../game_engine/models/grid_position.dart';
+import '../../../game_engine/scoring.dart';
 import 'connector_painter.dart';
 import 'letter_tile.dart';
 import '../../../core/feedback/haptics.dart';
@@ -283,6 +284,7 @@ class GridBoardState extends State<GridBoard> {
                       state: state,
                       letterSkin: widget.letterSkin,
                       boardTileColor: widget.boardSkin?.tileColor,
+                      hard: HardLetters.isHard(widget.letters[r][c]),
                     ),
                   ],
                 ),

@@ -416,6 +416,15 @@ class AnalyticsService {
 
   void worldUnlocked(WorldTier world) => _log('world_unlocked', {'world': world.name});
 
+  /// A chapter gate (see lib/game_engine/chapters.dart) was opened with coins.
+  /// missing_stars = how many stars the player was short of the requirement.
+  void chapterUnlocked({required int chapter, required int cost, required int missingStars}) =>
+      _log('chapter_unlocked', {'chapter': chapter, 'method': 'coins', 'cost': cost, 'missing_stars': missingStars});
+
+  /// The player reached a closed chapter gate (intro screen or map tap).
+  void chapterGateShown({required int chapter, required int missingStars}) =>
+      _log('chapter_gate_shown', {'chapter': chapter, 'missing_stars': missingStars});
+
   /// Logs world_unlocked when the highest unlocked level moved into a new
   /// world (finale passed or skipped).
   void worldUnlockedIfCrossed({required int highestBefore, required int highestAfter}) {

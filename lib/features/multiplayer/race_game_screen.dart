@@ -180,7 +180,7 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
           if (found != null) {
             // לא חושפים איזו מילה הבוט מצא (זה היה "רמז" חינם) - רק הכרטיס
             // שלו בלוח התוצאות פועם עם +N.
-            final gain = scoreForWordLength(found.normalizedWord.length);
+            final gain = scoreForWord(found.normalizedWord);
             final prev = _gains[bot.name];
             _gains[bot.name] = ((prev?.$1 ?? 0) + 1, gain);
           }
@@ -219,7 +219,7 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
     switch (result.status) {
       case WordSubmitStatus.accepted:
         ref.read(soundServiceProvider).playSuccess();
-        _showBanner('${result.displayWord}  +${result.pointsAwarded}');
+        _showBanner(result.bannerText);
         final prev = _gains['\u0000me'];
         _gains['\u0000me'] = ((prev?.$1 ?? 0) + 1, result.pointsAwarded);
         setState(() {});

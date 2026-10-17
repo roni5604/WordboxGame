@@ -128,15 +128,15 @@ void main() {
   });
 
   group('CampaignLevels.scoreRequiredForLevel / difficulty progression', () {
-    test('level 1 asks for 9 points, then the goal rises across the campaign', () {
-      expect(CampaignLevels.byLevelNumber(1).scoreRequired, 9);
+    test('level 1 asks for 10 points, then the goal rises across the campaign', () {
+      expect(CampaignLevels.byLevelNumber(1).scoreRequired, 10);
       expect(
         CampaignLevels.byLevelNumber(2).scoreRequired,
         greaterThan(CampaignLevels.byLevelNumber(1).scoreRequired),
       );
       for (int i = 1; i <= 100; i++) {
         final score = CampaignLevels.byLevelNumber(i).scoreRequired;
-        expect(score, inInclusiveRange(9, 160), reason: 'level $i');
+        expect(score, inInclusiveRange(10, 170), reason: 'level $i');
       }
     });
 
@@ -164,10 +164,10 @@ void main() {
 
     test('one star is a third of the score goal and three stars is the full goal', () {
       final config = CampaignLevels.byLevelNumber(1);
-      expect(config.scoreRequired, 9);
-      expect(config.oneStarScore, 3);
-      expect(config.twoStarScore, 6);
-      expect(config.threeStarScore, 9);
+      expect(config.scoreRequired, 10);
+      expect(config.oneStarScore, 4);
+      expect(config.twoStarScore, 7);
+      expect(config.threeStarScore, 10);
     });
   });
 

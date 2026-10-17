@@ -3,13 +3,15 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/motion/motion.dart';
 import '../../../core/ui/rarity_style.dart';
+import '../../../game_engine/rewards/level_rewards.dart';
 import '../../../game_engine/rewards/rarity.dart';
 import '../../../providers/player_profile_provider.dart';
 import '../../rewards/reward_reveal.dart';
 
-/// הבונוס היומי (רמזים כמספר היום ברצף השבועי: יום 1 = רמז אחד ... יום 7 =
-/// שבעה). כל יום הוא מתנה בדרגה גבוהה יותר - כך שהיום השביעי ("אגדי") הוא
-/// סיבה אמיתית לחזור כל יום ולא לשבור את הרצף.
+/// הבונוס היומי: לוח של 7 ימים עם מטבעות ורמזים לסירוגין (ראו
+/// DailyBonusTable ב-lib/game_engine/rewards/level_rewards.dart). כל יום
+/// הוא מתנה בדרגה גבוהה יותר - והיום השביעי ("אגדי") הוא סיבה אמיתית
+/// לחזור כל יום ולא לשבור את הרצף (יום שמפספסים מחזיר ליום 1).
 class DailyBonus {
   DailyBonus._();
 
@@ -31,6 +33,7 @@ class DailyBonus {
       RewardContents(
         rarity: rarityFor(reward.day),
         hints: reward.hintsAwarded,
+        coins: reward.coinsAwarded,
         title: 'בונוס יומי · יום ${reward.day}',
       ),
       extraAction: extraAction,
@@ -60,12 +63,22 @@ class DailyWeekTrack extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          day >= 7 ? 'השבוע הושלם! מחר מתחילים סבב חדש' : 'מחר: ${day + 1} רמזים · דרגת ${DailyBonus.rarityFor(day + 1).label}',
+          day >= 7 ? 'השבוע הושלם! מחר מתחילים סבב חדש' : 'מחר: ${_describe(day + 1)} · אל תפספסו יום',
           style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w700),
         ),
       ],
     );
   }
+}
+
+String _describe(int day) {
+  final r = DailyBonusTable.rewardFor(day);
+  final parts = [
+    if (r.coins > 0) '${r.coins} מטבעות',
+    if (r.hints == 1) 'רמז',
+    if (r.hints > 1) '${r.hints} רמזים',
+  ];
+  return parts.join(' + ');
 }
 
 enum _PipState { done, today, future }

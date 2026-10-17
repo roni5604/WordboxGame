@@ -51,10 +51,11 @@ class DailyChallenge {
   }
 
   /// מטבעות על האתגר: בסיס + חלק מהניקוד (עד תקרה) + בונוס רצף (עד 7 ימים).
+  /// מקסימום 56 ביום (היה 105 - האתגר היומי לבד נתן כמו שני שלבים מלאים).
   static int coinsFor({required int score, required int streak}) {
-    final fromScore = (score / 2).floor().clamp(0, 60);
-    final streakBonus = 5 * streak.clamp(1, 7);
-    return 10 + fromScore + streakBonus;
+    final fromScore = (score / 3).floor().clamp(0, 30);
+    final streakBonus = 3 * streak.clamp(1, 7);
+    return 5 + fromScore + streakBonus;
   }
 }
 

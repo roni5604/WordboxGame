@@ -41,9 +41,9 @@ void main() {
     });
 
     test('coins grow with score and streak, capped', () {
-      expect(DailyChallenge.coinsFor(score: 0, streak: 1), 15);
-      expect(DailyChallenge.coinsFor(score: 40, streak: 3), 10 + 20 + 15);
-      expect(DailyChallenge.coinsFor(score: 999, streak: 30), 10 + 60 + 35);
+      expect(DailyChallenge.coinsFor(score: 0, streak: 1), 8);
+      expect(DailyChallenge.coinsFor(score: 40, streak: 3), 5 + 13 + 9);
+      expect(DailyChallenge.coinsFor(score: 999, streak: 30), 5 + 30 + 21);
     });
   });
 

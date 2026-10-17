@@ -41,8 +41,8 @@ class FirebaseProgressRepository implements ProgressRepository {
     final uid = await _ensureUid();
     final snapshot = await _profileDoc(uid).get();
     if (!snapshot.exists) {
-      // מתנת פתיחה חד-פעמית לפרופיל ענן חדש - 5 רמזי מתנה.
-      const fresh = PlayerProfile(hints: 5);
+      // מתנת פתיחה חד-פעמית לפרופיל ענן חדש (ראו PlayerProfile.starterHints).
+      const fresh = PlayerProfile(hints: PlayerProfile.starterHints);
       await saveProfile(fresh);
       return fresh;
     }
@@ -88,6 +88,7 @@ class FirebaseProgressRepository implements ProgressRepository {
       dailyChallengeBestStreak: (data['dailyChallengeBestStreak'] as num?)?.toInt() ?? 0,
       dailyChallengeStartedDate: data['dailyChallengeStartedDate'] as String?,
       dropsSinceEpic: (data['dropsSinceEpic'] as num?)?.toInt() ?? 0,
+      unlockedChapters: _intList(data['unlockedChapters']),
     );
   }
 
@@ -131,6 +132,7 @@ class FirebaseProgressRepository implements ProgressRepository {
       'dailyChallengeBestStreak': profile.dailyChallengeBestStreak,
       'dailyChallengeStartedDate': profile.dailyChallengeStartedDate,
       'dropsSinceEpic': profile.dropsSinceEpic,
+      'unlockedChapters': profile.unlockedChapters,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -141,4 +143,9 @@ List<String> _stringList(Object? raw) {
     return raw.map((e) => e.toString()).toList();
   }
   return const ['classic'];
+}
+
+List<int> _intList(Object? raw) {
+  if (raw is! List) return const [];
+  return [for (final e in raw) if (e is num) e.toInt()];
 }

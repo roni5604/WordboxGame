@@ -88,6 +88,9 @@ class MarkerSkin extends Equatable {
   List<Object?> get props => [id, nameHe, cost, style, color];
 }
 
+/// מחירי הסקינים (300-1000 מטבעות) הם יעד לחיסכון לאורך כמה עשרות שלבים,
+/// לא קנייה אגבית - כל הסקינים יחד עולים כ-7,700 מטבעות, יותר ממה שמרוויחים
+/// בכל 100 השלבים בלי לקנות שום דבר אחר.
 class CosmeticCatalog {
   CosmeticCatalog._();
 
@@ -104,7 +107,7 @@ class CosmeticCatalog {
     BoardSkin(
       id: 'ocean',
       nameHe: 'אוקיינוס',
-      cost: 80,
+      cost: 400,
       tileColor: Color(0xFFB3E5FC),
       meshColor: Color(0xAAE1F5FE),
       backdropColor: Color(0xCC0277BD),
@@ -112,7 +115,7 @@ class CosmeticCatalog {
     BoardSkin(
       id: 'night',
       nameHe: 'לילה',
-      cost: 120,
+      cost: 600,
       tileColor: Color(0xFF3949AB),
       meshColor: Color(0x669FA8DA),
       backdropColor: Color(0xEE1A237E),
@@ -120,7 +123,7 @@ class CosmeticCatalog {
     BoardSkin(
       id: 'forest',
       nameHe: 'יער',
-      cost: 160,
+      cost: 800,
       tileColor: Color(0xFFC8E6C9),
       meshColor: Color(0xAAE8F5E9),
       backdropColor: Color(0xCC1B5E20),
@@ -128,7 +131,7 @@ class CosmeticCatalog {
     BoardSkin(
       id: 'candy',
       nameHe: 'ממתק',
-      cost: 200,
+      cost: 1000,
       tileColor: Color(0xFFF8BBD0),
       meshColor: Color(0xAAFCE4EC),
       backdropColor: Color(0xCCAD1457),
@@ -149,7 +152,7 @@ class CosmeticCatalog {
     LetterSkin(
       id: 'navy',
       nameHe: 'לבן על כחול',
-      cost: 80,
+      cost: 400,
       letterColor: Color(0xFFFFFFFF),
       outlined: false,
       outlineColor: Color(0xFFFFFFFF),
@@ -160,7 +163,7 @@ class CosmeticCatalog {
     LetterSkin(
       id: 'gold',
       nameHe: 'זהב',
-      cost: 120,
+      cost: 600,
       letterColor: Color(0xFF4E342E),
       outlined: false,
       outlineColor: Color(0xFFFFF8E1),
@@ -171,7 +174,7 @@ class CosmeticCatalog {
     LetterSkin(
       id: 'rounded',
       nameHe: 'מרובע מעוגל',
-      cost: 160,
+      cost: 800,
       letterColor: Color(0xFF4A148C),
       outlined: false,
       outlineColor: Color(0xFFFFFFFF),
@@ -181,7 +184,7 @@ class CosmeticCatalog {
     LetterSkin(
       id: 'bold',
       nameHe: 'מודגש',
-      cost: 200,
+      cost: 1000,
       letterColor: Color(0xFFB71C1C),
       outlined: true,
       outlineColor: Color(0xFFFFF59D),
@@ -201,28 +204,28 @@ class CosmeticCatalog {
     MarkerSkin(
       id: 'dashed',
       nameHe: 'מקווקו',
-      cost: 60,
+      cost: 300,
       style: MarkerStyle.dashed,
       color: Color(0xFF80DEEA),
     ),
     MarkerSkin(
       id: 'pearls',
       nameHe: 'פנינים',
-      cost: 100,
+      cost: 450,
       style: MarkerStyle.pearls,
       color: Color(0xFFF8BBD0),
     ),
     MarkerSkin(
       id: 'double',
       nameHe: 'קו כפול',
-      cost: 140,
+      cost: 600,
       style: MarkerStyle.doubleLine,
       color: Color(0xFFCE93D8),
     ),
     MarkerSkin(
       id: 'stars',
       nameHe: 'כוכבים',
-      cost: 180,
+      cost: 750,
       style: MarkerStyle.stars,
       color: Color(0xFFFFF176),
     ),
@@ -257,11 +260,15 @@ class CosmeticCatalog {
 }
 
 /// מחירי עזרים במטבעות במהלך שלב.
+///
+/// המחירים הוכפלו בערך פי 2-2.5 (היו 15 / 25 / 50+2×שלב): שלב שעבר בפעם
+/// הראשונה נותן כ-20-30 מטבעות (ראו LevelRewards), אז ערבוב עולה בערך שני
+/// שלבים ודילוג עולה כמה שלבים - עזרה אמיתית, לא משהו שקונים בלי לחשוב.
 class CoinCosts {
   CoinCosts._();
 
-  static const int revealLetter = 15;
-  static const int shuffle = 25;
+  static const int revealLetter = 35;
+  static const int shuffle = 50;
 
-  static int skipLevel(int levelNumber) => 50 + levelNumber * 2;
+  static int skipLevel(int levelNumber) => 120 + levelNumber * 4;
 }

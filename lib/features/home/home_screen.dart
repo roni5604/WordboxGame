@@ -50,12 +50,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .read(playerProfileProvider.notifier)
         .claimDailyHintIfAvailable();
     if (reward != null) {
-      AnalyticsService.instance.earnVirtualCurrency(
-            currency: 'hints',
-            value: reward.hintsAwarded,
-            source: 'daily',
-            item: 'daily_login_day_${reward.day}',
-          );
+      final item = 'daily_login_day_${reward.day}';
+      if (reward.hintsAwarded > 0) {
+        AnalyticsService.instance.earnVirtualCurrency(
+          currency: 'hints',
+          value: reward.hintsAwarded,
+          source: 'daily',
+          item: item,
+        );
+      }
+      if (reward.coinsAwarded > 0) {
+        AnalyticsService.instance.earnVirtualCurrency(
+          currency: 'coins',
+          value: reward.coinsAwarded,
+          source: 'daily',
+          item: item,
+        );
+      }
     }
     if (reward != null && mounted) {
       final offerExtra = ads.canRequestAds && ads.dailyBonusAdAvailable;

@@ -70,7 +70,7 @@ daily_play, profile, settings, store, auth, other`.
 | `purchase_start` | `product_id` | `core/purchases/iap_controller.dart` `buy` |
 | `purchase_failed` | `product_id`, `reason` (`store_unavailable`, `not_started`, `start_exception`, `user_canceled`, `error_<code>`, `stream_error`) | same, `buy` / `_onPurchases` |
 | `share` | `method` (`whatsapp`/`facebook`/`system`/`copy_link`/`copy_code`), `content_type` (`level_result`, `world_unlocked`, `daily_result`, `race_win_bots`, `race_win_friends`, `room_invite`, `friend_code`, `app_invite`) | `features/share/share_achievement_sheet.dart`, `multiplayer/room_lobby_screen.dart`, `social/social_actions.dart`, `settings/settings_screen.dart` |
-| `settings_change` | `setting` (`sound`, `haptics`, `ad_privacy_options`, `sign_out`, `reset_progress`), `value` | `features/settings/settings_screen.dart` |
+| `settings_change` | `setting` (`sound`, `haptics`, `notifications`, `ad_privacy_options`, `sign_out`, `reset_progress`), `value` | `features/settings/settings_screen.dart` |
 
 Ad placements: `level_hint`, `level_double_coins`, `store_gift_hint`, `store_gift_coins`,
 `store_web_ad_card`, `daily_bonus_extra_hint`, `level_next` (interstitial).
@@ -86,6 +86,8 @@ All in `lib/features/game/game_screen.dart` unless noted.
 | `level_quit` | `level_id`, `world`, `level_kind`, `grid_size`, `attempt`, `time_sec`, `words_found`, `score`, `quit_type` (`exit`/`restart`/`skip`/`abandon`) | pause menu exit/restart, paid skip, screen disposed mid-run |
 | `hint_used` | `level_id`, `hint_type` (`word_hint`/`reveal_letter`/`shuffle`), `cost`, `cost_currency` (`hints`/`coins`) | `_useHint`, `_revealLetter`, `_shuffleBoard` |
 | `world_unlocked` | `world` | finale passed (`_finishLevel`) or skipped (`_confirmSkip`, `level_result_screen.dart` `_skipFromResult`) |
+| `chapter_gate_shown` | `chapter`, `missing_stars` | closed chapter gate shown (`features/home/widgets/chapter_gate.dart`) |
+| `chapter_unlocked` | `chapter`, `method` (`coins`), `cost`, `missing_stars` | chapter gate opened with coins (same file) |
 | `wheel_spin` | `reward_type` (`coins`/`hints`/`coins_and_hints`/`double_coins`), `reward_value` | `_finishLevel` (first world-finale clear) |
 | `daily_start` | `daily_date`, `grid_size` | `features/daily/daily_challenge_game_screen.dart` after the countdown |
 | `daily_end` | `daily_date`, `success` (score > 0), `score`, `time_sec`, `words_found`, `reason` (`time_up`/`quit`/`abandon`) | same, `_finish` / `dispose` |

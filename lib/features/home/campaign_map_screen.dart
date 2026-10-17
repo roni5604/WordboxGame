@@ -8,10 +8,13 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_dialog.dart';
+import '../../data/models/player_profile.dart';
+import '../../game_engine/chapters.dart';
 import '../../game_engine/models/level_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../profile/widgets/avatar_widget.dart';
+import 'widgets/chapter_gate.dart';
 import 'widgets/level_node.dart';
 import 'widgets/path_painter.dart';
 import 'widgets/world_map_backdrop.dart';
@@ -116,6 +119,37 @@ class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> {
   }
 
   List<WorldBand> _lastBands = const [];
+
+  Widget _chapterMarkerAt({
+    required BuildContext context,
+    required PlayerProfile profile,
+    required LevelConfig level,
+    required Offset position,
+    required double centerX,
+    required double width,
+  }) {
+    const markerWidth = 104.0;
+    final half = LevelNode.sizeFor(level) / 2;
+    // בצד הנגדי למסלול, כדי לא להסתיר את הצומת או את הקו.
+    final left = position.dx >= centerX ? position.dx - half - 10 - markerWidth : position.dx + half + 10;
+    final chapter = CampaignChapters.chapterOf(level.levelNumber);
+    return Positioned(
+      left: left.clamp(8.0, width - markerWidth - 8),
+      top: position.dy - 17,
+      width: markerWidth,
+      child: _ChapterMarker(
+        chapter: chapter,
+        open: profile.isChapterOpen(chapter),
+        reached: profile.isLevelUnlocked(level.levelNumber),
+        requiredStars: CampaignChapters.requiredStars(chapter),
+        onTap: () {
+          if (!profile.isChapterOpen(chapter) && profile.isLevelUnlocked(level.levelNumber)) {
+            showChapterGateDialog(context, chapter);
+          }
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -225,11 +259,19 @@ class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> {
                                 child: LevelNode(
                                   config: levels[i],
                                   progress: profile.progressFor(levels[i].levelNumber),
-                                  isUnlocked: profile.isLevelUnlocked(levels[i].levelNumber),
-                                  isNextToPlay: levels[i].levelNumber == profile.highestUnlockedLevel,
+                                  isUnlocked: profile.canPlayLevel(levels[i].levelNumber),
+                                  isNextToPlay: levels[i].levelNumber == profile.highestUnlockedLevel &&
+                                      profile.canPlayLevel(levels[i].levelNumber),
                                   onTap: () => context.push('/level/${levels[i].levelNumber}/intro'),
                                   onLockedTap: () {
                                     Haptics.medium();
+                                    if (profile.isBlockedByChapterGate(levels[i].levelNumber)) {
+                                      showChapterGateDialog(
+                                        context,
+                                        CampaignChapters.chapterOf(levels[i].levelNumber),
+                                      );
+                                      return;
+                                    }
                                     GameToast.show(
                                       context,
                                       message:
@@ -240,6 +282,17 @@ class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> {
                                   },
                                 ),
                               ),
+                            // תווית "פרק N" ליד השלב הראשון של כל פרק, עם מצב השער שלו.
+                            for (int i = 0; i < levels.length; i++)
+                              if (CampaignChapters.isGateLevel(levels[i].levelNumber))
+                                _chapterMarkerAt(
+                                  context: context,
+                                  profile: profile,
+                                  level: levels[i],
+                                  position: positions[i],
+                                  centerX: centerX,
+                                  width: width,
+                                ),
                             // "אתם כאן": האוואטאר של השחקן/ית מרחף מעל השלב הבא.
                             Positioned(
                               left: positions[currentIndex].dx - 26,
@@ -499,5 +552,75 @@ class _Pill extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// תווית "פרק N" ליד השלב הראשון של פרק: פתוח (וי), סגור שאפשר כבר לפתוח
+/// (סגול עם מנעול וכמות הכוכבים הנדרשת), או סגור עתידי (שקוף למחצה).
+class _ChapterMarker extends StatelessWidget {
+  final int chapter;
+  final bool open;
+  final bool reached;
+  final int requiredStars;
+  final VoidCallback onTap;
+
+  const _ChapterMarker({
+    required this.chapter,
+    required this.open,
+    required this.reached,
+    required this.requiredStars,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final closedNow = !open && reached;
+    final bg = open ? Colors.white.withValues(alpha: 0.92) : (closedNow ? const Color(0xFF7B3FF2) : Colors.black26);
+    final fg = open ? AppColors.textDark : Colors.white;
+    Widget chip = GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: Colors.white, width: closedNow ? 2 : 1),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2))],
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              open ? Icons.check_circle_rounded : Icons.lock_rounded,
+              size: 15,
+              color: open ? AppColors.success : Colors.white,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'פרק $chapter',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: fg),
+            ),
+            if (!open) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.star_rounded, size: 13, color: AppColors.star),
+              Text(
+                '$requiredStars',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.white),
+              ),
+            ],
+          ],
+        ),
+        ),
+      ),
+    );
+    if (closedNow) {
+      chip = chip
+          .animate(onPlay: (c) => c.repeat(reverse: true))
+          .scaleXY(begin: 1, end: 1.06, duration: 800.ms, curve: Curves.easeInOut);
+    }
+    return chip;
   }
 }

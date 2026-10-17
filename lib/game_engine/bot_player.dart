@@ -78,7 +78,7 @@ class BotPlayer {
 
     final word = _remainingWords.removeAt(0);
     foundNormalizedWords.add(word.normalizedWord);
-    score += scoreForWordLength(word.normalizedWord.length);
+    score += scoreForWord(word.normalizedWord);
     return word;
   }
 }

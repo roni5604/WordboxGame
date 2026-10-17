@@ -8,24 +8,20 @@ import '../data/models/auth_user.dart';
 import '../data/models/level_progress.dart';
 import '../data/models/player_profile.dart';
 import '../data/repositories/progress_repository.dart';
+import '../game_engine/chapters.dart';
 import '../game_engine/daily_challenge.dart';
+import '../game_engine/rewards/level_rewards.dart';
 import '../game_engine/rewards/reward_tables.dart';
 import 'repository_providers.dart';
 
-/// תוצאה של תביעת בונוס הרמזים היומי - יום נוכחי במחזור (1-7) ומספר
-/// הרמזים שהוענקו, כדי שהממשק יוכל להציג פופ-אפ חגיגי "יום X! +Y רמזים".
+/// תוצאה של תביעת הבונוס היומי - יום נוכחי במחזור (1-7) ומה הוענק
+/// (ראו [DailyBonusTable]), כדי שהממשק יוכל להציג פופ-אפ חגיגי.
 class DailyHintReward {
   final int day;
   final int hintsAwarded;
+  final int coinsAwarded;
 
-  const DailyHintReward({required this.day, required this.hintsAwarded});
-}
-
-String _todayKey() {
-  final now = DateTime.now();
-  return '${now.year.toString().padLeft(4, '0')}-'
-      '${now.month.toString().padLeft(2, '0')}-'
-      '${now.day.toString().padLeft(2, '0')}';
+  const DailyHintReward({required this.day, required this.hintsAwarded, this.coinsAwarded = 0});
 }
 
 class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
@@ -262,24 +258,48 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
     await _mutate((_) => const PlayerProfile());
   }
 
-  /// בודק אם השחקן כבר תבע את בונוס הרמזים היומי היום, ואם לא - מזכה
-  /// אותו ומקדם את מונה הרצף (1..7, מתאפס חזרה ל-1 אחרי יום 7).
+  /// בודק אם השחקן כבר תבע את הבונוס היומי היום, ואם לא - מזכה אותו לפי
+  /// [DailyBonusTable] ומקדם את הרצף (1..7; יום שפוספס מחזיר ליום 1).
   /// מחזיר את פרטי הזיכוי כדי שהממשק יציג פופ-אפ, או null אם כבר נתבע היום.
-  Future<DailyHintReward?> claimDailyHintIfAvailable() async {
+  Future<DailyHintReward?> claimDailyHintIfAvailable({DateTime? now}) async {
     final current = state.valueOrNull;
     if (current == null) return null;
 
-    final today = _todayKey();
-    if (current.lastHintClaimDate == today) return null;
+    final today = now ?? DateTime.now();
+    final todayKey = DailyBonusTable.dateKey(today);
+    if (current.lastHintClaimDate == todayKey) return null;
 
-    final nextDay = current.hintStreakDay >= 7 ? 1 : current.hintStreakDay + 1;
+    final nextDay = DailyBonusTable.nextDay(
+      lastClaimDate: current.lastHintClaimDate,
+      previousDay: current.hintStreakDay,
+      today: today,
+    );
+    final reward = DailyBonusTable.rewardFor(nextDay);
     await _mutate((c) => c.copyWith(
-          hints: c.hints + nextDay,
+          hints: c.hints + reward.hints,
+          coins: c.coins + reward.coins,
           hintStreakDay: nextDay,
-          lastHintClaimDate: today,
+          lastHintClaimDate: todayKey,
         ));
 
-    return DailyHintReward(day: nextDay, hintsAwarded: nextDay);
+    return DailyHintReward(day: nextDay, hintsAwarded: reward.hints, coinsAwarded: reward.coins);
+  }
+
+  /// פותח את [chapter] תמורת מטבעות (כשאין מספיק כוכבים). המחיר מחושב
+  /// כאן מחדש לפי הכוכבים החסרים, כדי שאי אפשר יהיה לשלם מחיר ישן. מחזיר
+  /// את המחיר ששולם, 0 אם הפרק כבר פתוח, או null אם אין מספיק מטבעות.
+  Future<int?> unlockChapter(int chapter) async {
+    await _initialLoad;
+    final current = state.valueOrNull;
+    if (current == null) return null;
+    if (current.isChapterOpen(chapter)) return 0;
+    final cost = CampaignChapters.unlockCost(chapter: chapter, missingStars: current.missingStarsFor(chapter));
+    if (current.coins < cost) return null;
+    await _mutate((c) => c.copyWith(
+          coins: c.coins - cost,
+          unlockedChapters: [...c.unlockedChapters, chapter],
+        ));
+    return cost;
   }
 
   /// צורך רמז אחד (למשל בעת שימוש ברמז במהלך שלב). מחזיר false אם אין

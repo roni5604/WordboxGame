@@ -21,6 +21,7 @@ import '../../game_engine/game_session.dart';
 import '../../game_engine/level_board_builder.dart';
 import '../../game_engine/models/grid_position.dart';
 import '../../game_engine/models/level_config.dart';
+import '../../game_engine/rewards/level_rewards.dart';
 import '../../game_engine/rewards/reward_tables.dart';
 import '../../game_engine/word_finder.dart';
 import '../../providers/auth_provider.dart';
@@ -245,6 +246,16 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
   }
 
   Future<void> _initSession() async {
+    // קישור ישיר לשלב נעול או לפרק סגור - חוזרים למסך הפתיחה של השלב, שמסביר
+    // מה חסר (ושם אפשר לפתוח את הפרק).
+    final profile = await ref.read(playerProfileProvider.notifier).ensureLoaded();
+    if (!profile.canPlayLevel(widget.levelNumber)) {
+      _finished = true;
+      _levelClosed = true;
+      if (mounted) context.pushReplacement('/level/${widget.levelNumber}/intro');
+      return;
+    }
+
     final dictionary = await ref.read(dictionaryLoadProvider.future);
 
     // לוחות קבועים וזהים לכל המשתמשים/ות (ראו tool/generate_level_boards.dart
@@ -498,7 +509,8 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     _showBanner('💡 נסו את המילה: ${word.displayWord}');
   }
 
-  /// כשנגמרו הרמזים: מציעים צפייה בפרסומת לרמז אחד (גם לאורחים), עד 3 ביום.
+  /// כשנגמרו הרמזים: מציעים צפייה בפרסומת לרמז אחד (גם לאורחים), עד
+  /// AdsPolicy.maxAdHintsPerDay ביום.
   /// הטיימר נעצר לכל אורך הדיאלוג והמודעה.
   Future<bool> _tryGrantHintFromAd() async {
     if (_adHintBusy) return false;
@@ -569,7 +581,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
       case WordSubmitStatus.accepted:
         ref.read(soundServiceProvider).playSuccess();
         Haptics.success();
-        _showBanner('${result.displayWord}  +${result.pointsAwarded}');
+        _showBanner(result.bannerText);
         setState(() {});
         final newStars = session.currentStars;
         if (newStars > _lastCelebratedStars) {
@@ -634,15 +646,22 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     final isFirstCompletion = notifier.isFirstCompletion(widget.levelNumber);
     final earnedAnyStars = stars >= 1;
 
-    // שלב פינאלה (האחרון בעולם) שהושלם בהצלחה - פותח את העולם הבא,
-    // מזכה בבונוס נדיב, ומפעיל חגיגה מורחבת + גלגל מזל במסך התוצאה.
+    // שלב פינאלה (האחרון בעולם) שהושלם בהצלחה - פותח את העולם הבא, ומפעיל
+    // חגיגה מורחבת + גלגל מזל במסך התוצאה. בונוס הפינאלה ניתן רק בפעם
+    // הראשונה (קודם הוא ניתן בכל שחזור - אפשר היה לחרוש אותו).
     final isWorldFinale = _config.isWorldFinale && earnedAnyStars;
-    final isMaster = _config.isMasterLevel && earnedAnyStars;
-    const finaleBonusCoins = 75;
-    const finaleBonusHints = 3;
+    final firstClear = isFirstCompletion && earnedAnyStars;
+    final finaleBonusCoins = isWorldFinale && firstClear ? LevelRewards.finaleBonusCoins : 0;
+    final finaleBonusHints = isWorldFinale && firstClear ? LevelRewards.finaleBonusHints : 0;
+    final previousBestStars = ref.read(playerProfileProvider).valueOrNull?.progressFor(widget.levelNumber).stars ?? 0;
 
-    final baseCoins = stars * 10 + session.foundWordsCount * 2;
-    final coinsEarned = isWorldFinale ? baseCoins + finaleBonusCoins : (isMaster ? baseCoins * 2 : baseCoins);
+    final coinsEarned = LevelRewards.coinsFor(
+      kind: _config.kind,
+      stars: stars,
+      wordsFound: session.foundWordsCount,
+      firstClear: firstClear,
+      previousBestStars: previousBestStars,
+    );
 
     final actualCoinsEarned = await notifier.completeLevel(
       levelNumber: widget.levelNumber,
@@ -651,7 +670,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
       coinsEarned: coinsEarned,
     );
 
-    if (isWorldFinale) {
+    if (finaleBonusHints > 0) {
       await notifier.grantHints(finaleBonusHints);
     }
 
@@ -676,7 +695,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
       ..earnVirtualCurrency(currency: 'coins', value: actualCoinsEarned, source: 'level', item: _config.kind.name)
       ..earnVirtualCurrency(
         currency: 'hints',
-        value: isWorldFinale ? finaleBonusHints : 0,
+        value: finaleBonusHints,
         source: 'level',
         item: 'world_finale_bonus',
       )
@@ -733,8 +752,8 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
       foundWordsDisplay: session.foundNormalizedWords.map((w) => HebrewTrie.toDisplayWord(w)).toList(),
       coinsEarned: actualCoinsEarned,
       levelKind: _config.kind,
-      bonusCoins: isWorldFinale ? finaleBonusCoins : 0,
-      bonusHints: isWorldFinale ? finaleBonusHints : 0,
+      bonusCoins: finaleBonusCoins,
+      bonusHints: finaleBonusHints,
       newTierTitle: isWorldFinale ? _nextWorldTitle() : null,
       newGridSize: isWorldFinale ? _nextWorldGridSize() : null,
       luckyBoxReward: luckyBoxReward,
