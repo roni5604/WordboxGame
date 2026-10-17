@@ -15,7 +15,7 @@ void main() {
 
     test('display names: strip control and bidi characters, cap length', () {
       expect(InputRules.sanitizeDisplayName('  דנה  '), 'דנה');
-      expect(InputRules.sanitizeDisplayName('ab‮cd'), 'abcd');
+      expect(InputRules.sanitizeDisplayName('ab\u202Ecd'), 'abcd');
       expect(InputRules.sanitizeDisplayName('a\nb\tc'), 'a b c');
       expect(InputRules.sanitizeDisplayName('x' * 40).length, InputRules.maxDisplayName);
       expect(InputRules.sanitizeDisplayName(null), '');
