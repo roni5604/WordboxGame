@@ -26,7 +26,14 @@ jobs:
         run: flutter pub get
 
       - name: Static analysis
-        run: flutter analyze
+        # כל ממצא מוצג גם כהערה (annotation) על הקובץ והשורה ב-PR.
+        run: |
+          flutter analyze --no-pub > analyze.txt 2>&1 || status=$?
+          cat analyze.txt
+          flutter analyze --no-pub --format=machine 2>/dev/null \
+            | awk -F'|' 'NF>=8 { lvl = ($1=="ERROR") ? "error" : "warning"; printf "::%s file=%s,line=%s,col=%s::%s (%s)\n", lvl, $4, $5, $6, $8, $3 }' \
+            | sed "s#file=$GITHUB_WORKSPACE/#file=#" || true
+          exit ${status:-0}
 
       - name: Run tests
         run: flutter test
