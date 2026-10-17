@@ -40,7 +40,8 @@ class SocialActions {
   /// הזמנה אוטומטית ברגע שהחדר נוצר.
   static void inviteToNewRoom(BuildContext context, {required String uid, required String name}) {
     context.push(
-      '/multiplayer/online/create?invite=${Uri.encodeComponent(uid)}&inviteName=${Uri.encodeComponent(name)}',
+      '/multiplayer/online/create',
+      extra: {'inviteUid': uid, 'inviteName': name},
     );
   }
 

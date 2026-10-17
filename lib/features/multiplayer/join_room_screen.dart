@@ -24,7 +24,11 @@ class JoinRoomScreen extends ConsumerStatefulWidget {
   /// true = הגענו מאישור הזמנה: מצטרפים מיד ברגע שפרטי החדר נטענו.
   final bool autoJoin;
 
-  const JoinRoomScreen({super.key, this.initialCode, this.autoJoin = false});
+  /// דמי הכניסה שהופיעו בהזמנה. אם בחדר עצמו הם שונים, לא מצטרפים
+  /// אוטומטית - השחקן/ית רואה את הסכום האמיתי ומאשר/ת בעצמו/ה.
+  final int? expectedFee;
+
+  const JoinRoomScreen({super.key, this.initialCode, this.autoJoin = false, this.expectedFee});
 
   @override
   ConsumerState<JoinRoomScreen> createState() => _JoinRoomScreenState();
@@ -99,6 +103,12 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
       });
       if (_autoJoinPending) {
         _autoJoinPending = false;
+        final expected = widget.expectedFee;
+        if (expected != null && room.entryFee != expected) {
+          setState(() => _error = 'דמי הכניסה בחדר הם ${room.entryFee} מטבעות (לא $expected כמו בהזמנה). '
+              'לחצו "הצטרפות לחדר" כדי לאשר.');
+          return;
+        }
         final profile = await ref.read(playerProfileProvider.notifier).ensureLoaded();
         if (!mounted) return;
         if (profile.displayName.trim().isNotEmpty && _nameController.text.trim() == 'את/ה') {
@@ -199,10 +209,10 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
   }
 
   String _friendlyError(Object e) {
-    // StateError.toString() מחזיר "Bad state: <הודעה>" - חושפים רק את
-    // ההודעה הידידותית שכתבנו ב-repository (ראו firestore_multiplayer_repository.dart).
-    final message = e.toString().replaceFirst('Bad state: ', '');
-    return message.isEmpty ? 'לא הצלחנו להצטרף לחדר. נסו שוב.' : message;
+    // רק הודעות StateError הן הודעות ידידותיות שכתבנו ב-repository (ראו
+    // firestore_multiplayer_repository.dart). שגיאות אחרות לא מוצגות כלשונן.
+    if (e is StateError && e.message.isNotEmpty) return e.message;
+    return 'לא הצלחנו להצטרף לחדר. נסו שוב.';
   }
 
   @override

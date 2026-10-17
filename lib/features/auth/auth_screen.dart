@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_service.dart';
 import '../../core/config/app_config.dart';
+import '../../core/security/input_rules.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/auth_user.dart';
 import '../../providers/auth_provider.dart';
@@ -91,7 +92,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(backgroundColor: AppColors.error, content: Text('שגיאה: $e')));
+      ).showSnackBar(const SnackBar(backgroundColor: AppColors.error, content: Text('משהו השתבש. נסו שוב.')));
     } finally {
       if (mounted) setState(() => _busyAction = null);
     }
@@ -252,7 +253,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             return repo.registerWithEmail(
                               email: email,
                               password: password,
-                              displayName: name.isEmpty ? 'שחקן/ית' : name,
+                              displayName: InputRules.sanitizeDisplayName(name).isEmpty
+                                  ? 'שחקן/ית'
+                                  : InputRules.sanitizeDisplayName(name),
                             );
                           }
                           return repo.signInWithEmail(email: email, password: password);
@@ -413,6 +416,7 @@ class _EmailForm extends StatelessWidget {
           if (isRegister) ...[
             TextField(
               controller: nameController,
+              maxLength: InputRules.maxDisplayName,
               decoration: const InputDecoration(labelText: 'כינוי', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
@@ -420,12 +424,17 @@ class _EmailForm extends StatelessWidget {
           TextField(
             controller: emailController,
             keyboardType: TextInputType.emailAddress,
+            maxLength: 254,
+            autocorrect: false,
             decoration: const InputDecoration(labelText: 'אימייל', border: OutlineInputBorder()),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: passwordController,
             obscureText: true,
+            maxLength: 128,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: const InputDecoration(labelText: 'סיסמה', border: OutlineInputBorder()),
           ),
           const SizedBox(height: 16),

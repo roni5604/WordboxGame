@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../analytics/analytics_route_observer.dart';
+import '../security/input_rules.dart';
 import '../platform/top_bar_tint.dart';
 import '../../features/auth/auth_screen.dart';
 import '../../features/daily/daily_challenge_game_screen.dart';
@@ -124,9 +125,11 @@ final appRouter = GoRouter(
       path: '/multiplayer/online/create',
       pageBuilder: (context, state) => appPage(
         state,
+        // הזמנת חבר/ה מגיעה רק מתוך המשחק (extra), לא מפרמטרים בכתובת -
+        // אחרת קישור חיצוני יכול היה לשלוח הזמנות בשמכם.
         CreateRoomScreen(
-          inviteFriendUid: state.uri.queryParameters['invite'],
-          inviteFriendName: state.uri.queryParameters['inviteName'],
+          inviteFriendUid: _extraString(state, 'inviteUid'),
+          inviteFriendName: _extraString(state, 'inviteName'),
         ),
       ),
     ),
@@ -134,30 +137,41 @@ final appRouter = GoRouter(
       path: '/multiplayer/online/join',
       pageBuilder: (context, state) => appPage(
         state,
+        // הצטרפות אוטומטית (שגובה דמי כניסה) רק מאישור הזמנה בתוך המשחק.
+        // קישור חיצוני רק ממלא את הקוד, והשחקן/ית לוחצ/ת "הצטרפות" בעצמו/ה.
         JoinRoomScreen(
           initialCode: state.uri.queryParameters['code'],
-          autoJoin: state.uri.queryParameters['auto'] == '1',
+          autoJoin: (state.extra is Map) && (state.extra as Map)['autoJoin'] == true,
+          expectedFee: (state.extra is Map) ? (state.extra as Map)['expectedFee'] as int? : null,
         ),
       ),
     ),
     // קישור קצר לשיתוף בוואטסאפ: .../#/join/12345
     GoRoute(
       path: '/join/:roomCode',
-      redirect: (context, state) =>
-          '/multiplayer/online/join?code=${state.pathParameters['roomCode']}',
+      redirect: (context, state) {
+        final code = state.pathParameters['roomCode'];
+        return InputRules.isValidRoomCode(code)
+            ? '/multiplayer/online/join?code=$code'
+            : '/multiplayer/online/join';
+      },
     ),
     GoRoute(
       path: '/multiplayer/online/room/:roomCode',
+      redirect: _requireRoomCode,
       pageBuilder: (context, state) =>
           appPage(state, RoomLobbyScreen(roomCode: state.pathParameters['roomCode']!)),
     ),
     GoRoute(
       path: '/multiplayer/online/race/:roomCode',
+      redirect: _requireRoomCode,
       pageBuilder: (context, state) =>
           gamePage(state, OnlineRaceScreen(roomCode: state.pathParameters['roomCode']!)),
     ),
     GoRoute(
       path: '/multiplayer/online/room/:roomCode/result',
+      redirect: (context, state) =>
+          state.extra is RaceResult ? _requireRoomCode(context, state) : '/play/friends',
       pageBuilder: (context, state) => gamePage(
         state,
         OnlineRaceResultScreen(
@@ -190,3 +204,15 @@ final appRouter = GoRouter(
     ),
   ],
 );
+
+/// קוד חדר בנתיב חייב להיות 5 ספרות. כל דבר אחר (כולל "%2F" שמתפענח ל-"/")
+/// מנותב חזרה למסך המשחק עם חברים.
+String? _requireRoomCode(BuildContext context, GoRouterState state) =>
+    InputRules.isValidRoomCode(state.pathParameters['roomCode']) ? null : '/play/friends';
+
+String? _extraString(GoRouterState state, String key) {
+  final extra = state.extra;
+  if (extra is! Map) return null;
+  final value = extra[key];
+  return value is String && value.isNotEmpty ? value : null;
+}

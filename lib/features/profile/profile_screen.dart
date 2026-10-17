@@ -44,8 +44,8 @@ class ProfileScreen extends ConsumerWidget {
       ),
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
-        error: (e, st) => Center(
-          child: Text('שגיאה: $e', style: const TextStyle(color: Colors.white)),
+        error: (e, st) => const Center(
+          child: Text('לא הצלחנו לטעון את הנתונים. נסו שוב.', style: TextStyle(color: Colors.white)),
         ),
         data: (profile) {
           final levelsCompleted = profile.levelProgress.values.where((p) => p.completed).length;

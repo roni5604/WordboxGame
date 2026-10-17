@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../core/security/input_rules.dart';
 import '../models/room_models.dart';
 import 'multiplayer_repository.dart';
 
@@ -32,8 +33,13 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
 
   /// קוד חדר בן 5 ספרות (רק 0-9) - קל להקלדה על מקלדת מספרית/בטלפון,
   /// ואין בו בלבול בין אותיות/ספרות דומות (0/O, 1/I) כמו בקוד אלפאנומרי.
+  /// מסמך החדר - רק אחרי בדיקה שהקוד הוא בדיוק 5 ספרות (קוד מקישור לא
+  /// יכול "לברוח" לנתיב אחר ב-Firestore).
+  DocumentReference<Map<String, dynamic>> _room(String roomCode) =>
+      _rooms.doc(InputRules.requireRoomCode(roomCode));
+
   String _generateRoomCode() {
-    final rand = Random();
+    final rand = Random.secure();
     return List.generate(5, (_) => rand.nextInt(10)).join();
   }
 
@@ -102,12 +108,12 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
       });
 
       await roomRef.collection('players').doc(uid).set({
-        'displayName': hostDisplayName,
+        'displayName': InputRules.sanitizeDisplayName(hostDisplayName),
         'score': 0,
         'wordsFound': 0,
         'isHost': true,
         'avatarId': avatarId,
-        'photoUrl': photoUrl,
+        'photoUrl': InputRules.isTrustedPhotoUrl(photoUrl) ? photoUrl : null,
         'joinedAt': FieldValue.serverTimestamp(),
       });
 
@@ -144,7 +150,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   @override
   Future<GameRoom> fetchRoom(String roomCode) async {
     final code = roomCode.trim();
-    final roomSnap = await _rooms.doc(code).get();
+    final roomSnap = await _room(code).get();
     if (!roomSnap.exists || roomSnap.data() == null) {
       throw StateError('חדר עם הקוד $code לא נמצא.');
     }
@@ -160,7 +166,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   }) async {
     final code = roomCode.trim();
     final uid = await _ensureUid();
-    final roomRef = _rooms.doc(code);
+    final roomRef = _room(code);
     final roomSnap = await roomRef.get();
     if (!roomSnap.exists) {
       throw StateError('חדר עם הקוד $code לא נמצא.');
@@ -188,12 +194,12 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
         if (data == null) throw StateError('חדר עם הקוד $code לא נמצא.');
 
         tx.set(roomRef.collection('players').doc(uid), {
-          'displayName': displayName,
+          'displayName': InputRules.sanitizeDisplayName(displayName),
           'score': 0,
           'wordsFound': 0,
           'isHost': false,
           'avatarId': avatarId,
-          'photoUrl': photoUrl,
+          'photoUrl': InputRules.isTrustedPhotoUrl(photoUrl) ? photoUrl : null,
           'joinedAt': FieldValue.serverTimestamp(),
         });
 
@@ -215,8 +221,8 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   }
 
   Future<GameRoom> _readRoom(String roomCode) async {
-    final roomSnap = await _rooms.doc(roomCode).get();
-    final playersSnap = await _rooms.doc(roomCode).collection('players').get();
+    final roomSnap = await _room(roomCode).get();
+    final playersSnap = await _room(roomCode).collection('players').get();
     return _mapRoom(roomCode, roomSnap.data()!, playersSnap.docs);
   }
 
@@ -269,6 +275,9 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
 
   @override
   Stream<GameRoom> watchRoom(String roomCode) {
+    if (!InputRules.isValidRoomCode(roomCode)) {
+      return Stream.error(StateError('קוד החדר לא תקין.'));
+    }
     // ממזג את מאזין מסמך החדר עם מאזין תת-אוסף השחקנים לזרם אחד מאוחד,
     // כדי שהלובי/המסך יתעדכנו בזמן אמת גם כששחקן/ית חדש/ה מצטרף/ת (שינוי
     // שלא נוגע במסמך החדר עצמו, ולכן חייב מאזין נפרד על תת-האוסף).
@@ -294,7 +303,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
 
     controller = StreamController<GameRoom>.broadcast(
       onListen: () {
-        roomSub = _rooms.doc(roomCode).snapshots().listen(
+        roomSub = _room(roomCode).snapshots().listen(
               (snap) {
                 latestRoom = snap;
                 roomReady = true;
@@ -302,7 +311,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
               },
               onError: controller.addError,
             );
-        playersSub = _rooms.doc(roomCode).collection('players').snapshots().listen(
+        playersSub = _room(roomCode).collection('players').snapshots().listen(
               (snap) {
                 latestPlayers = snap.docs;
                 playersReady = true;
@@ -323,7 +332,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   @override
   Future<void> startGame(String roomCode) async {
     final uid = await _ensureUid();
-    final roomRef = _rooms.doc(roomCode);
+    final roomRef = _room(roomCode);
     final snap = await roomRef.get();
     final data = snap.data();
     if (data == null) throw StateError('החדר לא נמצא.');
@@ -339,7 +348,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   @override
   Future<void> updateMyScore(String roomCode, {required int score, required int wordsFound}) async {
     final uid = await _ensureUid();
-    await _rooms.doc(roomCode).collection('players').doc(uid).update({
+    await _room(roomCode).collection('players').doc(uid).update({
       'score': score,
       'wordsFound': wordsFound,
     });
@@ -347,7 +356,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
 
   @override
   Future<void> finishRoom(String roomCode, {String? winnerUid}) async {
-    final roomRef = _rooms.doc(roomCode);
+    final roomRef = _room(roomCode);
     try {
       await _firestore.runTransaction((tx) async {
         final snap = await tx.get(roomRef);
@@ -379,7 +388,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   @override
   Future<void> restartRoom(String roomCode) async {
     final uid = await _ensureUid();
-    final roomRef = _rooms.doc(roomCode);
+    final roomRef = _room(roomCode);
     final snap = await roomRef.get();
     final data = snap.data();
     if (data == null) throw StateError('החדר לא נמצא.');
@@ -406,7 +415,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   @override
   Future<void> startNextRound(String roomCode) async {
     final uid = await _ensureUid();
-    final roomRef = _rooms.doc(roomCode);
+    final roomRef = _room(roomCode);
     final snap = await roomRef.get();
     final data = snap.data();
     if (data == null) throw StateError('החדר לא נמצא.');
@@ -439,7 +448,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   @override
   Future<void> leaveRoom(String roomCode) async {
     final uid = await _ensureUid();
-    final roomRef = _rooms.doc(roomCode);
+    final roomRef = _room(roomCode);
     final snap = await roomRef.get();
     final data = snap.data();
     final batch = _firestore.batch();
