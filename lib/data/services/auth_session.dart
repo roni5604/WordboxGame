@@ -21,7 +21,11 @@ class AuthSession {
   static Future<String> ensureUid(FirebaseAuth auth) {
     final current = auth.currentUser;
     if (current != null) return Future.value(current.uid);
-    return _pending[auth] ??= _resolve(auth).whenComplete(() => _pending.remove(auth));
+    // שימו לב: הקולבק לא מחזיר את ה-Future שהוסר - אחרת whenComplete היה
+    // ממתין לעצמו ונתקע.
+    return _pending[auth] ??= _resolve(auth).whenComplete(() {
+      _pending.remove(auth);
+    });
   }
 
   static Future<String> _resolve(FirebaseAuth auth) async {
