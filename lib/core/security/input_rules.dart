@@ -18,8 +18,8 @@ class InputRules {
   /// [maxDisplayName] תווים.
   static String sanitizeDisplayName(String? raw) {
     final cleaned = (raw ?? '')
-        .replaceAll(_unsafeChars, '')
         .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(_unsafeChars, '')
         .trim();
     if (cleaned.length <= maxDisplayName) return cleaned;
     return cleaned.substring(0, maxDisplayName).trim();
