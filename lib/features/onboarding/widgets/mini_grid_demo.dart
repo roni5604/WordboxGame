@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../game/widgets/connector_painter.dart';
+import '../../../game_engine/scoring.dart';
 import '../../game/widgets/letter_tile.dart';
 
 /// הדגמה ויזואלית סטטית (לא אינטראקטיבית) של חיבור אותיות שכנות ליצירת
@@ -61,6 +62,7 @@ class MiniGridDemo extends StatelessWidget {
                   size: tileSize,
                   paletteIndex: (i ~/ columns * 31 + i % columns * 17) % 4,
                   state: isActive ? TileVisualState.selected : TileVisualState.idle,
+                  hard: HardLetters.isHard(letters[i]),
                 ),
               );
             }),

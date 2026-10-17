@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../game_engine/chapters.dart';
 import 'level_progress.dart';
 
 /// מצב ההתקדמות הכולל של השחקן - נשמר מקומית (Hive), ובעתיד גם מסונכרן
@@ -18,12 +19,16 @@ class PlayerProfile extends Equatable {
   /// (הקמעון הצבעוני). ראה lib/features/profile/widgets/avatar_widget.dart.
   final String avatarId;
 
-  /// יתרת הרמזים הנוכחית של השחקן. כל שחקן חדש מתחיל עם 5 רמזי מתנה.
+  /// יתרת הרמזים הנוכחית של השחקן. כל שחקן חדש מתחיל עם [starterHints].
   final int hints;
 
-  /// היום הנוכחי במחזור הבונוס היומי (1-7). 0 = טרם נתבע רמז יומי כלשהו.
-  /// כל יום נכנס מקבל רמז/י מתנה כמספר היום (יום 1=רמז אחד, יום 2=שניים...
-  /// עד יום 7=שבעה), ולאחר מכן המחזור מתחיל מחדש מיום 1.
+  /// רמזי המתנה של שחקן חדש (היה 5 - יותר מדי: רוב השחקנים לא נזקקו לרמז
+  /// בשלבים הראשונים, והרמזים נערמו).
+  static const int starterHints = 3;
+
+  /// היום הנוכחי במחזור הבונוס היומי (1-7). 0 = טרם נתבע בונוס יומי.
+  /// מה כל יום נותן - ראו DailyBonusTable ב-lib/game_engine/rewards/level_rewards.dart.
+  /// אחרי יום 7, או אחרי יום שפוספס, המחזור מתחיל מחדש מיום 1.
   final int hintStreakDay;
 
   /// תאריך התביעה היומית האחרונה בפורמט yyyy-MM-dd, כדי לוודא שהבונוס
@@ -71,6 +76,10 @@ class PlayerProfile extends Equatable {
   /// שמבטיחה תיבה אפית אחרי רצף חסר מזל (ראו RewardTables.pityThreshold).
   final int dropsSinceEpic;
 
+  /// פרקים שנפתחו בתשלום מטבעות (ראו [CampaignChapters]) - פרק שנפתח כך
+  /// נשאר פתוח לתמיד, גם בלי מספיק כוכבים.
+  final List<int> unlockedChapters;
+
   const PlayerProfile({
     this.levelProgress = const {},
     this.coins = 0,
@@ -99,6 +108,7 @@ class PlayerProfile extends Equatable {
     this.dailyChallengeBestStreak = 0,
     this.dailyChallengeStartedDate,
     this.dropsSinceEpic = 0,
+    this.unlockedChapters = const [],
   });
 
   /// האם האתגר של [dateKey] כבר שוחק.
@@ -107,6 +117,32 @@ class PlayerProfile extends Equatable {
   int get totalStars => levelProgress.values.fold(0, (sum, p) => sum + p.stars);
 
   bool isLevelUnlocked(int levelNumber) => levelNumber <= highestUnlockedLevel;
+
+  /// האם אפשר להיכנס ל-[chapter]: הפרק הראשון תמיד פתוח, ואחריו - מספיק
+  /// כוכבים, פתיחה במטבעות, או שכבר שוחק בו שלב (כך שחקנים ותיקים לא
+  /// ננעלים מחוץ לפרק שכבר התחילו לפני שהשערים נוספו).
+  bool isChapterOpen(int chapter) {
+    if (chapter <= 1) return true;
+    if (unlockedChapters.contains(chapter)) return true;
+    if (totalStars >= CampaignChapters.requiredStars(chapter)) return true;
+    for (var l = CampaignChapters.firstLevelOf(chapter); l <= CampaignChapters.lastLevelOf(chapter); l++) {
+      final p = levelProgress[l];
+      if (p != null && (p.completed || p.bestScore > 0)) return true;
+    }
+    return false;
+  }
+
+  /// כמה כוכבים עוד חסרים כדי להיכנס ל-[chapter] (0 אם מספיק).
+  int missingStarsFor(int chapter) =>
+      (CampaignChapters.requiredStars(chapter) - totalStars).clamp(0, 1 << 30);
+
+  /// האם אפשר לשחק בשלב: הוא נפתח (השלב הקודם הושלם) והפרק שלו פתוח.
+  bool canPlayLevel(int levelNumber) =>
+      isLevelUnlocked(levelNumber) && isChapterOpen(CampaignChapters.chapterOf(levelNumber));
+
+  /// true אם השלב נפתח במסלול, אבל השער של הפרק שלו עוד סגור.
+  bool isBlockedByChapterGate(int levelNumber) =>
+      isLevelUnlocked(levelNumber) && !isChapterOpen(CampaignChapters.chapterOf(levelNumber));
 
   LevelProgress progressFor(int levelNumber) =>
       levelProgress[levelNumber] ?? LevelProgress(levelNumber: levelNumber);
@@ -139,6 +175,7 @@ class PlayerProfile extends Equatable {
     int? dailyChallengeBestStreak,
     String? dailyChallengeStartedDate,
     int? dropsSinceEpic,
+    List<int>? unlockedChapters,
   }) {
     return PlayerProfile(
       levelProgress: levelProgress ?? this.levelProgress,
@@ -169,6 +206,7 @@ class PlayerProfile extends Equatable {
       dailyChallengeBestStreak: dailyChallengeBestStreak ?? this.dailyChallengeBestStreak,
       dailyChallengeStartedDate: dailyChallengeStartedDate ?? this.dailyChallengeStartedDate,
       dropsSinceEpic: dropsSinceEpic ?? this.dropsSinceEpic,
+      unlockedChapters: unlockedChapters ?? this.unlockedChapters,
     );
   }
 
@@ -212,5 +250,6 @@ class PlayerProfile extends Equatable {
         dailyChallengeBestStreak,
         dailyChallengeStartedDate,
         dropsSinceEpic,
+        unlockedChapters,
       ];
 }

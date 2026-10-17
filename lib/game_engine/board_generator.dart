@@ -1,7 +1,10 @@
 import 'dart:math';
 
 import 'dictionary/hebrew_trie.dart';
+import 'scoring.dart';
 import 'word_finder.dart';
+
+export 'scoring.dart';
 
 /// תוצאת יצירת לוח: רשת האותיות + כל המילים האפשריות שנמצאו בה מראש,
 /// כדי שנוכל להציג "יעד" (למשל X מילים / Y נקודות) ומסך תוצאות מדויק.
@@ -17,31 +20,7 @@ class GeneratedBoard {
   });
 
   int get totalPossibleScore {
-    return possibleWords.fold(0, (sum, w) => sum + scoreForWordLength(w.normalizedWord.length));
-  }
-}
-
-/// ניקוד למילה לפי אורכה - ככל שהמילה ארוכה יותר כך שווה יותר נקודות,
-/// עם בונוס מוגבר (לא ליניארי) למילים ארוכות כדי לתגמל חשיבה יצירתית.
-int scoreForWordLength(int length) {
-  switch (length) {
-    case 0:
-    case 1:
-      return 0;
-    case 2:
-      return 1;
-    case 3:
-      return 3;
-    case 4:
-      return 6;
-    case 5:
-      return 10;
-    case 6:
-      return 15;
-    case 7:
-      return 21;
-    default:
-      return 21 + (length - 7) * 8;
+    return possibleWords.fold(0, (sum, w) => sum + scoreForWord(w.normalizedWord));
   }
 }
 

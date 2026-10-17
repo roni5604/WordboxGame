@@ -6,8 +6,10 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
+import '../../game_engine/chapters.dart';
 import '../../game_engine/models/level_config.dart';
 import '../../providers/player_profile_provider.dart';
+import '../home/widgets/chapter_gate.dart';
 import 'widgets/mascot_widget.dart';
 
 /// מסך "לפני השלב" בסגנון חלון-שלב של משחקי פאזל: כרטיס גדול עם סרט
@@ -22,8 +24,12 @@ class LevelIntroScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = CampaignLevels.byLevelNumber(levelNumber);
     final colors = AppColors.gradientForWorldIndex(config.tier.index);
-    final progress = ref.watch(playerProfileProvider).valueOrNull?.progressFor(levelNumber);
+    final profile = ref.watch(playerProfileProvider).valueOrNull;
+    final progress = profile?.progressFor(levelNumber);
     final bestStars = progress?.stars ?? 0;
+    // שלב שעוד לא נפתח (קישור ישיר), או שער פרק סגור - במקום "שחקו!".
+    final gated = profile != null && profile.isBlockedByChapterGate(levelNumber);
+    final locked = profile != null && !profile.isLevelUnlocked(levelNumber);
     final bestScore = progress?.bestScore ?? 0;
     final ribbon = config.isWorldFinale
         ? CandyPalette.purple
@@ -61,7 +67,16 @@ class LevelIntroScreen extends ConsumerWidget {
           ],
         ),
       ),
-      bottomBar: CandyButton(
+      bottomBar: locked || gated
+          ? CandyButton(
+              label: 'למפת השלבים',
+              icon: Icons.map_rounded,
+              palette: CandyPalette.white,
+              height: 58,
+              fontSize: 20,
+              onPressed: () => context.go('/campaign'),
+            )
+          : CandyButton(
         label: bestStars > 0 ? 'שחקו שוב!' : 'שחקו!',
         icon: Icons.play_arrow_rounded,
         palette: CandyPalette.green,
@@ -94,7 +109,11 @@ class LevelIntroScreen extends ConsumerWidget {
                     border: Border.all(color: ribbon.top.withValues(alpha: 0.7), width: 3),
                     boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 26, offset: Offset(0, 12))],
                   ),
-                  child: Column(
+                  child: gated
+                      ? ChapterGatePanel(chapter: CampaignChapters.chapterOf(levelNumber))
+                      : locked
+                      ? const _LockedLevel()
+                      : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const MascotWidget(mood: MascotMood.excited, size: 96),
@@ -308,7 +327,7 @@ class _LevelKindBadge extends StatelessWidget {
           Icon(isFinale ? Icons.emoji_events_rounded : Icons.bolt_rounded, color: Colors.white, size: 16),
           const SizedBox(width: 6),
           Text(
-            isFinale ? 'שלב פינאלה - גלגל מזל בסיום!' : 'שלב מאסטר - מטבעות כפולות!',
+            isFinale ? 'שלב פינאלה - גלגל מזל בסיום!' : 'שלב מאסטר - בונוס מטבעות!',
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
           ),
         ],
@@ -337,6 +356,29 @@ class _StarGoal extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF4A3F6B)),
+        ),
+      ],
+    );
+  }
+}
+
+/// שלב שעוד לא נפתח במסלול (הגעה בקישור ישיר).
+class _LockedLevel extends StatelessWidget {
+  const _LockedLevel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        MascotWidget(mood: MascotMood.idle, size: 96),
+        SizedBox(height: 10),
+        Icon(Icons.lock_rounded, color: Color(0xFF7B3FF2), size: 36),
+        SizedBox(height: 8),
+        Text(
+          'השלב הזה עוד נעול. סיימו את השלבים שלפניו כדי להגיע אליו.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.textDark),
         ),
       ],
     );

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- אייקון התראה (שורת הסטטוס): צללית לבנה של זכוכית מגדלת עם כוכב - "מצא ת׳מילה". -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10,2a8,8 0,1 0,4.9 14.3l5.4,5.4a1.2,1.2 0,0 0,1.7 -1.7l-5.4,-5.4A8,8 0,0 0,10 2zM10,4.4a5.6,5.6 0,1 1,0 11.2a5.6,5.6 0,0 1,0 -11.2z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10,6.2l1.1,2.3l2.5,0.4l-1.8,1.8l0.4,2.5L10,12l-2.2,1.2l0.4,-2.5L6.4,8.9l2.5,-0.4z" />
+</vector>

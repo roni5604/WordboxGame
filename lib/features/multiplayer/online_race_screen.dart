@@ -217,7 +217,7 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     switch (result.status) {
       case WordSubmitStatus.accepted:
         ref.read(soundServiceProvider).playSuccess();
-        _showBanner('${result.displayWord}  +${result.pointsAwarded}');
+        _showBanner(result.bannerText);
         if (_myUid != null) {
           final prev = _gains[_myUid!];
           _gains[_myUid!] = ((prev?.$1 ?? 0) + 1, result.pointsAwarded);

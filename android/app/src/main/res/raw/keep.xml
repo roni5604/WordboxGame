@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- אייקון ההתראה מוזכר רק בשם מתוך Dart, אז מסמנים אותו כדי ש-R8 לא ימחק אותו בבילד release. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_notify" />

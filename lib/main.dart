@@ -10,6 +10,8 @@ import 'app.dart';
 import 'core/ads/ads_runtime.dart';
 import 'core/analytics/analytics_service.dart';
 import 'core/config/app_config.dart';
+import 'core/notifications/notification_service.dart';
+import 'core/router/app_router.dart';
 import 'core/ui/game_backdrop.dart';
 import 'data/services/firebase_bootstrap.dart';
 
@@ -37,6 +39,9 @@ Future<void> main() async {
       debugPrint('Firebase bootstrap skipped: $e');
     }
   }
+
+  // התראות: לחיצה על התראה פותחת את המסך שלה (בונוס יומי, אתגר, מפה...).
+  unawaited(NotificationService.instance.init(onOpenRoute: (route) => appRouter.go(route)));
 
   // Analytics (GA4): no-op when Firebase is off or failed to initialize.
   // Must run before the ads/UMP flow below so the consent result reaches it.

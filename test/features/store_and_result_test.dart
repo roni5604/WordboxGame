@@ -124,10 +124,10 @@ void main() {
     expect(find.text('נסו שוב'), findsOneWidget);
     expect(find.text('צריך לפחות כוכב אחד כדי לעבור שלב'), findsOneWidget);
     expect(find.text('יעד נקודות'), findsOneWidget);
-    expect(find.text('9'), findsOneWidget);
+    expect(find.text('10'), findsOneWidget);
     expect(find.text('דלגו על השלב'), findsOneWidget);
     // בלי כוכב אין "השלב הבא" בכלל - הפעולה הראשית היא לנסות שוב.
     expect(find.text('השלב הבא'), findsNothing);
-    expect(CampaignLevels.byLevelNumber(1).scoreRequired, 9);
+    expect(CampaignLevels.byLevelNumber(1).scoreRequired, 10);
   });
 }

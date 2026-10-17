@@ -26,6 +26,10 @@ class LetterTile extends StatelessWidget {
   /// צבע אריח מסקין הלוח. סקין האותיות יכול לדרוס אותו דרך [LetterSkin.tileOverride].
   final Color? boardTileColor;
 
+  /// אות קשה (ראו HardLetters ב-lib/game_engine/scoring.dart): אריח סגול
+  /// בולט עם תג "+1" זהוב, בכל סקין, כדי שיהיה ברור שהיא שווה יותר.
+  final bool hard;
+
   const LetterTile({
     super.key,
     required this.letter,
@@ -34,7 +38,11 @@ class LetterTile extends StatelessWidget {
     this.paletteIndex = 0,
     this.letterSkin,
     this.boardTileColor,
+    this.hard = false,
   });
+
+  /// צבעי האריח של אות קשה - סגול "אבן חן", שבולט על כל סקין לוח.
+  static const List<Color> hardGradient = [Color(0xFFB868FF), Color(0xFF6A1FD1)];
 
   Color get _bgColor {
     switch (state) {
@@ -64,13 +72,20 @@ class LetterTile extends StatelessWidget {
     final isIdle = state == TileVisualState.idle;
     final rounded = letterSkin?.shape == LetterTileShape.roundedSquare;
 
-    final tile = AnimatedContainer(
+    final rawTile = AnimatedContainer(
       duration: const Duration(milliseconds: 140),
       curve: Curves.easeOut,
       width: size,
       height: size,
       decoration: BoxDecoration(
         color: _bgColor,
+        gradient: hard && isIdle
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: hardGradient,
+              )
+            : null,
         shape: rounded ? BoxShape.rectangle : BoxShape.circle,
         borderRadius: rounded ? BorderRadius.circular(size * 0.22) : null,
         boxShadow: isIdle
@@ -91,11 +106,18 @@ class LetterTile extends StatelessWidget {
         border:
             state == TileVisualState.selected || state == TileVisualState.hint
             ? Border.all(color: Colors.white, width: 3)
+            : hard
+            ? Border.all(color: const Color(0xFFFFE27A), width: 2)
             : Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1),
       ),
       alignment: Alignment.center,
       child: _useStyledIdleLetter
-          ? _StyledIdleLetter(letter: letter, fontSize: fontSize, skin: letterSkin)
+          ? _StyledIdleLetter(
+              letter: letter,
+              fontSize: fontSize,
+              skin: letterSkin,
+              hard: hard,
+            )
           : Text(
               letter,
               style: TextStyle(
@@ -105,6 +127,8 @@ class LetterTile extends StatelessWidget {
               ),
             ),
     );
+
+    final Widget tile = hard ? _withHardBadge(rawTile) : rawTile;
 
     if (state == TileVisualState.selected) {
       // סקאלה מתונה יותר (הייתה 1.12) - כך שאריח נבחר לא "בולע" משמעותית
@@ -128,6 +152,47 @@ class LetterTile extends StatelessWidget {
     }
     return tile;
   }
+
+  Widget _withHardBadge(Widget tile) {
+    final badge = size * 0.36;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        tile,
+        Positioned(
+          top: -badge * 0.18,
+          right: -badge * 0.18,
+          child: IgnorePointer(
+            child: Container(
+              width: badge,
+              height: badge,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFFFE27A), Color(0xFFFFB300)],
+                ),
+                border: Border.all(color: Colors.white, width: 1.5),
+                boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 3, offset: Offset(0, 1))],
+              ),
+              child: Text(
+                '+1',
+                textDirection: TextDirection.ltr,
+                style: TextStyle(
+                  fontSize: badge * 0.46,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF5A3300),
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 /// אות במצב idle לפי סקין. ברירת המחדל היא האות האדומה עם מתאר לבן.
@@ -135,14 +200,16 @@ class _StyledIdleLetter extends StatelessWidget {
   final String letter;
   final double fontSize;
   final LetterSkin? skin;
+  final bool hard;
 
-  const _StyledIdleLetter({required this.letter, required this.fontSize, this.skin});
+  const _StyledIdleLetter({required this.letter, required this.fontSize, this.skin, this.hard = false});
 
   @override
   Widget build(BuildContext context) {
-    final outlined = skin?.outlined ?? true;
-    final letterColor = skin?.letterColor ?? AppColors.tileLetterRed;
-    final outlineColor = skin?.outlineColor ?? Colors.white;
+    // אות קשה: לבנה עם מתאר סגול כהה על האריח הסגול, בלי קשר לסקין.
+    final outlined = hard || (skin?.outlined ?? true);
+    final letterColor = hard ? Colors.white : skin?.letterColor ?? AppColors.tileLetterRed;
+    final outlineColor = hard ? const Color(0xFF3B0A85) : skin?.outlineColor ?? Colors.white;
     final weight = skin?.fontWeight ?? FontWeight.w900;
     final baseStyle = TextStyle(
       fontSize: fontSize,

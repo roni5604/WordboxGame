@@ -12,13 +12,13 @@ class AdsPolicy {
   /// מרווח מינימלי בין שתי מודעות מסך-מלא (Rewarded או Interstitial).
   static const Duration interstitialMinGap = Duration(seconds: 120);
 
-  /// רמזים מצפייה במהלך שלב, ביום קלנדרי אחד.
-  static const int maxAdHintsPerDay = 3;
+  /// רמזים מצפייה במהלך שלב, ביום קלנדרי אחד (היה 3).
+  static const int maxAdHintsPerDay = 2;
 
   /// צפיות מתנה בחנות (רמז או מטבעות), ביום קלנדרי אחד.
   static const int maxStoreRewardsPerDay = 2;
 
-  /// מטבעות למתנת חנות. פחות ממחיר רמז בודד (40) כדי שהחנות תישאר רלוונטית.
+  /// מטבעות למתנת חנות. פחות ממחיר רמז בודד (60) כדי שהחנות תישאר רלוונטית.
   static const int storeCoinGift = 25;
 
   static bool shouldShowInterstitial({

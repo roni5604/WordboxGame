@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/notifications/notification_service.dart';
 import '../../core/ui/game_dialog.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
@@ -135,9 +136,23 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
     });
   }
 
+  /// האפליקציה (או לשונית האתר) לא מול העיניים - אז חלון בתוך המשחק לא
+  /// יראה אף אחד, ושולחים התראה של המערכת במקום.
+  bool get _inBackground => !_foreground || NotificationService.instance.webTabHidden;
+
   void _onInvites(List<GameInvite> invites) {
     for (final invite in invites) {
-      if (_seenInvites.add(invite.id)) _pendingInvites.add(invite);
+      if (_seenInvites.add(invite.id)) {
+        _pendingInvites.add(invite);
+        if (_inBackground && invite.isActive()) {
+          NotificationService.instance.showSocial(
+            id: 2000 + invite.id.hashCode % 1000,
+            title: '🎮 ${invite.fromName} מזמין/ה אתכם למשחק',
+            body: 'לוח ${invite.gridSize}×${invite.gridSize} · ההזמנה בתוקף לדקה. היכנסו עכשיו!',
+            route: '/home',
+          );
+        }
+      }
     }
     _drainInvites();
   }
@@ -168,7 +183,17 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
 
   void _onRequests(List<FriendRequest> requests) {
     final ids = requests.map((r) => r.id).toSet();
-    if (_requestsPrimed && !isGameplayLocation(_location)) {
+    if (_requestsPrimed && _inBackground) {
+      final fresh = requests.where((r) => !_knownRequestIds.contains(r.id)).toList();
+      if (fresh.isNotEmpty) {
+        NotificationService.instance.showSocial(
+          id: 3000,
+          title: '💌 בקשת חברות חדשה',
+          body: fresh.length == 1 ? '${fresh.first.fromName} רוצה להיות חבר/ה שלכם' : 'יש ${fresh.length} בקשות חברות חדשות',
+          route: '/friends?tab=1',
+        );
+      }
+    } else if (_requestsPrimed && !isGameplayLocation(_location)) {
       final fresh = requests.where((r) => !_knownRequestIds.contains(r.id)).toList();
       final context = widget.navigatorKey.currentContext;
       if (fresh.isNotEmpty && context != null) {

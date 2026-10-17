@@ -217,7 +217,7 @@ class _DailyChallengeGameScreenState extends ConsumerState<DailyChallengeGameScr
     switch (result.status) {
       case WordSubmitStatus.accepted:
         ref.read(soundServiceProvider).playSuccess();
-        _showBanner('${result.displayWord}  +${result.pointsAwarded}');
+        _showBanner(result.bannerText);
       case WordSubmitStatus.duplicate:
         ref.read(soundServiceProvider).playError();
         _showBanner('כבר מצאת את "${result.displayWord}"', isError: true);

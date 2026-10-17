@@ -13,7 +13,16 @@ class WordSubmitResult {
   final String? displayWord;
   final int pointsAwarded;
 
-  const WordSubmitResult(this.status, {this.displayWord, this.pointsAwarded = 0});
+  /// כמה מתוך [pointsAwarded] הגיעו מאותיות קשות (ראו [HardLetters]).
+  final int hardLetterBonus;
+
+  const WordSubmitResult(this.status, {this.displayWord, this.pointsAwarded = 0, this.hardLetterBonus = 0});
+
+  /// הטקסט של הודעת "מילה נמצאה": המילה והנקודות, ואם היה בונוס - גם 💎.
+  String get bannerText {
+    final base = '$displayWord  +$pointsAwarded';
+    return hardLetterBonus > 0 ? '$base 💎' : base;
+  }
 
   bool get isSuccess => status == WordSubmitStatus.accepted;
 }
@@ -83,13 +92,14 @@ class GameSession {
     }
 
     _foundNormalizedWords.add(word);
-    final points = scoreForWordLength(word.length);
+    final points = scoreForWord(word);
     _score += points;
 
     return WordSubmitResult(
       WordSubmitStatus.accepted,
       displayWord: HebrewTrie.toDisplayWord(word),
       pointsAwarded: points,
+      hardLetterBonus: HardLetters.bonusFor(word),
     );
   }
 

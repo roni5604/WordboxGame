@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/analytics/analytics_service.dart';
+import 'core/notifications/notification_service.dart';
 import 'core/platform/web_safe_area.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -23,10 +24,16 @@ class WordboxApp extends ConsumerStatefulWidget {
   ConsumerState<WordboxApp> createState() => _WordboxAppState();
 }
 
-class _WordboxAppState extends ConsumerState<WordboxApp> {
+class _WordboxAppState extends ConsumerState<WordboxApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // תזכורות מקומיות: מתוזמנות מחדש פעם אחת כשהפרופיל נטען (מבטל תזכורת
+    // ישנה שכבר לא רלוונטית), ושוב בכל יציאה לרקע - ראו didChangeAppLifecycleState.
+    ref.listenManual(playerProfileProvider, (previous, next) {
+      if (previous?.valueOrNull == null && next.valueOrNull != null) _rescheduleReminders();
+    }, fireImmediately: true);
     // כל לחיצה על כפתור באפליקציה משמיעה את אותו "טאפ" עדין.
     PressFeedback.onPress = () => ref.read(soundServiceProvider).playButtonTap();
     // הגדרת "רטט" בפרופיל קובעת את כל הרטט באפליקציה (גם באתר).
@@ -46,6 +53,24 @@ class _WordboxAppState extends ConsumerState<WordboxApp> {
       final profile = next.valueOrNull;
       if (profile != null) analytics.setProgress(highestUnlockedLevel: profile.highestUnlockedLevel);
     }, fireImmediately: true);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) _rescheduleReminders();
+  }
+
+  void _rescheduleReminders() {
+    final profile = ref.read(playerProfileProvider).valueOrNull;
+    if (profile == null) return;
+    final user = ref.read(authStateProvider).valueOrNull;
+    NotificationService.instance.reschedule(profile, isGuest: user == null || user.isAnonymous);
   }
 
   @override

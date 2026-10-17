@@ -45,11 +45,11 @@ class LocalProgressRepository implements ProgressRepository {
     };
 
     // מתנת פתיחה חד-פעמית: כל שחקן חדש (שעדיין לא אותחל אצלו מנגנון
-    // הרמזים) מקבל 5 רמזי מתנה בפעם הראשונה שהפרופיל שלו נטען.
+    // הרמזים) מקבל רמזי מתנה בפעם הראשונה שהפרופיל שלו נטען.
     final hintsInitialized = box.get('hints_initialized', defaultValue: false) as bool;
     int hints = box.get('hints', defaultValue: 0) as int;
     if (!hintsInitialized) {
-      hints = 5;
+      hints = PlayerProfile.starterHints;
       await box.putAll({'hints_initialized': true, 'hints': hints});
     }
 
@@ -82,6 +82,7 @@ class LocalProgressRepository implements ProgressRepository {
       dailyChallengeBestStreak: box.get('daily_challenge_best_streak', defaultValue: 0) as int,
       dailyChallengeStartedDate: box.get('daily_challenge_started_date') as String?,
       dropsSinceEpic: box.get('drops_since_epic', defaultValue: 0) as int,
+      unlockedChapters: _intList(box, 'unlocked_chapters'),
     );
   }
 
@@ -130,6 +131,7 @@ class LocalProgressRepository implements ProgressRepository {
       'daily_challenge_best_streak': profile.dailyChallengeBestStreak,
       'daily_challenge_started_date': profile.dailyChallengeStartedDate,
       'drops_since_epic': profile.dropsSinceEpic,
+      'unlocked_chapters': profile.unlockedChapters,
     });
   }
 }
@@ -140,4 +142,10 @@ List<String> _stringList(Box box, String key) {
     return raw.map((e) => e.toString()).toList();
   }
   return const ['classic'];
+}
+
+List<int> _intList(Box box, String key) {
+  final raw = box.get(key);
+  if (raw is! List) return const [];
+  return [for (final e in raw) if (e is num) e.toInt()];
 }
