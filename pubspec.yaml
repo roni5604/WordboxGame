@@ -37,6 +37,9 @@ dependencies:
   # Analytics (GA4/BigQuery) - see lib/core/analytics/ and docs/ANALYTICS_EVENTS.md.
   # 11.6.0 is the last line compatible with firebase_core 3.x (12.x needs core 4.x).
   firebase_analytics: ^11.6.0
+  # דיווח קריסות (iOS/Android בלבד) - ראו lib/core/analytics/crash_reporting.dart.
+  # 4.3.x היא השורה התואמת ל-firebase_core 3.x.
+  firebase_crashlytics: ^4.3.0
 
   # Utilities
   collection: ^1.19.1
@@ -44,6 +47,8 @@ dependencies:
   google_sign_in: ^7.2.0
   sign_in_with_apple: ^7.0.1
   crypto: ^3.0.7
+  # גרסת האפליקציה מ-pubspec בזמן ריצה (Analytics/Crashlytics).
+  package_info_plus: ^9.0.1
   audioplayers: ^6.7.1
   in_app_purchase: ^3.2.3
   # שיתוף הישגים (פייסבוק/וואטסאפ/מערכת) והזמנות לחברים.

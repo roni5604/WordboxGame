@@ -4,10 +4,12 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../data/models/auth_user.dart';
 import '../../data/services/firebase_bootstrap.dart';
 import '../../game_engine/models/level_config.dart';
+import 'crash_reporting.dart';
 import 'analytics_web_loader_stub.dart'
     if (dart.library.js_interop) 'analytics_web_loader_web.dart'
     as web_loader;
@@ -36,9 +38,21 @@ class AnalyticsService {
   static final AnalyticsService instance = AnalyticsService._();
 
   /// App version sent with every custom event and as a user property.
-  /// Keep in sync with `version:` in pubspec.yaml, or override in CI with
-  /// `--dart-define=APP_VERSION=x.y.z+n`.
-  static const String gameVersion = String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0+1');
+  /// Read at runtime from the build (`version:` in pubspec.yaml) during
+  /// [init]; `--dart-define=APP_VERSION=x.y.z+n` overrides it.
+  static String get gameVersion => _gameVersion;
+  static const String _versionOverride = String.fromEnvironment('APP_VERSION');
+  static String _gameVersion = _versionOverride.isNotEmpty ? _versionOverride : 'unknown';
+
+  static Future<void> _resolveVersion() async {
+    if (_versionOverride.isNotEmpty) return;
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _gameVersion = info.buildNumber.isEmpty ? info.version : '${info.version}+${info.buildNumber}';
+    } catch (e) {
+      if (kDebugMode) debugPrint('[analytics] app version unavailable: $e');
+    }
+  }
 
   /// The app UI is Hebrew only (see app.dart).
   static const String appLanguage = 'he';
@@ -70,12 +84,10 @@ class AnalyticsService {
     if (_ready != null) return _ready!;
     _persistAttempts = true;
     final ready = _ready = _initialize();
-    _userProperties
-      ..['game_version'] = gameVersion
-      ..['app_language'] = appLanguage;
+    _userProperties['app_language'] = appLanguage;
     // Replays identity captured before init (listeners may fire early).
-    final properties = Map<String, String?>.of(_userProperties);
     unawaited(_guard('initial identity', (fa) async {
+      final properties = Map<String, String?>.of(_userProperties);
       for (final entry in properties.entries) {
         await fa.setUserProperty(name: entry.key, value: entry.value);
       }
@@ -85,6 +97,8 @@ class AnalyticsService {
   }
 
   Future<bool> _initialize() async {
+    await _resolveVersion();
+    _userProperties['game_version'] = gameVersion;
     try {
       if (!isFirebaseBackendReady()) {
         debugPrint('[analytics] disabled: Firebase backend is not ready');
@@ -150,7 +164,9 @@ class AnalyticsService {
     try {
       final clean = sanitizeParams(params);
       if (kDebugMode) debugPrint('[analytics] $name $clean');
-      unawaited(_guard(name, (fa) => fa.logEvent(name: name, parameters: clean)));
+      // game_version is set again on delivery: events logged before [init]
+      // resolved the version are sent with the real one.
+      unawaited(_guard(name, (fa) => fa.logEvent(name: name, parameters: {...clean, 'game_version': gameVersion})));
     } catch (e) {
       if (kDebugMode) debugPrint('[analytics] $name failed: $e');
     }
@@ -183,6 +199,7 @@ class AnalyticsService {
   /// joined with Firestore data) and clears it on sign-out.
   void setAuthUser(AuthUser? user) {
     setUserId(user?.uid);
+    CrashReporting.setUserId(user?.uid);
     setUserProperty('auth_method', user?.provider.name);
   }
 
