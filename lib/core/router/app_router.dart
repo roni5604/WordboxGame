@@ -48,7 +48,8 @@ final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 /// חברים (רשימה, בקשות, דירוג): /friends.
 ///
 /// מסכי משחק משתמשים ב-[gamePage], מסכי תפריט ב-[appPage], וחנות/פרופיל/
-/// חברים ב-[popupPage] - באף אחד אין החלקה מהקצה אחורה. ראו transitions.dart.
+/// חברים ב-[popupPage]. החלקה ימינה חוזרת אחורה בכל מסך עם כפתור חזרה,
+/// חוץ ממהלך משחק. ראו transitions.dart.
 final appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: '/',
@@ -69,13 +70,14 @@ final appRouter = GoRouter(
     GoRoute(path: '/home', pageBuilder: (context, state) => gamePage(state, const HomeScreen())),
     GoRoute(
       path: '/campaign',
-      pageBuilder: (context, state) => gamePage(state, const CampaignMapScreen()),
+      pageBuilder: (context, state) => gamePage(state, const CampaignMapScreen(), swipeBack: true),
     ),
     GoRoute(
       path: '/level/:levelNumber/intro',
       pageBuilder: (context, state) => gamePage(
         state,
         LevelIntroScreen(levelNumber: int.parse(state.pathParameters['levelNumber']!)),
+        swipeBack: true,
       ),
     ),
     GoRoute(
@@ -185,6 +187,7 @@ final appRouter = GoRouter(
       pageBuilder: (context, state) => gamePage(
         state,
         DailyChallengeScreen(args: state.extra is DailyChallengeArgs ? state.extra as DailyChallengeArgs : null),
+        swipeBack: true,
       ),
     ),
     GoRoute(path: '/daily/play', pageBuilder: (context, state) => gamePage(state, const DailyChallengeGameScreen())),

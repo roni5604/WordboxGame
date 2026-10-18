@@ -165,9 +165,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               (_) => _maybeShowDailyReward(profile, isGuest),
             );
 
-            // גלילה + גובה מינימלי = תוכן ממורכז יפה במסכים גבוהים, אך
-            // לעולם לא "נחתך" מחוץ למסך במסכים קצרים/רחבים. הרקע ממשיך עד
-            // קצות המסך (מאחורי ה-notch ופס הבית), והתוכן באזור הבטוח.
+            // מסך עומד - בלי גלילה בכלל. גובה מינימלי = התוכן נפרש על כל
+            // המסך במסכים גבוהים; אם בכל זאת לא נכנס (מסך קצר מאוד), כל המסך
+            // מוקטן מעט (FittedBox) במקום להיחתך או להפוך לגליל. הרקע ממשיך
+            // עד קצות המסך (מאחורי ה-notch ופס הבית), והתוכן באזור הבטוח.
             return LayoutBuilder(
               builder: (context, constraints) {
                 final topInset = context.safeTop;
@@ -178,250 +179,255 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final usable = constraints.maxHeight - topInset - bottomInset;
                 final compact = usable < 720;
                 final tight = usable < 640;
-                return SingleChildScrollView(
+                final fillHeight = usable.clamp(0.0, double.infinity);
+                return Padding(
                   padding: EdgeInsets.only(top: topInset, bottom: bottomInset),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: (constraints.maxHeight - topInset - bottomInset).clamp(0, double.infinity),
-                    ),
-                    child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: SizedBox(
+                      width: constraints.maxWidth,
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 520),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                              child: Row(
-                                children: [
-                                  Flexible(
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      alignment: AlignmentDirectional.centerStart,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          _Pill(
-                                            icon: Icons.star_rounded,
-                                            iconColor: AppColors.star,
-                                            label: '${profile.totalStars}',
+                        constraints: BoxConstraints(minHeight: fillHeight),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: 520, minHeight: fillHeight),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                                  child: Row(
+                                    children: [
+                                      Flexible(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: AlignmentDirectional.centerStart,
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              _Pill(
+                                                icon: Icons.star_rounded,
+                                                iconColor: AppColors.star,
+                                                label: '${profile.totalStars}',
+                                              ),
+                                              const SizedBox(width: 8),
+                                              _Pill(
+                                                icon: Icons.paid_rounded,
+                                                iconColor: Colors.amberAccent,
+                                                label: '${profile.coins}',
+                                                onTap: () => context.push('/store?from=home_coins'),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              // רמזים שמורים לחשבונות אמיתיים בלבד.
+                                              if (isGuest)
+                                                _Pill(
+                                                  icon: Icons.lock_outline_rounded,
+                                                  iconColor: Colors.amberAccent,
+                                                  label: 'הרשמה לרמזים',
+                                                  onTap: () => context.push('/auth'),
+                                                )
+                                              else
+                                                _Pill(
+                                                  icon: Icons.lightbulb_rounded,
+                                                  iconColor: AppColors.star,
+                                                  label: '${profile.hints}',
+                                                  onTap: () => context.push('/store?from=home_hints'),
+                                                ),
+                                            ],
                                           ),
-                                          const SizedBox(width: 8),
-                                          _Pill(
-                                            icon: Icons.paid_rounded,
-                                            iconColor: Colors.amberAccent,
-                                            label: '${profile.coins}',
-                                            onTap: () => context.push('/store?from=home_coins'),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          // רמזים שמורים לחשבונות אמיתיים בלבד.
-                                          if (isGuest)
-                                            _Pill(
-                                              icon: Icons.lock_outline_rounded,
-                                              iconColor: Colors.amberAccent,
-                                              label: 'הרשמה לרמזים',
-                                              onTap: () => context.push('/auth'),
-                                            )
-                                          else
-                                            _Pill(
-                                              icon: Icons.lightbulb_rounded,
-                                              iconColor: AppColors.star,
-                                              label: '${profile.hints}',
-                                              onTap: () => context.push('/store?from=home_hints'),
-                                            ),
-                                        ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      CandyIconButton(
+                                        icon: Icons.settings_rounded,
+                                        size: 40,
+                                        tooltip: 'הגדרות',
+                                        onPressed: () => context.push('/settings'),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Pressable(
+                                        semanticLabel: 'פרופיל',
+                                        onTap: () => context.push('/profile'),
+                                        child: AvatarWidget(
+                                          avatarId: profile.avatarId,
+                                          size: 42,
+                                          photoUrl: authUser?.photoUrl,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                                  child: Align(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: Text(
+                                      'שלום, ${profile.displayName}! 👋',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  CandyIconButton(
-                                    icon: Icons.settings_rounded,
-                                    size: 40,
-                                    tooltip: 'הגדרות',
-                                    onPressed: () => context.push('/settings'),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Pressable(
-                                    semanticLabel: 'פרופיל',
-                                    onTap: () => context.push('/profile'),
-                                    child: AvatarWidget(
+                                ).animate().fadeIn(),
+                                const SizedBox(height: 4),
+                                AnimatedAvatar(
                                       avatarId: profile.avatarId,
-                                      size: 42,
+                                      size: tight ? 74 : (compact ? 88 : 118),
                                       photoUrl: authUser?.photoUrl,
+                                    )
+                                    .animate(onPlay: (c) => c.repeat(reverse: true))
+                                    .moveY(
+                                      begin: -6,
+                                      end: 6,
+                                      duration: 1600.ms,
+                                      curve: Curves.easeInOut,
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 18),
-                              child: Align(
-                                alignment: AlignmentDirectional.centerStart,
-                                child: Text(
-                                  'שלום, ${profile.displayName}! 👋',
-                                  style: const TextStyle(
+                                SizedBox(height: compact ? 4 : 8),
+                                AnimatedMiniGridDemo(
+                                  letters: const ['ל', 'ב', 'י', 'ז', 'ת', 'ק'],
+                                  columns: 3,
+                                  path: const [1, 2, 4],
+                                  tileSize: tight ? 40 : (compact ? 46 : 56),
+                                  spacing: compact ? 9 : 12,
+                                ).animate().fadeIn(delay: 150.ms),
+                                SizedBox(height: compact ? 4 : 8),
+                                Text(
+                                  'מצא ת׳מילה',
+                                  style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
+                                    fontSize: compact ? 34 : 40,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.1,
+                                    shadows: [
+                                      Shadow(
+                                        color: const Color(0xFFB4321F).withValues(alpha: 0.9),
+                                        offset: const Offset(0, 4),
+                                      ),
+                                      Shadow(
+                                        color: Colors.black.withValues(alpha: 0.25),
+                                        blurRadius: 14,
+                                      ),
+                                    ],
+                                  ),
+                                ).animate().fadeIn().scale(
+                                  begin: const Offset(0.85, 0.85),
+                                  curve: Curves.elasticOut,
+                                  duration: 900.ms,
+                                ),
+                                const Text(
+                                  'משחקו של רוני מיכאלי',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ),
-                            ).animate().fadeIn(),
-                            const SizedBox(height: 4),
-                            AnimatedAvatar(
-                                  avatarId: profile.avatarId,
-                                  size: tight ? 74 : (compact ? 88 : 118),
-                                  photoUrl: authUser?.photoUrl,
-                                )
-                                .animate(onPlay: (c) => c.repeat(reverse: true))
-                                .moveY(
-                                  begin: -6,
-                                  end: 6,
-                                  duration: 1600.ms,
-                                  curve: Curves.easeInOut,
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(20, compact ? 10 : 16, 20, 4),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CandyButton(
+                                            label: profile.highestUnlockedLevel > 1 ? 'המשך משחק' : 'שחקו!',
+                                            subtitle: profile.highestUnlockedLevel > 1
+                                                ? 'שלב ${profile.highestUnlockedLevel} מחכה לך'
+                                                : null,
+                                            icon: Icons.play_arrow_rounded,
+                                            palette: CandyPalette.green,
+                                            height: compact ? 66 : 74,
+                                            fontSize: compact ? 22 : 24,
+                                            onPressed: () => context.push('/campaign'),
+                                          )
+                                          .animate()
+                                          .fadeIn(delay: 100.ms)
+                                          .slideY(begin: 0.25, end: 0, curve: Curves.easeOutBack),
+                                      SizedBox(height: compact ? 10 : 14),
+                                      Row(
+                                            children: [
+                                              Expanded(
+                                                child: CandyTile(
+                                                  icon: Icons.smart_toy_rounded,
+                                                  label: 'שחק נגד המחשב',
+                                                  subtitle: 'תחרות מול יריבים ממוחשבים',
+                                                  palette: CandyPalette.blue,
+                                                  height: compact ? 112 : 128,
+                                                  onPressed: () => context.push('/multiplayer/setup'),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: CandyTile(
+                                                  icon: Icons.groups_rounded,
+                                                  label: 'שחק נגד חברים',
+                                                  subtitle: socialAvailable && onlineFriends > 0
+                                                      ? '$onlineFriends חברים מחוברים'
+                                                      : 'חדר פרטי בזמן אמת',
+                                                  palette: CandyPalette.purple,
+                                                  height: compact ? 112 : 128,
+                                                  badgeCount: incomingRequests,
+                                                  onPressed: () => context.push('/play/friends'),
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                          .animate()
+                                          .fadeIn(delay: 200.ms)
+                                          .slideY(begin: 0.25, end: 0, curve: Curves.easeOutBack),
+                                      SizedBox(height: compact ? 10 : 16),
+                                      Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                            children: [
+                                              _RoundAction(
+                                                icon: Icons.people_alt_rounded,
+                                                label: 'חברים',
+                                                palette: CandyPalette.pink,
+                                                badgeCount: incomingRequests,
+                                                onTap: () => context.push('/friends'),
+                                              ),
+                                              _RoundAction(
+                                                icon: Icons.storefront_rounded,
+                                                label: 'חנות',
+                                                palette: CandyPalette.gold,
+                                                onTap: () => context.push('/store?from=home'),
+                                              ),
+                                              Builder(
+                                                builder: (context) {
+                                                  final dailyPlayed = profile.playedDailyOn(
+                                                    DailyChallenge.dateKeyFor(DateTime.now()),
+                                                  );
+                                                  final action = _RoundAction(
+                                                    icon: Icons.calendar_today_rounded,
+                                                    label: 'אתגר יומי',
+                                                    palette: CandyPalette.orange,
+                                                    badgeCount: dailyPlayed ? null : 1,
+                                                    onTap: () => context.push('/daily'),
+                                                  );
+                                                  if (dailyPlayed) return action;
+                                                  // לא שוחק היום - פעימה עדינה שמזמינה לחזור.
+                                                  return action
+                                                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                                                      .scaleXY(begin: 1, end: 1.07, duration: 900.ms, curve: Curves.easeInOut);
+                                                },
+                                              ),
+                                              _RoundAction(
+                                                icon: Icons.menu_book_rounded,
+                                                label: 'חוקי המשחק',
+                                                palette: CandyPalette.white,
+                                                onTap: () => context.push('/rules'),
+                                              ),
+                                            ],
+                                          )
+                                          .animate()
+                                          .fadeIn(delay: 320.ms)
+                                          .slideY(begin: 0.25, end: 0, curve: Curves.easeOutBack),
+                                    ],
+                                  ),
                                 ),
-                            SizedBox(height: compact ? 4 : 8),
-                            AnimatedMiniGridDemo(
-                              letters: const ['ל', 'ב', 'י', 'ז', 'ת', 'ק'],
-                              columns: 3,
-                              path: const [1, 2, 4],
-                              tileSize: tight ? 40 : (compact ? 46 : 56),
-                              spacing: compact ? 9 : 12,
-                            ).animate().fadeIn(delay: 150.ms),
-                            SizedBox(height: compact ? 4 : 8),
-                            Text(
-                              'מצא ת׳מילה',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: compact ? 34 : 40,
-                                fontWeight: FontWeight.w900,
-                                height: 1.1,
-                                shadows: [
-                                  Shadow(
-                                    color: const Color(0xFFB4321F).withValues(alpha: 0.9),
-                                    offset: const Offset(0, 4),
-                                  ),
-                                  Shadow(
-                                    color: Colors.black.withValues(alpha: 0.25),
-                                    blurRadius: 14,
-                                  ),
-                                ],
-                              ),
-                            ).animate().fadeIn().scale(
-                              begin: const Offset(0.85, 0.85),
-                              curve: Curves.elasticOut,
-                              duration: 900.ms,
+                              ],
                             ),
-                            const Text(
-                              'משחקו של רוני מיכאלי',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.fromLTRB(20, compact ? 10 : 16, 20, 4),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CandyButton(
-                                        label: profile.highestUnlockedLevel > 1 ? 'המשך משחק' : 'שחקו!',
-                                        subtitle: profile.highestUnlockedLevel > 1
-                                            ? 'שלב ${profile.highestUnlockedLevel} מחכה לך'
-                                            : null,
-                                        icon: Icons.play_arrow_rounded,
-                                        palette: CandyPalette.green,
-                                        height: compact ? 66 : 74,
-                                        fontSize: compact ? 22 : 24,
-                                        onPressed: () => context.push('/campaign'),
-                                      )
-                                      .animate()
-                                      .fadeIn(delay: 100.ms)
-                                      .slideY(begin: 0.25, end: 0, curve: Curves.easeOutBack),
-                                  SizedBox(height: compact ? 10 : 14),
-                                  Row(
-                                        children: [
-                                          Expanded(
-                                            child: CandyTile(
-                                              icon: Icons.smart_toy_rounded,
-                                              label: 'שחק נגד המחשב',
-                                              subtitle: 'תחרות מול יריבים ממוחשבים',
-                                              palette: CandyPalette.blue,
-                                              height: compact ? 112 : 128,
-                                              onPressed: () => context.push('/multiplayer/setup'),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: CandyTile(
-                                              icon: Icons.groups_rounded,
-                                              label: 'שחק נגד חברים',
-                                              subtitle: socialAvailable && onlineFriends > 0
-                                                  ? '$onlineFriends חברים מחוברים'
-                                                  : 'חדר פרטי בזמן אמת',
-                                              palette: CandyPalette.purple,
-                                              height: compact ? 112 : 128,
-                                              badgeCount: incomingRequests,
-                                              onPressed: () => context.push('/play/friends'),
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                      .animate()
-                                      .fadeIn(delay: 200.ms)
-                                      .slideY(begin: 0.25, end: 0, curve: Curves.easeOutBack),
-                                  SizedBox(height: compact ? 10 : 16),
-                                  Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                        children: [
-                                          _RoundAction(
-                                            icon: Icons.people_alt_rounded,
-                                            label: 'חברים',
-                                            palette: CandyPalette.pink,
-                                            badgeCount: incomingRequests,
-                                            onTap: () => context.push('/friends'),
-                                          ),
-                                          _RoundAction(
-                                            icon: Icons.storefront_rounded,
-                                            label: 'חנות',
-                                            palette: CandyPalette.gold,
-                                            onTap: () => context.push('/store?from=home'),
-                                          ),
-                                          Builder(
-                                            builder: (context) {
-                                              final dailyPlayed = profile.playedDailyOn(
-                                                DailyChallenge.dateKeyFor(DateTime.now()),
-                                              );
-                                              final action = _RoundAction(
-                                                icon: Icons.calendar_today_rounded,
-                                                label: 'אתגר יומי',
-                                                palette: CandyPalette.orange,
-                                                badgeCount: dailyPlayed ? null : 1,
-                                                onTap: () => context.push('/daily'),
-                                              );
-                                              if (dailyPlayed) return action;
-                                              // לא שוחק היום - פעימה עדינה שמזמינה לחזור.
-                                              return action
-                                                  .animate(onPlay: (c) => c.repeat(reverse: true))
-                                                  .scaleXY(begin: 1, end: 1.07, duration: 900.ms, curve: Curves.easeInOut);
-                                            },
-                                          ),
-                                          _RoundAction(
-                                            icon: Icons.menu_book_rounded,
-                                            label: 'חוקי המשחק',
-                                            palette: CandyPalette.white,
-                                            onTap: () => context.push('/rules'),
-                                          ),
-                                        ],
-                                      )
-                                      .animate()
-                                      .fadeIn(delay: 320.ms)
-                                      .slideY(begin: 0.25, end: 0, curve: Curves.easeOutBack),
-                                ],
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
