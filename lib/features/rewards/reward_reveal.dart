@@ -544,7 +544,7 @@ class _RewardRevealState extends ConsumerState<RewardReveal> with TickerProvider
         _RewardItem(icon: Icons.bolt_rounded, color: const Color(0xFFB04DFF), value: c.doubleCoinsLevels, label: 'שלבים x2', prefix: ''),
     ];
     return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
+      physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,

@@ -22,7 +22,7 @@ class RulesScreen extends StatelessWidget {
         onBack: () => context.canPop() ? context.pop() : context.go('/home'),
       ),
       body: ListView(
-        physics: const BouncingScrollPhysics(),
+        physics: const ClampingScrollPhysics(),
         padding: EdgeInsets.fromLTRB(16, 0, 16, context.safeBottom(min: 24, extra: 24)),
         children: [
           Center(

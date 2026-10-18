@@ -458,7 +458,7 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
                 final compact = constraints.maxHeight < 680;
                 final s = constraints.maxHeight < 540 ? 0.58 : (compact ? 0.72 : 1.0);
                 return SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
+                  physics: const ClampingScrollPhysics(),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: constraints.maxHeight),
                     child: Padding(

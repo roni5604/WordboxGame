@@ -151,7 +151,7 @@ class _DailyChallengeScreenState extends ConsumerState<DailyChallengeScreen> {
             ),
           ),
           ListView(
-            physics: const BouncingScrollPhysics(),
+            physics: const ClampingScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
             children: [
               _StreakBanner(streak: streak, best: profile?.dailyChallengeBestStreak ?? 0, playedToday: played),

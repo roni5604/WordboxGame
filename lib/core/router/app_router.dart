@@ -47,8 +47,8 @@ final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 /// /multiplayer/online/race/:roomCode -> /multiplayer/online/room/:roomCode/result.
 /// חברים (רשימה, בקשות, דירוג): /friends.
 ///
-/// מסכי משחק משתמשים ב-[gamePage] (בלי החלקה אחורה), מסכי תפריט ב-[appPage]
-/// (החלקה אחורה טבעית), וחנות/פרופיל/חברים ב-[popupPage]. ראו transitions.dart.
+/// מסכי משחק משתמשים ב-[gamePage], מסכי תפריט ב-[appPage], וחנות/פרופיל/
+/// חברים ב-[popupPage] - באף אחד אין החלקה מהקצה אחורה. ראו transitions.dart.
 final appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: '/',

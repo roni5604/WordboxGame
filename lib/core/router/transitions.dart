@@ -31,21 +31,17 @@ Widget? _browserNavShortcut(Animation<double> animation, Animation<double> secon
   return null;
 }
 
-/// סוגי המעברים בין מסכים באפליקציה:
+/// סוגי המעברים בין מסכים באפליקציה. באף אחד מהם **אין** החלקה מהקצה
+/// אחורה - חוזרים רק בכפתור החזרה שבמסך (ובאנדרואיד בכפתור אחורה של
+/// המערכת), כדי שתנועת אצבע לא תגרור מסך הצידה בטעות:
 ///
-/// * [appPage] - מסכי תפריט/הגדרות "רגילים": מעבר ההחלקה הסטנדרטי של
-///   הפלטפורמה (באייפון כולל החלקה מהקצה אחורה, באנדרואיד fade-forward).
+/// * [appPage] - מסכי תפריט/הגדרות "רגילים": המסך החדש נכנס בהחלקה קצרה
+///   + דהייה, והקודם זז מעט לצד ונחלש.
 /// * [gamePage] - מסכי משחק, תוצאות ופתיחת שלב: "zoom" רך שמרגיש כמו כניסה
-///   לזירה. **אין** החלקה אחורה - כדי שתנועת אצבע תוך כדי משחק לא תוציא
-///   אותך מהשלב בטעות.
+///   לזירה.
 /// * [popupPage] - מסכים שמרגישים כמו חלון שנפתח מעל (חנות, פרופיל,
 ///   חברים): עולים מלמטה עם קפיץ קל.
 Page<void> appPage(GoRouterState state, Widget child) {
-  // בנייטיב: המעבר הטבעי של הפלטפורמה (באייפון כולל החלקה מהקצה).
-  if (!kIsWeb) return MaterialPage<void>(key: state.pageKey, name: state.uri.toString(), child: child);
-  // באתר: ההחלקה אחורה שייכת לדפדפן, אז בלי מחוות החלקה של Flutter שמתחרה
-  // בה - מעבר "ציר משותף" נקי: המסך החדש נכנס בהחלקה קצרה + דהייה, והקודם
-  // זז מעט לצד ונחלש.
   return CustomTransitionPage<void>(
     key: state.pageKey,
     name: state.uri.toString(),
@@ -125,11 +121,12 @@ Page<void> popupPage(GoRouterState state, Widget child) {
   );
 }
 
-/// מעברי ברירת המחדל לכל הפלטפורמות (ראו AppTheme).
+/// מעברי ברירת המחדל לכל הפלטפורמות (ראו AppTheme). גם באייפון בלי
+/// CupertinoPageTransitionsBuilder - הוא מוסיף החלקה מהקצה אחורה.
 const kPageTransitionsTheme = PageTransitionsTheme(
   builders: {
-    TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-    TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+    TargetPlatform.iOS: FadeForwardsPageTransitionsBuilder(),
+    TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
     TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
     TargetPlatform.fuchsia: FadeForwardsPageTransitionsBuilder(),
     TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),

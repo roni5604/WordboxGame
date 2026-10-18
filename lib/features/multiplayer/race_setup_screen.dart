@@ -137,7 +137,7 @@ class _RaceSetupScreenState extends ConsumerState<RaceSetupScreen> {
         onPressed: _start,
       ).animate().fadeIn(delay: 250.ms).slideY(begin: 0.4, end: 0, curve: Curves.easeOutBack),
       body: ListView(
-        physics: const BouncingScrollPhysics(),
+        physics: const ClampingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
         children: [
           const Center(child: MascotWidget(mood: MascotMood.excited, size: 84)),

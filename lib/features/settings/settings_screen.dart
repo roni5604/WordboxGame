@@ -198,7 +198,7 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ];
           return ListView(
-            physics: const BouncingScrollPhysics(),
+            physics: const ClampingScrollPhysics(),
             padding: EdgeInsets.fromLTRB(18, 4, 18, context.safeBottom(min: 20, extra: 20)),
             children: [
               for (int i = 0; i < sections.length; i++)
