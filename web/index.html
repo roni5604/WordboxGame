@@ -161,6 +161,21 @@
       ונשלח אירוע wb-back-blocked - המשחק פותח את תפריט ההשהיה.
     נרשם לפני ש-Flutter נטען, בשלב ה-capture, כדי לרוץ לפני המאזין שלו.
   -->
+  <!--
+    בלי היסטוריה של הדפדפן בתוך האפליקציה: כל מעבר מסך *מחליף* את הכתובת
+    (replaceState) במקום להוסיף רשומה חדשה (pushState). כך ל-Safari אין
+    לאן "לחזור" - החלקה מהקצה באייפון לא גוררת את המסך הצידה ולא חושפת את
+    המסך הקודם (או מסך אפור). חוזרים רק בכפתורי החזרה שבתוך המשחק.
+    הכתובת בשורת הכתובות עדיין מתעדכנת, כך שרענון/שיתוף קישור ממשיכים לעבוד.
+  -->
+  <script>
+    (function () {
+      var replace = history.replaceState;
+      history.pushState = function (state, title, url) {
+        return replace.call(history, state, title, url);
+      };
+    })();
+  </script>
   <script>
     (function () {
       window.__wbPop = 0;

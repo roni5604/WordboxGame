@@ -9,6 +9,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'app.dart';
 import 'core/ads/ads_runtime.dart';
 import 'core/analytics/analytics_service.dart';
+import 'core/analytics/crash_reporting.dart';
 import 'core/config/app_config.dart';
 import 'core/notifications/notification_service.dart';
 import 'core/router/app_router.dart';
@@ -39,6 +40,10 @@ Future<void> main() async {
       debugPrint('Firebase bootstrap skipped: $e');
     }
   }
+
+  // דיווח קריסות (iOS/Android, release בלבד). אחרי Firebase ולפני שאר האתחול,
+  // כדי שגם קריסות בזמן העלייה יירשמו.
+  await CrashReporting.init();
 
   // התראות: לחיצה על התראה פותחת את המסך שלה (בונוס יומי, אתגר, מפה...).
   unawaited(NotificationService.instance.init(onOpenRoute: (route) => appRouter.go(route)));

@@ -72,7 +72,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ];
           return ListView(
-            physics: const BouncingScrollPhysics(),
+            physics: const ClampingScrollPhysics(),
             padding: EdgeInsets.fromLTRB(18, 0, 18, context.safeBottom(min: 20, extra: 20)),
             children: [
               Center(

@@ -138,7 +138,7 @@ class _RaceResultScreenState extends ConsumerState<RaceResultScreen> {
               ),
             ),
             ListView(
-              physics: const BouncingScrollPhysics(),
+              physics: const ClampingScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               children: [
                 Text(

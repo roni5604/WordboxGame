@@ -9,6 +9,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'dart:convert';
 import 'dart:math';
 
+import '../../core/analytics/crash_reporting.dart';
 import '../../core/security/input_rules.dart';
 import '../models/auth_user.dart';
 import '../services/account_data_eraser.dart';
@@ -300,12 +301,19 @@ class FirebaseAuthRepository implements AuthRepository {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    // Firebase דורש התחברות "טרייה" (כ-5 דקות) כדי למחוק משתמש. בודקים
-    // מראש, כדי לא למחוק את הנתונים ואז להיכשל במחיקת החשבון עצמו.
-    final lastSignIn = user.metadata.lastSignInTime;
-    if (!user.isAnonymous &&
-        (lastSignIn == null || DateTime.now().difference(lastSignIn) > const Duration(minutes: 4))) {
-      throw const RecentLoginRequiredException();
+    final isApple = user.providerData.any((p) => p.providerId == 'apple.com');
+    if (isApple && !kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
+      // Apple דורשת לבטל את הטוקן של Sign in with Apple במחיקת חשבון. מבקשים
+      // אישור Apple טרי - הוא גם מחדש את ההתחברות שנדרשת למחיקה.
+      await _reauthenticateAndRevokeApple(user);
+    } else {
+      // Firebase דורש התחברות "טרייה" (כ-5 דקות) כדי למחוק משתמש. בודקים
+      // מראש, כדי לא למחוק את הנתונים ואז להיכשל במחיקת החשבון עצמו.
+      final lastSignIn = user.metadata.lastSignInTime;
+      if (!user.isAnonymous &&
+          (lastSignIn == null || DateTime.now().difference(lastSignIn) > const Duration(minutes: 4))) {
+        throw const RecentLoginRequiredException();
+      }
     }
 
     try {
@@ -327,6 +335,37 @@ class FirebaseAuthRepository implements AuthRepository {
       }
     }
     await signOut();
+  }
+
+  /// אישור Apple מחדש לפני מחיקה: מאמת מחדש מול Firebase עם ה-idToken בלבד
+  /// (קוד ההרשאה חד-פעמי, ושומרים אותו לביטול), ואז מבטל את הטוקן אצל Apple.
+  Future<void> _reauthenticateAndRevokeApple(fb.User user) async {
+    final rawNonce = _generateNonce();
+    final AuthorizationCredentialAppleID appleCredential;
+    try {
+      appleCredential = await SignInWithApple.getAppleIDCredential(scopes: const [], nonce: _sha256(rawNonce));
+    } on SignInWithAppleAuthorizationException catch (e) {
+      throw AuthException(
+        e.code == AuthorizationErrorCode.canceled ? 'המחיקה בוטלה.' : 'האימות מול Apple נכשל. נסו שוב.',
+      );
+    }
+
+    try {
+      await user.reauthenticateWithCredential(
+        fb.OAuthProvider('apple.com').credential(idToken: appleCredential.identityToken, rawNonce: rawNonce),
+      );
+    } catch (e) {
+      throw _friendlyError(e);
+    }
+
+    try {
+      await _auth.revokeTokenWithAuthorizationCode(appleCredential.authorizationCode);
+    } catch (e) {
+      // הביטול דורש הגדרת "Code flow" של Apple ב-Firebase. אם הוא נכשל לא
+      // חוסמים את המחיקה - מחיקת הנתונים חשובה יותר מהביטול.
+      debugPrint('Apple token revoke failed: $e');
+      CrashReporting.recordNonFatal(e, reason: 'apple_token_revoke');
+    }
   }
 
   String _generateNonce([int length = 32]) {

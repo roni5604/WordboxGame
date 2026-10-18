@@ -92,7 +92,7 @@ class LevelIntroScreen extends ConsumerWidget {
           .scaleXY(begin: 1, end: 1.035, duration: 800.ms, curve: Curves.easeInOut),
       body: Center(
         child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
+          physics: const ClampingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),

@@ -17,7 +17,12 @@ class CandyPalette {
   static const purple = CandyPalette(top: Color(0xFFB57BFF), bottom: Color(0xFF7B3FF2), lip: Color(0xFF4F1FB0));
   static const blue = CandyPalette(top: Color(0xFF6FD3FF), bottom: Color(0xFF2E8BFF), lip: Color(0xFF1A5BC4));
   static const pink = CandyPalette(top: Color(0xFFFF8FC0), bottom: Color(0xFFFF4F8B), lip: Color(0xFFC22A62));
-  static const gold = CandyPalette(top: Color(0xFFFFE27A), bottom: Color(0xFFFFB700), lip: Color(0xFFC77F00), text: Color(0xFF5A3300));
+  static const gold = CandyPalette(
+    top: Color(0xFFFFE27A),
+    bottom: Color(0xFFFFB700),
+    lip: Color(0xFFC77F00),
+    text: Color(0xFF5A3300),
+  );
   static const red = CandyPalette(top: Color(0xFFFF8A80), bottom: Color(0xFFF2463D), lip: Color(0xFFB0221B));
   static const white = CandyPalette(
     top: Color(0xFFFFFFFF),
@@ -82,11 +87,7 @@ class _CandyButtonState extends State<CandyButton> {
     final depth = _pressed ? lipHeight * 0.25 : lipHeight;
 
     final content = widget.loading
-        ? SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 3, color: p.text),
-          )
+        ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3, color: p.text))
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -203,19 +204,13 @@ class _CandyButtonState extends State<CandyButton> {
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.white.withValues(alpha: 0.55),
-                                Colors.white.withValues(alpha: 0.05),
-                              ],
+                              colors: [Colors.white.withValues(alpha: 0.55), Colors.white.withValues(alpha: 0.05)],
                             ),
                           ),
                         ),
                       ),
                       Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: content,
-                        ),
+                        child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: content),
                       ),
                     ],
                   ),
@@ -234,11 +229,7 @@ class _CandyButtonState extends State<CandyButton> {
       clipBehavior: Clip.none,
       children: [
         sized,
-        PositionedDirectional(
-          top: -6,
-          end: -4,
-          child: CountBadge(count: badge),
-        ),
+        PositionedDirectional(top: -6, end: -4, child: CountBadge(count: badge)),
       ],
     );
   }
@@ -436,50 +427,54 @@ class _CandyTileState extends State<CandyTile> {
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: compactTile ? 7 : 10),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: iconBox,
-                            height: iconBox,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withValues(alpha: 0.25),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 2),
-                            ),
-                            child: Icon(widget.icon, color: p.text, size: iconBox * 0.56),
-                          ),
-                          SizedBox(height: compactTile ? 5 : 8),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              widget.label,
-                              style: TextStyle(
-                                color: p.text,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 17,
-                                shadows: p.text == Colors.white
-                                    ? [Shadow(color: p.lip, offset: const Offset(0, 2))]
-                                    : null,
+                    // Positioned.fill: בלי זה ה-Column רחב רק כמו הטקסט ונצמד
+                    // לצד ההתחלה (ימין ב-RTL) - כותרת קצרה יוצאת לא ממורכזת.
+                    Positioned.fill(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: compactTile ? 7 : 10),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: iconBox,
+                              height: iconBox,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withValues(alpha: 0.25),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 2),
                               ),
+                              child: Icon(widget.icon, color: p.text, size: iconBox * 0.56),
                             ),
-                          ),
-                          if (widget.subtitle != null)
+                            SizedBox(height: compactTile ? 5 : 8),
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
-                                widget.subtitle!,
+                                widget.label,
                                 style: TextStyle(
-                                  color: p.text.withValues(alpha: 0.9),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
+                                  color: p.text,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 17,
+                                  shadows: p.text == Colors.white
+                                      ? [Shadow(color: p.lip, offset: const Offset(0, 2))]
+                                      : null,
                                 ),
                               ),
                             ),
-                          if (widget.footer != null) ...[const SizedBox(height: 4), widget.footer!],
-                        ],
+                            if (widget.subtitle != null)
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  widget.subtitle!,
+                                  style: TextStyle(
+                                    color: p.text.withValues(alpha: 0.9),
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            if (widget.footer != null) ...[const SizedBox(height: 4), widget.footer!],
+                          ],
+                        ),
                       ),
                     ),
                   ],

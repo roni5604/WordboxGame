@@ -27,6 +27,15 @@
 2. **Authentication → Sign-in method**: להפעיל Anonymous, Email/Password, Apple.
 3. **Apple**: ב-Apple Developer → Identifiers → `com.wordboxil.wordboxHebrew` → לסמן
    **Sign In with Apple**. (קובץ ה-entitlement כבר בפרויקט.)
+   - **ביטול טוקן במחיקת חשבון (Apple דורשת):** האפליקציה מבטלת את הטוקן של Apple
+     כשמשתמש/ת מוחק/ת חשבון, אבל זה עובד רק אחרי הגדרת "Code flow": Apple Developer →
+     Keys → מפתח חדש עם Sign in with Apple (להוריד את קובץ ה-`.p8`), ו-Identifiers →
+     **Services ID** (למשל `com.wordboxil.wordboxHebrew.signin`) עם Return URL
+     `https://wordbox-64b19.firebaseapp.com/__/auth/handler`. ואז ב-Firebase →
+     Authentication → Apple: Services ID, Apple Team ID, Key ID והמפתח הפרטי.
+     בלי זה המחיקה עדיין עובדת, רק הביטול מול Apple נכשל (נרשם ב-Crashlytics).
+   - **Apple באתר**: אחרי אותה הגדרה, לבנות את האתר עם `--dart-define=APPLE_LOGIN_WEB=true`
+     (ב-`.github/workflows/deploy-web.yml`). עד אז הכפתור מוסתר באתר.
 4. **Google (לא חובה)**: להפעיל את Google ב-Firebase, להוסיף ב-Project settings →
    Android app את טביעות **SHA-1 ו-SHA-256** של מפתח ההעלאה **וגם** של מפתח
    Play App Signing (Play Console → Setup → App signing), להוריד מחדש את
@@ -124,6 +133,8 @@
 ### iOS (על Mac)
 1. `cp ios/Flutter/AppSecrets.example.xcconfig ios/Flutter/AppSecrets.xcconfig` ולמלא.
 2. `open ios/Runner.xcworkspace` → Runner → Signing & Capabilities → לבחור Team.
+   - Crashlytics: להוסיף ב-Runner → Build Phases את סקריפט העלאת ה-dSYM
+     (`flutterfire configure` מוסיף אותו), כדי שקריסות native יופיעו עם שמות פונקציות.
 3. לבנות ולהעלות:
    ```bash
    flutter build ipa --release --dart-define-from-file=config/release.json
@@ -207,7 +218,9 @@
 - [x] התחברות עם Facebook הוסרה לגמרי. כפתור Google מוסתר באפליקציה עד שמגדירים אותו.
 - [x] פרסומות: AdMob (מתנה, מסך מלא, מובנית), UMP, ATT, SKAdNetwork, מכסות יומיות.
 - [x] רכישות: 6 חבילות, מחירים מקומיים, מניעת זיכוי כפול, רכישה ממתינה.
-- [x] אייקונים, צלילים, Analytics.
+- [x] אייקונים, צלילים, Analytics (גרסת האפליקציה נקראת אוטומטית מ-`pubspec.yaml`).
+- [x] Crashlytics: דיווח קריסות ב-iOS/Android (בבילד release בלבד).
+- [x] ביטול טוקן Apple במחיקת חשבון. תמונת שיתוף (`web/og-image.png`). עברית כשפת האפליקציה ב-iOS.
 - [x] CI: ניתוח, בדיקות, בילד אתר, בילד App Bundle ובדיקות לחוקי Firestore.
 - [x] אבטחה: חוקי Firestore מחוזקים (בדיקת שדות, טווחים, הרשאות ורשימות), בדיקת קודי
       חדר וקישורים, ניקוי שמות, תמונות רק מספקי ההתחברות, הודעות שגיאה כלליות,
@@ -237,7 +250,6 @@
 - [ ] **ניקוי אוטומטי** (Firestore TTL) לחדרים ולהזמנות ישנים.
 
 
-- [ ] Crashlytics לדיווח קריסות.
 - [ ] Native splash (`flutter_native_splash`).
 - [ ] אימות מילים/ניקוד בצד שרת (Cloud Functions) למשחק מול חברים.
 - [ ] בדיקת נגישות והגדלת טקסט.

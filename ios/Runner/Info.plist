@@ -6,6 +6,10 @@
 	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>he</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>מצא ת׳מילה</string>
 	<key>CFBundleExecutable</key>

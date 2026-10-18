@@ -10,8 +10,8 @@ All product analytics go through **one service**:
 * No-op when Firebase is disabled (`--dart-define=USE_FIREBASE=false`) or failed
   to initialize, and in unit/widget tests (`init()` is only called from `main.dart`).
 * Never throws; in debug builds every call is printed as `[analytics] <event> {params}`.
-* Every custom event carries `game_version`. Set it per build with
-  `--dart-define=APP_VERSION=<pubspec version>` (default `1.0.0+1`, keep in sync with `pubspec.yaml`).
+* Every custom event carries `game_version`, read at runtime from the build
+  (`version:` in `pubspec.yaml`, e.g. `1.1.0+2`). `--dart-define=APP_VERSION=x.y.z+n` overrides it.
 * Booleans are sent as `1` / `0`; strings are cut to 100 chars; max 25 params.
 * Privacy: no names, emails, free text, chat, or room codes. `user_id` = Firebase uid only.
 
