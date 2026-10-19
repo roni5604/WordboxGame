@@ -11,6 +11,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wordbox_hebrew/core/purchases/iap_controller.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wordbox_hebrew/game_engine/rewards/reward_tables.dart';
 import 'package:wordbox_hebrew/features/game/widgets/fortune_wheel_dialog.dart';
@@ -176,6 +177,19 @@ ThemeData _theme() {
 
 final _boundary = GlobalKey();
 
+class _FakeIap extends IapController {
+  _FakeIap(Ref ref) : super(ref, autoInit: false) {
+    state = const IapState(ready: true, available: true, prices: {
+      'wordbox_coins_200': '₪3.90',
+      'wordbox_coins_600': '₪7.90',
+      'wordbox_coins_1500': '₪14.90',
+      'wordbox_hints_5': '₪3.90',
+      'wordbox_hints_15': '₪7.90',
+      'wordbox_hints_40': '₪14.90',
+    });
+  }
+}
+
 Future<void> _shoot(
   WidgetTester tester,
   String name,
@@ -210,6 +224,7 @@ Future<void> _shoot(
         progressRepositoryProvider.overrideWithValue(progress ?? _Progress()),
         socialRepositoryProvider.overrideWithValue(social ?? _social()),
         soundServiceProvider.overrideWithValue(SoundService.silent()),
+        iapProvider.overrideWith((ref) => _FakeIap(ref)),
         if (multiplayer != null) multiplayerRepositoryProvider.overrideWithValue(multiplayer),
       ],
       child: RepaintBoundary(
