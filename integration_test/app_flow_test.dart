@@ -22,7 +22,7 @@ import 'package:wordbox_hebrew/providers/auth_provider.dart';
 import 'package:wordbox_hebrew/providers/dictionary_provider.dart';
 import 'package:wordbox_hebrew/providers/level_boards_provider.dart';
 
-final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+late final IntegrationTestWidgetsFlutterBinding binding;
 
 void result(String id, bool ok, [String detail = '']) {
   // ignore: avoid_print
@@ -119,6 +119,7 @@ Future<int> dismissRewards(WidgetTester t) async {
 }
 
 void main() {
+  binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets('מצא ת׳מילה - מסלולים עיקריים', (t) async {
     final errors = <String>[];
     final originalOnError = FlutterError.onError;
@@ -231,7 +232,15 @@ void main() {
       await wait(t, 2500);
       await shot(t, '13_store_money');
       const titles = ['200 מטבעות', '600 מטבעות', '1500 מטבעות', '5 רמזים', '15 רמזים', '40 רמזים'];
-      final shown = titles.where((s) => find.text(s).evaluate().isNotEmpty).length;
+      final seen = <String>{...titles.where((s) => find.text(s).evaluate().isNotEmpty)};
+      try {
+        await t.drag(find.text('200 מטבעות').first, const Offset(0, -500));
+        await wait(t, 800);
+        seen.addAll(titles.where((s) => find.text(s).evaluate().isNotEmpty));
+        await t.drag(find.text(seen.contains('40 רמזים') ? '40 רמזים' : '200 מטבעות').first, const Offset(0, 500));
+        await wait(t, 800);
+      } catch (_) {}
+      final shown = seen.length;
       var buyOk = true;
       try {
         await t.tap(find.text('200 מטבעות').first, warnIfMissed: false);
