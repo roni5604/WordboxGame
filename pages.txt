@@ -1,0 +1,8 @@
+PAGE|privacy|200|מדיניות פרטיות · מצא ת׳מילה|8156 bytes
+PAGE|terms|200|תנאי שימוש · מצא ת׳מילה|3974 bytes
+PAGE|delete-account|200|מחיקת חשבון · מצא ת׳מילה|3607 bytes
+      1 AdMob
+      1 Crashlytics
+      4 Firebase
+      2 firebase
+      2 roniro5604@gmail.com
