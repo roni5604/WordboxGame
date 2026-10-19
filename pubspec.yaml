@@ -88,6 +88,8 @@ flutter:
     - assets/mascot/
     - assets/avatar/
     - assets/audio/
+    # גופן Heebo בתוך האפליקציה - עובד גם בלי אינטרנט (רישיון: OFL.txt).
+    - assets/google_fonts/
 
 flutter_launcher_icons:
   android: true
