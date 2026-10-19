@@ -48,8 +48,8 @@ final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 /// חברים (רשימה, בקשות, דירוג): /friends.
 ///
 /// מסכי משחק משתמשים ב-[gamePage], מסכי תפריט ב-[appPage], וחנות/פרופיל/
-/// חברים ב-[popupPage]. החלקה ימינה חוזרת אחורה בכל מסך עם כפתור חזרה,
-/// חוץ ממהלך משחק. ראו transitions.dart.
+/// חברים ב-[popupPage]. החלקה ימינה או שמאלה חוזרת אחורה בכל מסך עם כפתור
+/// חזרה, חוץ ממהלך משחק. ראו transitions.dart.
 final appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: '/',

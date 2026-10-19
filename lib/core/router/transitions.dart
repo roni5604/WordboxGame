@@ -41,10 +41,11 @@ Widget? _browserNavShortcut(Animation<double> animation, Animation<double> secon
 /// * [popupPage] - מסכים שמרגישים כמו חלון שנפתח מעל (חנות, פרופיל,
 ///   חברים): עולים מלמטה עם קפיץ קל.
 ///
-/// החלקה ימינה מהקצה השמאלי חוזרת למסך הקודם (כמו באייפון, גם באתר) -
+/// החלקה של המסך ימינה או שמאלה חוזרת למסך הקודם (באתר, באייפון ובאנדרואיד) -
 /// ב-[appPage] וב-[popupPage] תמיד, וב-[gamePage] רק עם `swipeBack: true`
 /// (מפה, פתיחת שלב, אתגר יומי). במהלך משחק אין החלקה, כדי שתנועת אצבע על
-/// הלוח לא תוציא מהשלב. מסך עם PopScope(canPop: false) לא נסגר בהחלקה.
+/// הלוח לא תוציא מהשלב. מסך הבית/הכניסה הם המסך הראשון, אז אין לאן לחזור.
+/// מסך עם PopScope(canPop: false) לא נסגר בהחלקה.
 Page<void> appPage(GoRouterState state, Widget child) {
   return _page(
     state,
@@ -146,8 +147,11 @@ Page<void> _page(
   );
 }
 
-/// בזמן החלקה אחורה (או בסיומה) המסך העליון זז ימינה עם האצבע והמסך
-/// שמתחתיו נחשף מעט משמאל - במקום המעבר הרגיל של המסך, שבהיפוך נראה הפוך
+/// כיוון ההחלקה הנוכחית: 1 = ימינה, -1 = שמאלה (ראו [_SwipeBackDetector]).
+double _swipeDirection = 1;
+
+/// בזמן החלקה אחורה (או בסיומה) המסך העליון זז עם האצבע (ימינה או שמאלה)
+/// והמסך שמתחתיו נחשף מעט מהצד השני - במקום המעבר הרגיל של המסך, שבהיפוך נראה הפוך
 /// לכיוון האצבע. מבנה העץ זהה בשני המצבים (רק האנימציות מתחלפות), כך
 /// שמצב המסך נשמר.
 class _SwipeAwareTransition extends StatelessWidget {
@@ -163,9 +167,6 @@ class _SwipeAwareTransition extends StatelessWidget {
     required this.child,
   });
 
-  static final _followIn = Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero);
-  static final _followOut = Tween<Offset>(begin: Offset.zero, end: const Offset(-0.3, 0));
-
   @override
   Widget build(BuildContext context) {
     final navigator = Navigator.maybeOf(context);
@@ -173,9 +174,15 @@ class _SwipeAwareTransition extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: navigator.userGestureInProgressNotifier,
       builder: (context, swiping, _) => SlideTransition(
-        position: _followIn.animate(swiping ? animation : kAlwaysCompleteAnimation),
+        position: Tween<Offset>(
+          begin: Offset(_swipeDirection, 0),
+          end: Offset.zero,
+        ).animate(swiping ? animation : kAlwaysCompleteAnimation),
         child: SlideTransition(
-          position: _followOut.animate(swiping ? secondaryAnimation : kAlwaysDismissedAnimation),
+          position: Tween<Offset>(
+            begin: Offset.zero,
+            end: Offset(-0.3 * _swipeDirection, 0),
+          ).animate(swiping ? secondaryAnimation : kAlwaysDismissedAnimation),
           child: builder(
             context,
             swiping ? kAlwaysCompleteAnimation : animation,
@@ -188,9 +195,10 @@ class _SwipeAwareTransition extends StatelessWidget {
   }
 }
 
-/// פס צר בקצה השמאלי של המסך: גרירה ממנו ימינה מושכת את המסך הצידה,
+/// גרירה אופקית בכל מקום במסך (ימינה או שמאלה) מושכת את המסך הצידה,
 /// ושחרור אחרי חצי מסך (או בתנופה מהירה) חוזר למסך הקודם. אחרת המסך חוזר
-/// למקומו. פועל רק כשיש לאן לחזור ([ModalRoute.popGestureEnabled]).
+/// למקומו. פועל רק כשיש לאן לחזור ([ModalRoute.popGestureEnabled]). רשימה
+/// אופקית בתוך המסך (טאבים, קרוסלה) מקבלת את הגרירה לפני ההחלקה.
 class _SwipeBackDetector extends StatefulWidget {
   final Widget child;
 
@@ -201,12 +209,12 @@ class _SwipeBackDetector extends StatefulWidget {
 }
 
 class _SwipeBackDetectorState extends State<_SwipeBackDetector> {
-  static const _edgeWidth = 28.0;
-
   late final HorizontalDragGestureRecognizer _drag;
   ModalRoute<dynamic>? _route;
   bool _active = false;
   double _value = 1;
+  // 0 עד שהאצבע זזה - אז נקבע הכיוון (1 ימינה, -1 שמאלה).
+  double _direction = 0;
 
   @override
   void initState() {
@@ -240,20 +248,36 @@ class _SwipeBackDetectorState extends State<_SwipeBackDetector> {
     if (route == null || !route.isCurrent) return;
     _active = true;
     _value = 1;
-    route.handleStartBackGesture(progress: 1);
+    _direction = 0;
   }
 
   void _onUpdate(DragUpdateDetails details) {
     if (!_active) return;
+    final delta = details.primaryDelta ?? 0;
+    if (_direction == 0) {
+      if (delta == 0) return;
+      final route = _route;
+      if (route == null || !route.isCurrent) {
+        _active = false;
+        return;
+      }
+      _direction = delta.sign;
+      _swipeDirection = _direction;
+      route.handleStartBackGesture(progress: 1);
+    }
     final width = context.size?.width ?? MediaQuery.sizeOf(context).width;
-    _value = (_value - details.primaryDelta! / width).clamp(0.0, 1.0);
+    _value = (_value - delta * _direction / width).clamp(0.0, 1.0);
     _route?.handleUpdateBackGestureProgress(progress: _value);
   }
 
   void _onEnd(DragEndDetails details) {
     if (!_active) return;
     final width = context.size?.width ?? MediaQuery.sizeOf(context).width;
-    final velocity = details.velocity.pixelsPerSecond.dx / width;
+    if (_direction == 0) {
+      _active = false;
+      return;
+    }
+    final velocity = details.velocity.pixelsPerSecond.dx * _direction / width;
     final back = velocity > 1 || (velocity > -1 && _value < 0.5);
     back ? _commit() : _onCancel();
   }
@@ -261,6 +285,7 @@ class _SwipeBackDetectorState extends State<_SwipeBackDetector> {
   void _onCancel() {
     if (!_active) return;
     _active = false;
+    if (_direction == 0) return;
     _route?.handleCancelBackGesture();
   }
 
@@ -288,20 +313,7 @@ class _SwipeBackDetectorState extends State<_SwipeBackDetector> {
 
   @override
   Widget build(BuildContext context) {
-    final edge = _edgeWidth + MediaQuery.paddingOf(context).left;
-    return Stack(
-      fit: StackFit.passthrough,
-      children: [
-        widget.child,
-        Positioned(
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: edge,
-          child: Listener(onPointerDown: _onPointerDown, behavior: HitTestBehavior.translucent),
-        ),
-      ],
-    );
+    return Listener(onPointerDown: _onPointerDown, behavior: HitTestBehavior.translucent, child: widget.child);
   }
 }
 
