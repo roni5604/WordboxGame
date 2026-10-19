@@ -24,25 +24,33 @@ jobs:
             curl -sL "$url" -o /tmp/heebo/Heebo-$w.ttf
           done
           ls -la /tmp/heebo
+      - name: Check public legal pages
+        run: |
+          for p in privacy terms delete-account; do
+            code=$(curl -s -o /tmp/$p.html -w "%{http_code}" https://roni5604.github.io/WordboxGame/$p.html)
+            title=$(grep -o '<title>[^<]*' /tmp/$p.html | head -1 | sed 's/<title>//')
+            echo "PAGE|$p|$code|$title|$(wc -c < /tmp/$p.html) bytes" | tee -a /tmp/pages.txt
+          done
+          grep -oiE 'admob|firebase|crashlytics|roniro5604@gmail.com' /tmp/privacy.html | sort | uniq -c | tee -a /tmp/pages.txt
       - run: flutter pub get
       - name: Screenshots
         env:
           SCREENSHOTS_DIR: /tmp/shots
           HEEBO_TTF: /tmp/heebo
-          SCREEN: 440,956,62,34
-          SHOT_RATIO: '3'
-          SCREENSHOTS_ONLY: store_money,home,campaign,game,race_game,daily,level_result,share_sheet,friends_leaderboard,play_friends,store,level_intro,onboarding
+          SCREEN: 375,667,20,0
+          SHOT_RATIO: '2'
+          SCREENSHOTS_ONLY: home,game,store_money,level_result,share_sheet,daily,settings,race_setup,play_friends,onboarding
         run: flutter test test/screenshots --reporter expanded 2>&1 | tee /tmp/shots-log.txt || true
       - run: ls -la /tmp/shots
       - uses: actions/upload-artifact@v4
         with:
           name: store-screenshots
           path: /tmp/shots
-      - name: Commit screenshots to store-screenshots-out
+      - name: Commit screenshots to se-screenshots-out
         run: |
           mkdir -p /tmp/out && cp /tmp/shots/*.png /tmp/out/ 2>/dev/null || true
-          cp /tmp/shots-log.txt /tmp/out/log.txt
-          cd /tmp/out && git init -q -b store-screenshots-out
+          cp /tmp/shots-log.txt /tmp/out/log.txt; cp /tmp/pages.txt /tmp/out/pages.txt
+          cd /tmp/out && git init -q -b se-screenshots-out
           git config user.name "github-actions" && git config user.email "actions@github.com"
           git add -A && git commit -qm "store screenshots"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" store-screenshots-out
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" se-screenshots-out
