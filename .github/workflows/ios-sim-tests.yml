@@ -1,0 +1,59 @@
+# בדיקות קצה-לקצה על סימולטור iPhone (Mac בענן). זמני - לא למיזוג.
+name: iOS simulator tests
+on:
+  push:
+    branches: [ios-sim-tests]
+permissions:
+  contents: write
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.5'
+          channel: 'stable'
+          cache: true
+      - name: Versions
+        run: xcodebuild -version && flutter --version && xcrun simctl list runtimes
+      - run: flutter pub get
+      - name: Pods
+        run: cd ios && pod install --repo-update
+      - name: Boot simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)['devices']
+          c=[x for r,v in d.items() if 'iOS' in r for x in v if x['name'].startswith('iPhone 16 Pro Max')] or [x for r,v in d.items() if 'iOS' in r for x in v if x['name'].startswith('iPhone')]
+          print(c[-1]['udid'])")
+          echo "UDID=$UDID" >> $GITHUB_ENV
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 || true
+      - name: Run app flow on simulator
+        env:
+          SIM_SHOTS: /tmp/out/flutter
+        run: |
+          mkdir -p /tmp/out/native
+          ( i=0; while true; do xcrun simctl io "$UDID" screenshot /tmp/out/native/$(printf %04d $i).png >/dev/null 2>&1; i=$((i+1)); sleep 4; done ) &
+          SHOOTER=$!
+          flutter drive --driver=test_driver/integration_test.dart --target=integration_test/app_flow_test.dart -d "$UDID" 2>&1 | tee /tmp/out/drive-log.txt || true
+          kill $SHOOTER || true
+      - name: Inspect built app
+        run: |
+          APP=$(find build/ios -name "Runner.app" -type d | head -1)
+          echo "APP=$APP"
+          plutil -p "$APP/Info.plist" > /tmp/out/Info.plist.txt || true
+          codesign -d --entitlements :- "$APP" > /tmp/out/entitlements.txt 2>&1 || true
+      - name: Release build for device (no signing)
+        run: flutter build ios --release --no-codesign 2>&1 | tail -40 | tee /tmp/out/release-build.txt
+        continue-on-error: true
+      - name: Save results to branch ios-sim-results
+        if: always()
+        run: |
+          cd /tmp/out && git init -q -b ios-sim-results
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add -A && git commit -qm "ios simulator results"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ios-sim-results
