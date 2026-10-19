@@ -155,9 +155,12 @@ void main() {
       result('5', onboarding && home, 'onboarding: $onboarding, home: $home');
 
       // 6. שלב 1 עם הדרכה
-      await tapText(t, 'שחקו!');
-      await wait(t, 1500);
-      if (find.byKey(const ValueKey('tile-0-0')).evaluate().isEmpty && find.text('שחקו!').evaluate().isNotEmpty) {
+      await tapText(t, 'שחקו!'); // בית -> מפת השלבים
+      await wait(t, 2500);
+      final map = find.text('מפת השלבים').evaluate().isNotEmpty;
+      await shot(t, '06_campaign_map');
+      await go(t, '/level/1/intro');
+      if (await waitFor(t, find.text('שחקו!'), seconds: 15)) {
         await shot(t, '06_level_intro');
         await tapText(t, 'שחקו!');
       }
@@ -165,7 +168,7 @@ void main() {
       await wait(t, 1500);
       final tutorial = find.text('הבנתי, בואו נתחיל!').evaluate().isNotEmpty;
       await shot(t, '06_level1_tutorial');
-      result('6', board && tutorial, 'board: $board, tutorial overlay: $tutorial');
+      result('6', board && tutorial, 'map: $map, board: $board, tutorial overlay: $tutorial');
       if (tutorial) await tapText(t, 'הבנתי, בואו נתחיל!');
 
       // 8. מציאת מילים אמיתיות והשלמת השלב

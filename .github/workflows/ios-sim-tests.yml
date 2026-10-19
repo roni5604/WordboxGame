@@ -47,9 +47,6 @@ jobs:
           echo "APP=$APP"
           plutil -p "$APP/Info.plist" > /tmp/out/Info.plist.txt || true
           codesign -d --entitlements :- "$APP" > /tmp/out/entitlements.txt 2>&1 || true
-      - name: Release build for device (no signing)
-        run: flutter build ios --release --no-codesign 2>&1 | tail -40 | tee /tmp/out/release-build.txt
-        continue-on-error: true
       - name: Save results to branch ios-sim-results
         if: always()
         run: |
