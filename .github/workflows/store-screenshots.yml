@@ -1,0 +1,39 @@
+# זמני: יוצר צילומי מסך לחנות (iPhone 6.9" = 1320x2868). לא למיזוג.
+name: Store screenshots
+on:
+  push:
+    branches: [store-screenshots]
+permissions:
+  contents: read
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.5'
+          channel: 'stable'
+      - name: Fonts
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q fonts-noto-color-emoji
+          mkdir -p /tmp/heebo
+          for w in 400 500 700 800 900; do
+            url=$(curl -s -A "Mozilla/4.0" "https://fonts.googleapis.com/css2?family=Heebo:wght@$w" | grep -o 'https://[^)]*\.ttf' | head -1)
+            curl -sL "$url" -o /tmp/heebo/Heebo-$w.ttf
+          done
+          ls -la /tmp/heebo
+      - run: flutter pub get
+      - name: Screenshots
+        env:
+          SCREENSHOTS_DIR: /tmp/shots
+          HEEBO_TTF: /tmp/heebo
+          SCREEN: 440,956,62,34
+          SCREENSHOTS_ONLY: home,campaign,game,race_game,daily,level_result,share_sheet,friends_leaderboard,play_friends,store,level_intro,onboarding
+        run: flutter test test/screenshots --reporter expanded || true
+      - run: ls -la /tmp/shots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: store-screenshots
+          path: /tmp/shots

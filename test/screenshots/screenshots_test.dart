@@ -133,8 +133,15 @@ FakeSocialRepository _social() {
 }
 
 Future<void> _loadFonts() async {
-  final heebo = File(Platform.environment['HEEBO_TTF']!).readAsBytesSync();
-  final loader = FontLoader('Heebo')..addFont(Future.value(ByteData.view(Uint8List.fromList(heebo).buffer)));
+  final heeboPath = Platform.environment['HEEBO_TTF']!;
+  final heeboFiles = Directory(heeboPath).existsSync()
+      ? Directory(heeboPath).listSync().whereType<File>().where((f) => f.path.endsWith('.ttf')).toList()
+      : [File(heeboPath)];
+  final loader = FontLoader('Heebo');
+  for (final f in heeboFiles) {
+    final bytes = f.readAsBytesSync();
+    loader.addFont(Future.value(ByteData.view(Uint8List.fromList(bytes).buffer)));
+  }
   await loader.load();
   final root = Platform.environment['FLUTTER_ROOT']!;
   final icons = File('$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf').readAsBytesSync();
