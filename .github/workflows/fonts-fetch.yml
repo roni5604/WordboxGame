@@ -1,0 +1,22 @@
+# זמני: מוריד את קובצי Heebo לענף fonts-out. לא למיזוג.
+name: Fetch Heebo
+on:
+  push:
+    branches: [fonts-fetch]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir -p /tmp/out
+          declare -A N=([100]=Thin [200]=ExtraLight [300]=Light [400]=Regular [500]=Medium [600]=SemiBold [700]=Bold [800]=ExtraBold [900]=Black)
+          for w in 100 200 300 400 500 600 700 800 900; do
+            url=$(curl -s -A "Mozilla/4.0" "https://fonts.googleapis.com/css2?family=Heebo:wght@$w" | grep -o 'https://[^)]*\.ttf' | head -1)
+            curl -sL "$url" -o "/tmp/out/Heebo-${N[$w]}.ttf"
+          done
+          curl -sL https://raw.githubusercontent.com/google/fonts/main/ofl/heebo/OFL.txt -o /tmp/out/OFL.txt
+          ls -la /tmp/out
+          cd /tmp/out && git init -q -b fonts-out && git config user.name gh && git config user.email gh@x
+          git add -A && git commit -qm fonts && git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" fonts-out
