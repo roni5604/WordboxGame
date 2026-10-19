@@ -472,6 +472,9 @@ void main() {
     'profile': (t) => _shoot(t, 'profile', () => const ProfileScreen()),
     'rules': (t) => _shoot(t, 'rules', () => const RulesScreen()),
     'store': (t) => _shoot(t, 'store', () => const StoreScreen()),
+    'store_money': (t) => _shoot(t, 'store_money', () => const StoreScreen(), interact: (t) async {
+          await t.tap(find.text('כסף'));
+        }),
     // מסך פתיחת המתנות - בשלבים שונים ובכל הדרגות.
     'reveal_intro': (t) => _shoot(t, 'reveal_intro', () => _reveal(Rarity.legendary), settle: const Duration(milliseconds: 900)),
     'reveal_charge': (t) => _shoot(

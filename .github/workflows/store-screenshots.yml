@@ -31,7 +31,7 @@ jobs:
           HEEBO_TTF: /tmp/heebo
           SCREEN: 440,956,62,34
           SHOT_RATIO: '3'
-          SCREENSHOTS_ONLY: home,campaign,game,race_game,daily,level_result,share_sheet,friends_leaderboard,play_friends,store,level_intro,onboarding
+          SCREENSHOTS_ONLY: store_money,home,campaign,game,race_game,daily,level_result,share_sheet,friends_leaderboard,play_friends,store,level_intro,onboarding
         run: flutter test test/screenshots --reporter expanded 2>&1 | tee /tmp/shots-log.txt || true
       - run: ls -la /tmp/shots
       - uses: actions/upload-artifact@v4
