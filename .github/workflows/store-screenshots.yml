@@ -4,7 +4,7 @@ on:
   push:
     branches: [store-screenshots]
 permissions:
-  contents: read
+  contents: write
 jobs:
   shots:
     runs-on: ubuntu-latest
@@ -31,9 +31,17 @@ jobs:
           HEEBO_TTF: /tmp/heebo
           SCREEN: 440,956,62,34
           SCREENSHOTS_ONLY: home,campaign,game,race_game,daily,level_result,share_sheet,friends_leaderboard,play_friends,store,level_intro,onboarding
-        run: flutter test test/screenshots --reporter expanded || true
+        run: flutter test test/screenshots --reporter expanded 2>&1 | tee /tmp/shots-log.txt || true
       - run: ls -la /tmp/shots
       - uses: actions/upload-artifact@v4
         with:
           name: store-screenshots
           path: /tmp/shots
+      - name: Commit screenshots to store-screenshots-out
+        run: |
+          mkdir -p /tmp/out && cp /tmp/shots/*.png /tmp/out/ 2>/dev/null || true
+          cp /tmp/shots-log.txt /tmp/out/log.txt
+          cd /tmp/out && git init -q -b store-screenshots-out
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add -A && git commit -qm "store screenshots"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" store-screenshots-out
