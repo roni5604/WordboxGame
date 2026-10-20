@@ -244,6 +244,9 @@ class FirebaseAuthRepository implements AuthRepository {
         accessToken: appleCredential.authorizationCode,
       );
       final userCred = await _linkOrSignIn(credential);
+      // Apple שולחת את השם רק בהתחברות הראשונה, והוא לא עובר ל-Firebase דרך
+      // ה-credential. שומרים אותו כדי שלמשתמש/ת לא יישאר שם ריק.
+      await _saveAppleName(userCred.user!, appleCredential);
       return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
     } on SignInWithAppleAuthorizationException catch (e) {
       throw AuthException(
@@ -335,6 +338,22 @@ class FirebaseAuthRepository implements AuthRepository {
       }
     }
     await signOut();
+  }
+
+  Future<void> _saveAppleName(fb.User user, AuthorizationCredentialAppleID apple) async {
+    if (user.displayName?.trim().isNotEmpty ?? false) return;
+    final name = [apple.givenName, apple.familyName]
+        .whereType<String>()
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .join(' ');
+    if (name.isEmpty) return;
+    try {
+      await user.updateDisplayName(InputRules.sanitizeDisplayName(name));
+      await user.reload();
+    } catch (_) {
+      // לא קריטי - אפשר תמיד לשנות כינוי בפרופיל.
+    }
   }
 
   /// אישור Apple מחדש לפני מחיקה: מאמת מחדש מול Firebase עם ה-idToken בלבד

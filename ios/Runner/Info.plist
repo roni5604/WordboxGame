@@ -64,6 +64,8 @@
 	<true/>
 	<key>GADApplicationIdentifier</key>
 	<string>$(ADMOB_APP_ID_IOS)</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>כדי לשמור את כרטיס ההישג שלך לתמונות במכשיר.</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>המזהה עוזר להציג פרסומות רלוונטיות יותר. המשחק נשאר חינמי בזכות הפרסומות, ואפשר להמשיך גם בלי לאשר מעקב.</string>
 	<key>SKAdNetworkItems</key>

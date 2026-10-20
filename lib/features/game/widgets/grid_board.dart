@@ -88,7 +88,7 @@ class GridBoardState extends State<GridBoard> {
   }
 
   void _handleStart(Offset localOffset, double cellSize) {
-    if (!widget.enabled) return;
+    if (!mounted || !widget.enabled) return;
     final tracker = _trackerFor(cellSize);
     tracker.start(localOffset);
     setState(() {
@@ -101,6 +101,8 @@ class GridBoardState extends State<GridBoard> {
   }
 
   void _handleUpdate(Offset localOffset, double cellSize) {
+    // השלב יכול להסתיים (זמן נגמר / יעד הושג) בזמן שהאצבע עוד על הלוח.
+    if (!mounted) return;
     final tracker = _tracker;
     if (tracker == null || !tracker.isActive) return;
     final previousLength = _path.length;
@@ -121,6 +123,7 @@ class GridBoardState extends State<GridBoard> {
 
   /// ביטול בלי הגשה (למשל המערכת "לקחה" את המגע, או שהמשחק הושהה).
   void _handleCancel() {
+    if (!mounted) return;
     _activePointer = null;
     _tracker?.cancel();
     if (_path.isEmpty && _dragPosition == null) return;
@@ -142,6 +145,7 @@ class GridBoardState extends State<GridBoard> {
   }
 
   void _handleEnd() {
+    if (!mounted) return;
     _activePointer = null;
     final tracker = _tracker;
     if (tracker != null && tracker.isActive) {

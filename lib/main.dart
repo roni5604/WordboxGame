@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'app.dart';
@@ -18,6 +19,14 @@ import 'data/services/firebase_bootstrap.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // הגופן (Heebo) ארוז באפליקציה ב-assets/google_fonts - לא מורידים מהרשת,
+  // כך שגם בפתיחה ראשונה בלי אינטרנט הטקסט מוצג בגופן הנכון.
+  GoogleFonts.config.allowRuntimeFetching = false;
+  LicenseRegistry.addLicense(() async* {
+    final license = await rootBundle.loadString('assets/google_fonts/OFL.txt');
+    yield LicenseEntryWithLineBreaks(['google_fonts'], license);
+  });
 
   // מסך מלא "מקצה לקצה": הרקע של המשחק ממשיך מאחורי שורת הסטטוס וה-notch
   // / Dynamic Island למעלה, ומאחורי פס הבית / כפתורי הניווט למטה. התוכן
