@@ -94,7 +94,7 @@ Xcode 27 (הגרסה ב-App Store) דורש **macOS Tahoe 26.6 ומעלה**, ו�
    (או רק ישראל).
 4. **App Privacy**: לפי הטבלה במסמך הטקסטים → Publish.
 5. **Age Rating**: לפי המסמך (יוצא 13+).
-6. **דף הגרסה 1.1.0**: לגרור את 7 התמונות מ-`docs/app-store/screenshots-6.9/`
+6. **דף הגרסה 1.0**: לגרור את 7 התמונות מ-`docs/app-store/screenshots-6.9/`
    לאזור **iPhone 6.9" Display**, ולהדביק Promotional Text, Description,
    Keywords, Support URL, Copyright, ו-App Review Information (Notes).
 

@@ -23,7 +23,7 @@
 | **Content rights** | No, it does not contain, show, or access third-party content |
 | **Privacy Policy URL** | `https://roni5604.github.io/WordboxGame/privacy.html` |
 
-## Version 1.1.0 (דף הגרסה)
+## Version 1.0 (דף הגרסה)
 
 **Promotional Text** (עד 170, אפשר לשנות בכל עת בלי בדיקה):
 
@@ -68,7 +68,7 @@
 **Support URL**: `https://roni5604.github.io/WordboxGame/`
 **Marketing URL** (לא חובה): `https://ronimichaeli.com/he/`
 **Copyright**: `2026 Roni Michaeli`
-**Version**: `1.1.0`
+**Version**: `1.0` (תואם ל-`version: 1.0.0` ב-pubspec)
 
 **What's New** (לא נדרש בגרסה הראשונה; לגרסאות הבאות):
 
