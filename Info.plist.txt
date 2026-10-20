@@ -1,0 +1,227 @@
+{
+  "BuildMachineOSBuild" => "24G830"
+  "CADisableMinimumFrameDurationOnPhone" => 1
+  "CFBundleDevelopmentRegion" => "he"
+  "CFBundleDisplayName" => "מצא ת׳מילה"
+  "CFBundleExecutable" => "Runner"
+  "CFBundleIcons" => {
+    "CFBundlePrimaryIcon" => {
+      "CFBundleIconFiles" => [
+        0 => "AppIcon60x60"
+      ]
+      "CFBundleIconName" => "AppIcon"
+    }
+  }
+  "CFBundleIcons~ipad" => {
+    "CFBundlePrimaryIcon" => {
+      "CFBundleIconFiles" => [
+        0 => "AppIcon60x60"
+        1 => "AppIcon76x76"
+      ]
+      "CFBundleIconName" => "AppIcon"
+    }
+  }
+  "CFBundleIdentifier" => "com.wordboxil.wordboxHebrew"
+  "CFBundleInfoDictionaryVersion" => "6.0"
+  "CFBundleLocalizations" => [
+    0 => "he"
+  ]
+  "CFBundleName" => "wordbox_hebrew"
+  "CFBundlePackageType" => "APPL"
+  "CFBundleShortVersionString" => "1.1.0"
+  "CFBundleSignature" => "????"
+  "CFBundleSupportedPlatforms" => [
+    0 => "iPhoneSimulator"
+  ]
+  "CFBundleURLTypes" => [
+    0 => {
+      "CFBundleTypeRole" => "Editor"
+      "CFBundleURLSchemes" => [
+        0 => "com.googleusercontent.apps.placeholder"
+      ]
+    }
+  ]
+  "CFBundleVersion" => "2"
+  "DTCompiler" => "com.apple.compilers.llvm.clang.1_0"
+  "DTPlatformBuild" => "22F76"
+  "DTPlatformName" => "iphonesimulator"
+  "DTPlatformVersion" => "18.5"
+  "DTSDKBuild" => "22F76"
+  "DTSDKName" => "iphonesimulator18.5"
+  "DTXcode" => "1640"
+  "DTXcodeBuild" => "16F6"
+  "FirebaseAutomaticScreenReportingEnabled" => 0
+  "GADApplicationIdentifier" => "ca-app-pub-3940256099942544~1458002511"
+  "ITSAppUsesNonExemptEncryption" => 0
+  "LSApplicationQueriesSchemes" => [
+    0 => "whatsapp"
+    1 => "https"
+  ]
+  "LSRequiresIPhoneOS" => 1
+  "MinimumOSVersion" => "13.0"
+  "NSBonjourServices" => [
+    0 => "_dartVmService._tcp"
+  ]
+  "NSLocalNetworkUsageDescription" => "Allow Flutter tools on your computer to connect and debug your application. This prompt will not appear on release builds."
+  "NSPhotoLibraryAddUsageDescription" => "כדי לשמור את כרטיס ההישג שלך לתמונות במכשיר."
+  "NSUserTrackingUsageDescription" => "המזהה עוזר להציג פרסומות רלוונטיות יותר. המשחק נשאר חינמי בזכות הפרסומות, ואפשר להמשיך גם בלי לאשר מעקב."
+  "SKAdNetworkItems" => [
+    0 => {
+      "SKAdNetworkIdentifier" => "cstr6suwn9.skadnetwork"
+    }
+    1 => {
+      "SKAdNetworkIdentifier" => "4fzdc2evr5.skadnetwork"
+    }
+    2 => {
+      "SKAdNetworkIdentifier" => "2fnua5tdw4.skadnetwork"
+    }
+    3 => {
+      "SKAdNetworkIdentifier" => "ydx93a7ass.skadnetwork"
+    }
+    4 => {
+      "SKAdNetworkIdentifier" => "p78axxw29g.skadnetwork"
+    }
+    5 => {
+      "SKAdNetworkIdentifier" => "v72qych5uu.skadnetwork"
+    }
+    6 => {
+      "SKAdNetworkIdentifier" => "ludvb6z3bs.skadnetwork"
+    }
+    7 => {
+      "SKAdNetworkIdentifier" => "cp8zw746q7.skadnetwork"
+    }
+    8 => {
+      "SKAdNetworkIdentifier" => "3sh42y64q3.skadnetwork"
+    }
+    9 => {
+      "SKAdNetworkIdentifier" => "c6k4g5qg8m.skadnetwork"
+    }
+    10 => {
+      "SKAdNetworkIdentifier" => "s39g8k73mm.skadnetwork"
+    }
+    11 => {
+      "SKAdNetworkIdentifier" => "3qy4746246.skadnetwork"
+    }
+    12 => {
+      "SKAdNetworkIdentifier" => "f38h382jlk.skadnetwork"
+    }
+    13 => {
+      "SKAdNetworkIdentifier" => "hs6bdukanm.skadnetwork"
+    }
+    14 => {
+      "SKAdNetworkIdentifier" => "mlmmfzh3r3.skadnetwork"
+    }
+    15 => {
+      "SKAdNetworkIdentifier" => "v4nxqhlyqp.skadnetwork"
+    }
+    16 => {
+      "SKAdNetworkIdentifier" => "wzmmz9fp6w.skadnetwork"
+    }
+    17 => {
+      "SKAdNetworkIdentifier" => "su67r6k2v3.skadnetwork"
+    }
+    18 => {
+      "SKAdNetworkIdentifier" => "yclnxrl5pm.skadnetwork"
+    }
+    19 => {
+      "SKAdNetworkIdentifier" => "t38b2kh725.skadnetwork"
+    }
+    20 => {
+      "SKAdNetworkIdentifier" => "7ug5zh24hu.skadnetwork"
+    }
+    21 => {
+      "SKAdNetworkIdentifier" => "gta9lk7p23.skadnetwork"
+    }
+    22 => {
+      "SKAdNetworkIdentifier" => "vutu7akeur.skadnetwork"
+    }
+    23 => {
+      "SKAdNetworkIdentifier" => "y5ghdn5j9k.skadnetwork"
+    }
+    24 => {
+      "SKAdNetworkIdentifier" => "v9wttpbfk9.skadnetwork"
+    }
+    25 => {
+      "SKAdNetworkIdentifier" => "n38lu8286q.skadnetwork"
+    }
+    26 => {
+      "SKAdNetworkIdentifier" => "47vhws6wlr.skadnetwork"
+    }
+    27 => {
+      "SKAdNetworkIdentifier" => "kbd757ywx3.skadnetwork"
+    }
+    28 => {
+      "SKAdNetworkIdentifier" => "9t245vhmpl.skadnetwork"
+    }
+    29 => {
+      "SKAdNetworkIdentifier" => "a2p9lx4jpn.skadnetwork"
+    }
+    30 => {
+      "SKAdNetworkIdentifier" => "22mmun2rn5.skadnetwork"
+    }
+    31 => {
+      "SKAdNetworkIdentifier" => "44jx6755aq.skadnetwork"
+    }
+    32 => {
+      "SKAdNetworkIdentifier" => "k674qkevps.skadnetwork"
+    }
+    33 => {
+      "SKAdNetworkIdentifier" => "4468km3ulz.skadnetwork"
+    }
+    34 => {
+      "SKAdNetworkIdentifier" => "2u9pt9hc89.skadnetwork"
+    }
+    35 => {
+      "SKAdNetworkIdentifier" => "8s468mfl3y.skadnetwork"
+    }
+    36 => {
+      "SKAdNetworkIdentifier" => "klf5c3l5u5.skadnetwork"
+    }
+    37 => {
+      "SKAdNetworkIdentifier" => "ppxm28t8ap.skadnetwork"
+    }
+    38 => {
+      "SKAdNetworkIdentifier" => "kbmxgpxpgc.skadnetwork"
+    }
+    39 => {
+      "SKAdNetworkIdentifier" => "uw77j35x4d.skadnetwork"
+    }
+    40 => {
+      "SKAdNetworkIdentifier" => "578prtvx9j.skadnetwork"
+    }
+    41 => {
+      "SKAdNetworkIdentifier" => "4dzt52r2t5.skadnetwork"
+    }
+    42 => {
+      "SKAdNetworkIdentifier" => "tl55sbb4fm.skadnetwork"
+    }
+    43 => {
+      "SKAdNetworkIdentifier" => "c3frkrj4fj.skadnetwork"
+    }
+    44 => {
+      "SKAdNetworkIdentifier" => "e5fvkxwrpn.skadnetwork"
+    }
+    45 => {
+      "SKAdNetworkIdentifier" => "8c4e2ghe7u.skadnetwork"
+    }
+    46 => {
+      "SKAdNetworkIdentifier" => "3rd42ekr43.skadnetwork"
+    }
+    47 => {
+      "SKAdNetworkIdentifier" => "97r2b46745.skadnetwork"
+    }
+    48 => {
+      "SKAdNetworkIdentifier" => "3qcr597p9d.skadnetwork"
+    }
+  ]
+  "UIApplicationSupportsIndirectInputEvents" => 1
+  "UIDeviceFamily" => [
+    0 => 1
+  ]
+  "UILaunchStoryboardName" => "LaunchScreen"
+  "UIMainStoryboardFile" => "Main"
+  "UIRequiresFullScreen" => 1
+  "UISupportedInterfaceOrientations" => [
+    0 => "UIInterfaceOrientationPortrait"
+  ]
+}
