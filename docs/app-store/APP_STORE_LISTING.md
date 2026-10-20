@@ -115,10 +115,10 @@ Multiplayer with friends uses private rooms; there is no chat or free-form messa
 | Identifiers → **User ID** | App Functionality, Analytics | Yes | No |
 | Identifiers → **Device ID** | Third-Party Advertising, Analytics | No | **Yes** (רק אם מפעילים פרסומות) |
 | Purchases → **Purchase History** | App Functionality | Yes | No |
-| Usage Data → **Product Interaction** | Analytics | No | No |
+| Usage Data → **Product Interaction** | Analytics | Yes (Analytics מקבל את מזהה המשתמש) | No |
 | Usage Data → **Advertising Data** | Third-Party Advertising | No | **Yes** (רק אם מפעילים פרסומות) |
-| Diagnostics → **Crash Data** | App Functionality | No | No |
-| Diagnostics → **Performance Data** | App Functionality | No | No |
+| Diagnostics → **Crash Data** | App Functionality | Yes (Crashlytics מקבל את מזהה המשתמש) | No |
+| Diagnostics → **Performance Data** | App Functionality | Yes | No |
 
 > בלי פרסומות בגרסה הזו (אין מזהי AdMob ב-`config/release.json`) - לא לסמן
 > Device ID ו-Advertising Data, ולענות **No** על Tracking. המשחק לא יבקש
