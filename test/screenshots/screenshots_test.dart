@@ -20,6 +20,8 @@ import 'package:wordbox_hebrew/core/audio/sound_service.dart';
 import 'package:wordbox_hebrew/core/router/transitions.dart';
 import 'package:wordbox_hebrew/providers/sound_provider.dart';
 import 'package:wordbox_hebrew/core/theme/app_colors.dart';
+import 'package:wordbox_hebrew/core/purchases/iap_controller.dart';
+import 'package:wordbox_hebrew/core/purchases/real_money_catalog.dart';
 import 'package:wordbox_hebrew/data/models/level_progress.dart';
 import 'package:wordbox_hebrew/data/models/player_profile.dart';
 import 'package:wordbox_hebrew/data/repositories/progress_repository.dart';
@@ -96,6 +98,19 @@ class _Progress implements ProgressRepository {
 
   @override
   Future<void> saveProfile(PlayerProfile profile) async {}
+}
+
+class _StoreIap extends IapController {
+  _StoreIap(super.ref) : super(autoInit: false) {
+    state = IapState(ready: true, available: true, prices: {
+      for (final p in RealMoneyCatalog.packs)
+        p.productId: switch (p.productId) {
+          'wordbox_coins_200' || 'wordbox_hints_5' => '₪4.90',
+          'wordbox_coins_600' || 'wordbox_hints_15' => '₪9.90',
+          _ => '₪19.90',
+        },
+    });
+  }
 }
 
 FakeSocialRepository _social() {
@@ -180,6 +195,7 @@ Future<void> _shoot(
   Future<void> Function(WidgetTester tester)? interact,
   Duration settle = const Duration(milliseconds: 1500),
   int realWaitSeconds = 0,
+  List<Override> overrides = const [],
 }) async {
   // ברירת מחדל: iPhone 15/16. אפשר לבדוק מכשירים אחרים עם SCREEN=רוחב,גובה,עליון,תחתון
   // (בנקודות), למשל iPhone SE: SCREEN=375,667,20,0.
@@ -205,6 +221,7 @@ Future<void> _shoot(
         socialRepositoryProvider.overrideWithValue(social ?? _social()),
         soundServiceProvider.overrideWithValue(SoundService.silent()),
         if (multiplayer != null) multiplayerRepositoryProvider.overrideWithValue(multiplayer),
+        ...overrides,
       ],
       child: RepaintBoundary(
         key: _boundary,
@@ -470,6 +487,17 @@ void main() {
     'profile': (t) => _shoot(t, 'profile', () => const ProfileScreen()),
     'rules': (t) => _shoot(t, 'rules', () => const RulesScreen()),
     'store': (t) => _shoot(t, 'store', () => const StoreScreen()),
+    // צילום לבדיקת הרכישות ב-App Store Connect: לשונית "כסף" עם מחירים מהחנות.
+    'store_money': (t) => _shoot(
+          t,
+          'store_money',
+          () => const StoreScreen(),
+          overrides: [iapProvider.overrideWith((ref) => _StoreIap(ref))],
+          interact: (tester) async {
+            await tester.pump(const Duration(milliseconds: 500));
+            await tester.tap(find.text('כסף'));
+          },
+        ),
     // מסך פתיחת המתנות - בשלבים שונים ובכל הדרגות.
     'reveal_intro': (t) => _shoot(t, 'reveal_intro', () => _reveal(Rarity.legendary), settle: const Duration(milliseconds: 900)),
     'reveal_charge': (t) => _shoot(
