@@ -272,7 +272,7 @@ class _HintsTab extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       itemCount: _packs.length + (showPlacements ? 2 : 0) + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
       itemBuilder: (context, i) {
         if (i == 0) {
           return Column(
@@ -431,17 +431,26 @@ class _RealMoneyTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final iap = ref.watch(iapProvider);
+    // באפליקציה מציגים רק חבילות שהחנות החזירה (עם מחיר), כדי שלא יופיע
+    // כפתור קנייה שנכשל - למשל לפני שמוצר אושר ב-App Store Connect.
+    final packs = iap.isWeb
+        ? RealMoneyCatalog.packs
+        : RealMoneyCatalog.packs.where((p) => iap.prices.containsKey(p.productId)).toList();
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       children: [
         Text(
           iap.isWeb
               ? 'רכישה בכסף אמיתי זמינה באפליקציה ל-iPhone ולאנדרואיד.'
-              : 'קנו מטבעות או רמזים. המחיר הסופי מופיע בחלון החנות.',
+              : !iap.ready
+                  ? 'טוען את החנות...'
+                  : packs.isEmpty
+                      ? 'החבילות לא זמינות כרגע. נסו שוב מאוחר יותר.'
+                      : 'קנו מטבעות או רמזים. המחיר הסופי מופיע בחלון החנות.',
           style: const TextStyle(color: Colors.white70, fontSize: 13),
         ),
         const SizedBox(height: 12),
-        for (final pack in RealMoneyCatalog.packs)
+        for (final pack in packs)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Material(

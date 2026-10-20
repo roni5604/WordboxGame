@@ -30,8 +30,8 @@ void main() {
     final router = GoRouter(
       initialLocation: '/campaign',
       routes: [
-        GoRoute(path: '/campaign', builder: (_, __) => const CampaignMapScreen()),
-        GoRoute(path: '/:rest(.*)', builder: (_, __) => const SizedBox()),
+        GoRoute(path: '/campaign', builder: (_, _) => const CampaignMapScreen()),
+        GoRoute(path: '/:rest(.*)', builder: (_, _) => const SizedBox()),
       ],
     );
     await tester.pumpWidget(
@@ -98,8 +98,8 @@ void main() {
     final router = GoRouter(
       initialLocation: '/campaign',
       routes: [
-        GoRoute(path: '/campaign', builder: (_, __) => const CampaignMapScreen()),
-        GoRoute(path: '/:rest(.*)', builder: (_, __) => const SizedBox()),
+        GoRoute(path: '/campaign', builder: (_, _) => const CampaignMapScreen()),
+        GoRoute(path: '/:rest(.*)', builder: (_, _) => const SizedBox()),
       ],
     );
     await tester.pumpWidget(

@@ -620,7 +620,7 @@ class _InviteFriendsSheetState extends ConsumerState<_InviteFriendsSheet> {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: sorted.length,
-                separatorBuilder: (_, __) => const Divider(height: 14),
+                separatorBuilder: (_, _) => const Divider(height: 14),
                 itemBuilder: (context, i) {
                   final f = sorted[i];
                   final online = f.profile.isOnline(now);

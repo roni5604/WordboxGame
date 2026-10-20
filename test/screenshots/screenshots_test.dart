@@ -141,7 +141,8 @@ Future<void> _loadFonts() async {
   final iconLoader = FontLoader('MaterialIcons')..addFont(Future.value(ByteData.view(Uint8List.fromList(icons).buffer)));
   await iconLoader.load();
   // אימוג'י (👋 וכו') - אם יש גופן אימוג'י במערכת, שלא יופיעו ריבועים ריקים.
-  const emojiPath = '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf';
+  // ב-Mac אפשר להעביר גופן אימוג'י בנתיב אחר עם EMOJI_TTF.
+  final emojiPath = Platform.environment['EMOJI_TTF'] ?? '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf';
   if (File(emojiPath).existsSync()) {
     final emoji = File(emojiPath).readAsBytesSync();
     await (FontLoader('NotoColorEmoji')..addFont(Future.value(ByteData.view(Uint8List.fromList(emoji).buffer)))).load();
@@ -192,8 +193,8 @@ Future<void> _shoot(
   final router = GoRouter(
     initialLocation: '/s',
     routes: [
-      GoRoute(path: '/s', builder: (_, __) => screen()),
-      GoRoute(path: '/:rest(.*)', builder: (_, __) => const SizedBox()),
+      GoRoute(path: '/s', builder: (_, _) => screen()),
+      GoRoute(path: '/:rest(.*)', builder: (_, _) => const SizedBox()),
     ],
   );
 
@@ -362,6 +363,25 @@ void main() {
     'campaign': (t) => _shoot(t, 'campaign', () => const CampaignMapScreen()),
     'level_intro': (t) => _shoot(t, 'level_intro', () => const LevelIntroScreen(levelNumber: 9)),
     'game': (t) => _shoot(t, 'game', () => const GameScreen(levelNumber: 9), settle: const Duration(seconds: 3), realWaitSeconds: 12),
+    // לדף החנות: אצבע באמצע החלקה על "ירק" (קו מחבר + המילה שנבנית).
+    'game_word': (t) => _shoot(
+          t,
+          'game_word',
+          () => const GameScreen(levelNumber: 9),
+          settle: const Duration(milliseconds: 600),
+          realWaitSeconds: 12,
+          interact: (tester) async {
+            await tester.pump(const Duration(seconds: 2));
+            Offset at(String letter) => tester.getCenter(find.text(letter).first);
+            final gesture = await tester.startGesture(at('י'));
+            for (final letter in ['ר', 'ק']) {
+              final from = gesture;
+              await tester.pump(const Duration(milliseconds: 60));
+              await from.moveTo(at(letter));
+              await tester.pump(const Duration(milliseconds: 60));
+            }
+          },
+        ),
     'race_game': (t) => _shoot(
           t,
           'race_game',

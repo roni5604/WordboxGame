@@ -112,8 +112,7 @@ class AdsMobileGateway extends AdsGateway {
         await MobileAds.instance.updateRequestConfiguration(
           RequestConfiguration(
             maxAdContentRating: MaxAdContentRating.t,
-            tagForChildDirectedTreatment: TagForChildDirectedTreatment.no,
-            tagForUnderAgeOfConsent: TagForUnderAgeOfConsent.no,
+            ageRestrictedTreatment: AgeRestrictedTreatment.unspecified,
           ),
         );
         await MobileAds.instance.initialize();

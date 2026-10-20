@@ -217,8 +217,8 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
   @override
   Widget build(BuildContext context) {
     if (_repo.isAvailable) {
-      ref.listen(playerProfileProvider, (_, __) => _schedulePublish());
-      ref.listen(authStateProvider, (_, __) => _schedulePublish());
+      ref.listen(playerProfileProvider, (_, _) => _schedulePublish());
+      ref.listen(authStateProvider, (_, _) => _schedulePublish());
       ref.listen<AsyncValue<List<GameInvite>>>(incomingInvitesProvider, (_, next) {
         final invites = next.valueOrNull;
         if (invites != null) _onInvites(invites);

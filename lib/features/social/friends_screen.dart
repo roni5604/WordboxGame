@@ -457,7 +457,7 @@ class _OnlineNowStrip extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               physics: const ClampingScrollPhysics(),
               itemCount: friends.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, i) {
                 final p = friends[i].profile;
                 return Pressable(

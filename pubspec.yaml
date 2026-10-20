@@ -13,7 +13,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-  cupertino_icons: ^1.0.8
+  cupertino_icons: ^2.0.0
 
   # State management & navigation
   flutter_riverpod: ^2.6.1
@@ -26,52 +26,54 @@ dependencies:
   shared_preferences: ^2.3.4
 
   # Design & animation
-  google_fonts: ^6.2.1
+  # 9.x בנויה על חבילת material_ui ושוברת את TextTheme של Flutter - נשארים ב-8.x.
+  google_fonts: ^8.1.0
   flutter_animate: ^4.5.2
   confetti: ^0.8.0
 
   # Backend (scaffolded, disabled until configured - see docs/FIREBASE_SETUP.md)
-  firebase_core: ^3.10.1
-  firebase_auth: ^5.4.1
-  cloud_firestore: ^5.6.2
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  cloud_firestore: ^6.10.0
   # Analytics (GA4/BigQuery) - see lib/core/analytics/ and docs/ANALYTICS_EVENTS.md.
-  # 11.6.0 is the last line compatible with firebase_core 3.x (12.x needs core 4.x).
-  firebase_analytics: ^11.6.0
+  # Firebase 4.x line (Firebase iOS SDK 12, iOS 15+). The 5.x line is blocked by
+  # fake_cloud_firestore/firebase_auth_mocks in dev_dependencies.
+  firebase_analytics: ^12.6.0
   # דיווח קריסות (iOS/Android בלבד) - ראו lib/core/analytics/crash_reporting.dart.
-  # 4.3.x היא השורה התואמת ל-firebase_core 3.x.
-  firebase_crashlytics: ^4.3.0
+  # 5.x היא השורה התואמת ל-firebase_core 4.x.
+  firebase_crashlytics: ^5.4.0
 
   # Utilities
   collection: ^1.19.1
   equatable: ^2.0.7
   google_sign_in: ^7.2.0
-  sign_in_with_apple: ^7.0.1
+  sign_in_with_apple: ^8.2.0
   crypto: ^3.0.7
   # גרסת האפליקציה מ-pubspec בזמן ריצה (Analytics/Crashlytics).
-  package_info_plus: ^9.0.1
+  package_info_plus: ^10.2.2
   audioplayers: ^6.7.1
   in_app_purchase: ^3.2.3
   # שיתוף הישגים (פייסבוק/וואטסאפ/מערכת) והזמנות לחברים.
   url_launcher: ^6.3.1
-  share_plus: ^10.1.4
+  share_plus: ^13.3.1
 
   # פרסומות: AdMob ב-iOS/Android, Ad Placement API באתר.
-  # 7.0.0 היא הגרסה התואמת ל-SDK של הפרויקט (כולל UMP, Native templates, Rewarded).
-  google_mobile_ads: ^7.0.0
+  # כולל UMP, Native templates ו-Rewarded (Google Mobile Ads SDK 13).
+  google_mobile_ads: ^9.1.0
   app_tracking_transparency: ^2.0.7
   # הטמעת תג הפרסומת של Google בדף האתר (רק קומפילציית Web).
   web: ^1.1.0
-  flutter_local_notifications: ^20.1.0
-  timezone: ^0.10.1
+  flutter_local_notifications: ^22.3.2
+  timezone: ^0.11.2
   flutter_timezone: ^5.1.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
-  fake_cloud_firestore: ^3.1.0
-  firebase_auth_mocks: ^0.14.2
+  fake_cloud_firestore: ^4.3.0
+  firebase_auth_mocks: ^0.15.2
 
 flutter:
   uses-material-design: true

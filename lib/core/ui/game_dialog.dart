@@ -20,7 +20,7 @@ Future<T?> showGameDialog<T>({
     barrierColor: Colors.black.withValues(alpha: 0.45),
     useRootNavigator: useRootNavigator,
     transitionDuration: const Duration(milliseconds: 420),
-    pageBuilder: (dialogContext, _, __) => builder(dialogContext),
+    pageBuilder: (dialogContext, _, _) => builder(dialogContext),
     transitionBuilder: (context, animation, secondary, child) {
       final curved = CurvedAnimation(
         parent: animation,
@@ -103,7 +103,7 @@ class GameDialog extends StatelessWidget {
                             color: Color(0xFF3B3355),
                           ),
                         ),
-                      if (body != null) body!,
+                      ?body,
                       if (actions.isNotEmpty) ...[
                         const SizedBox(height: 18),
                         for (int i = 0; i < actions.length; i++) ...[
