@@ -2,7 +2,7 @@ name: wordbox_hebrew
 description: "מצא ת׳מילה - משחק מילים בעברית בהשראת Wordbox, בסגנון Boggle. משחקו של רוני מיכאלי. iOS, Android ו-Web מקוד אחד."
 publish_to: 'none'
 
-version: 1.0.0+3
+version: 1.0.0+4
 
 environment:
   sdk: ^3.9.2

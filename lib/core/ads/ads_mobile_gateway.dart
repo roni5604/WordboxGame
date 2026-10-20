@@ -102,7 +102,7 @@ class AdsMobileGateway extends AdsGateway {
       await _quota.load();
       await _requestConsent();
       await _syncAnalyticsConsent();
-      if (Platform.isIOS) await _requestAtt();
+      if (Platform.isIOS && AdsConfig.trackingPrompt) await _requestAtt();
       _canRequestAds = await ConsentInformation.instance.canRequestAds();
       final privacy = await ConsentInformation.instance
           .getPrivacyOptionsRequirementStatus();
