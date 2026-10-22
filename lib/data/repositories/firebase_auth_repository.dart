@@ -99,11 +99,15 @@ class FirebaseAuthRepository implements AuthRepository {
         'popup-closed-by-user' || 'canceled' || 'sign_in_canceled' => 'ההתחברות בוטלה.',
         'operation-not-allowed' => 'שיטת ההתחברות הזו לא מופעלת עדיין בפרויקט.',
         'too-many-requests' => 'יותר מדי ניסיונות. חכו כמה דקות ונסו שוב.',
-        _ => 'משהו השתבש בהתחברות. נסו שוב.',
+        _ => 'משהו השתבש בהתחברות (${error.code}). נסו שוב.',
       };
+      if (message.contains(error.code)) {
+        CrashReporting.recordNonFatal(error, reason: 'auth_${error.code}');
+      }
       return AuthException(message);
     }
-    return AuthException('משהו השתבש בהתחברות. נסו שוב.');
+    CrashReporting.recordNonFatal(error, reason: 'auth_unknown');
+    return const AuthException('משהו השתבש בהתחברות. נסו שוב.');
   }
 
   /// אחרי קישור/התחברות מוצלחת, מעתיק displayName/photoURL מ-providerData
@@ -130,9 +134,16 @@ class FirebaseAuthRepository implements AuthRepository {
   /// מנסה "לשדרג" משתמש אורח קיים לחשבון אמיתי (linkWithCredential) כדי
   /// לשמר את ההתקדמות שכבר נצברה; אם הקרדנציאל כבר שייך לחשבון אחר,
   /// נופלים חזרה להתחברות רגילה (המשתמש יעבור לפרופיל הקיים שלו בענן).
-  Future<fb.UserCredential> _linkOrSignIn(fb.AuthCredential credential) async {
+  /// [freshCredential]: ל-Apple - קרדנציאל חדש אם צריך להתחבר שוב. קרדנציאל
+  /// של Apple (עם nonce) הוא חד-פעמי: אחרי ניסיון קישור שנכשל, שימוש חוזר בו
+  /// נדחה ("Duplicate credential received" / missing-or-invalid-nonce).
+  Future<fb.UserCredential> _linkOrSignIn(
+    fb.AuthCredential credential, {
+    Future<fb.AuthCredential> Function()? freshCredential,
+  }) async {
     final current = _auth.currentUser;
     fb.UserCredential result;
+    var toSignIn = credential;
     if (current != null && current.isAnonymous) {
       try {
         result = await current.linkWithCredential(credential);
@@ -140,10 +151,18 @@ class FirebaseAuthRepository implements AuthRepository {
         return result;
       } on fb.FirebaseAuthException catch (e) {
         if (e.code != 'credential-already-in-use' && e.code != 'email-already-in-use') rethrow;
-        // ממשיכים להתחברות רגילה עם הקרדנציאל הקיים.
+        // החשבון כבר קיים (למשל התחברתם בעבר והתנתקתם): מתחברים אליו.
+        // Firebase מחזיר בשגיאה קרדנציאל מעודכן שאפשר להשתמש בו; אם אין -
+        // מבקשים קרדנציאל חדש (ב-Apple), ורק בלית ברירה משתמשים במקורי.
+        final updated = e.credential;
+        if (updated != null) {
+          toSignIn = updated;
+        } else if (freshCredential != null) {
+          toSignIn = await freshCredential();
+        }
       }
     }
-    result = await _auth.signInWithCredential(credential);
+    result = await _auth.signInWithCredential(toSignIn);
     await _backfillProfileFromProvider(result.user!);
     return result;
   }
@@ -237,18 +256,21 @@ class FirebaseAuthRepository implements AuthRepository {
         throw const AuthException('התחברות עם Apple זמינה כרגע רק ב-iOS ובדפדפן.');
       }
 
-      final rawNonce = _generateNonce();
-      final nonce = _sha256(rawNonce);
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
-        nonce: nonce,
-      );
-      final credential = fb.OAuthProvider('apple.com').credential(
-        idToken: appleCredential.identityToken,
-        rawNonce: rawNonce,
-        accessToken: appleCredential.authorizationCode,
-      );
-      final userCred = await _linkOrSignIn(credential);
+      Future<fb.AuthCredential> newAppleCredential() async {
+        final rawNonce = _generateNonce();
+        final appleCredential = await SignInWithApple.getAppleIDCredential(
+          scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+          nonce: _sha256(rawNonce),
+        );
+        return fb.OAuthProvider('apple.com').credential(
+          idToken: appleCredential.identityToken,
+          rawNonce: rawNonce,
+          accessToken: appleCredential.authorizationCode,
+        );
+      }
+
+      final credential = await newAppleCredential();
+      final userCred = await _linkOrSignIn(credential, freshCredential: newAppleCredential);
       return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
     } on SignInWithAppleAuthorizationException catch (e) {
       throw AuthException(
