@@ -3,9 +3,11 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/security/input_rules.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
+import '../../core/ui/game_dialog.dart';
 import '../../core/ui/pressable.dart';
 import '../../data/models/auth_user.dart';
 import '../../data/models/player_profile.dart';
@@ -333,6 +335,10 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
   Future<void> _save() async {
     final notifier = ref.read(playerProfileProvider.notifier);
     final name = _nameController.text.trim();
+    if (InputRules.isOffensiveName(name)) {
+      GameToast.show(context, message: 'הכינוי הזה לא מתאים. בחרו כינוי אחר 🙏', icon: Icons.block_rounded, color: AppColors.error);
+      return;
+    }
     if (name.isNotEmpty && name != widget.profile.displayName) {
       await notifier.setDisplayName(name);
     }

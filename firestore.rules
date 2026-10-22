@@ -65,6 +65,11 @@ service cloud.firestore {
         && next.paidUids == prev.paidUids;
     }
 
+    // הנמען/ת חסמ/ה את השולח/ת? (exists בחוקים לא כפוף להרשאות הקריאה.)
+    function notBlockedBy(targetUid) {
+      return !exists(/databases/$(database)/documents/blocks/$(targetUid)/users/$(request.auth.uid));
+    }
+
     function changedOnly(keys) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
     }
@@ -154,6 +159,31 @@ service cloud.firestore {
       }
     }
 
+    // רשימת החסומים שלי - רק אני קורא/ת וכותב/ת.
+    match /blocks/{uid}/users/{blockedUid} {
+      allow read, delete: if isUser(uid);
+      allow create, update: if isUser(uid)
+        && blockedUid != uid
+        && request.resource.data.keys().hasOnly(['name', 'createdAt'])
+        && optShortText(request.resource.data.get('name', null), 40)
+        && request.resource.data.createdAt == request.time;
+    }
+
+    // דיווחים על משתמשים: כתיבה בלבד (הצוות קורא אותם מקונסולת Firebase).
+    match /reports/{reportId} {
+      allow read, update, delete: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['reporter', 'reported', 'reportedName', 'reason', 'context', 'status', 'createdAt'])
+        && request.resource.data.reporter == request.auth.uid
+        && request.resource.data.reported is string
+        && request.resource.data.reported != request.auth.uid
+        && shortText(request.resource.data.reportedName, 40)
+        && request.resource.data.reason in ['offensive_name', 'harassment', 'spam', 'cheating', 'other']
+        && shortText(request.resource.data.context, 200)
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt == request.time;
+    }
+
     match /friendRequests/{requestId} {
       allow read: if signedIn()
         && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
@@ -168,7 +198,8 @@ service cloud.firestore {
         && validPhoto(request.resource.data.get('fromPhotoUrl', null))
         && optShortText(request.resource.data.get('toName', null), 40)
         && request.resource.data.createdAt == request.time
-        && exists(/databases/$(database)/documents/publicProfiles/$(request.resource.data.to));
+        && exists(/databases/$(database)/documents/publicProfiles/$(request.resource.data.to))
+        && notBlockedBy(request.resource.data.to);
       allow delete: if signedIn()
         && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
     }
@@ -193,7 +224,8 @@ service cloud.firestore {
         && request.resource.data.entryFee in [5, 10, 20, 50]
         && request.resource.data.status == 'pending'
         && request.resource.data.createdAt == request.time
-        && exists(/databases/$(database)/documents/rooms/$(request.resource.data.roomCode)/players/$(request.auth.uid));
+        && exists(/databases/$(database)/documents/rooms/$(request.resource.data.roomCode)/players/$(request.auth.uid))
+        && notBlockedBy(request.resource.data.to);
       // הנמען/ת עונה (מאשר/ת או דוחה) - משנים רק את הסטטוס ואת זמן התשובה.
       allow update: if signedIn()
         && resource.data.to == request.auth.uid

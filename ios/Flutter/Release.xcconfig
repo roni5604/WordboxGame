@@ -5,6 +5,6 @@
 // עם הערכים האמיתיים - הוא דורס את מה שכאן ולא נשמר ב-git.
 // שימו לב: ב-xcconfig "//" מתחיל הערה, ולכן אין לכתוב כאן כתובות URL.
 ADMOB_APP_ID_IOS = ca-app-pub-3940256099942544~1458002511
-GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.placeholder
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.856063251417-i648s5kktpk583ofkugn2geuk9raf49a
 
 #include? "AppSecrets.xcconfig"

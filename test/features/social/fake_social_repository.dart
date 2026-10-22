@@ -13,6 +13,8 @@ class FakeSocialRepository implements SocialRepository {
   final List<String> sentRequests = [];
   final List<GameInvite> sentInvites = [];
   final List<({GameInvite invite, bool accept})> responses = [];
+  final List<({String uid, ReportReason reason})> reports = [];
+  final Map<String, String> blocked = {};
 
   FakeSocialRepository({
     this.myUid = 'me',
@@ -132,4 +134,27 @@ class FakeSocialRepository implements SocialRepository {
   Future<void> recordMatch({required Map<String, int> scores, required String myUid}) async {
     recordedMatches.add(scores);
   }
+
+  @override
+  Future<void> reportUser({
+    required String uid,
+    required String name,
+    required ReportReason reason,
+    String context = '',
+  }) async =>
+      reports.add((uid: uid, reason: reason));
+
+  @override
+  Future<void> blockUser(String uid, {String name = ''}) async {
+    blocked[uid] = name;
+    friends = [for (final f in friends) if (f.uid != uid) f];
+    incoming = [for (final r in incoming) if (r.fromUid != uid) r];
+  }
+
+  @override
+  Future<void> unblockUser(String uid) async => blocked.remove(uid);
+
+  @override
+  Stream<List<BlockedUser>> watchBlockedUsers() =>
+      Stream.value([for (final e in blocked.entries) BlockedUser(uid: e.key, name: e.value)]);
 }

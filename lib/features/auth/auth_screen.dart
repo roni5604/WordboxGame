@@ -45,10 +45,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   // באתר Apple דורש הגדרת Services ID ב-Firebase - מוסתר עד אז (ראו AppConfig).
   bool get _appleAvailable => kIsWeb ? AppConfig.appleLoginWeb : (Platform.isIOS || Platform.isMacOS);
 
-  // באפליקציה (iOS/Android) Google דורש הגדרה ילידית נוספת (Client ID).
-  // עד שמפעילים אותו בבילד הכפתור מוסתר, כדי שבודקי החנות לא יפגשו כפתור
-  // שלא עובד. ראו AppConfig.
-  bool get _googleAvailable => kIsWeb || AppConfig.googleLoginNative;
+  // ב-iOS ה-Client ID מוגדר (GIDClientID + REVERSED_CLIENT_ID). באנדרואיד
+  // Google דורש עוד טביעות SHA ב-Firebase, ולכן נשאר מאחורי GOOGLE_LOGIN_NATIVE.
+  bool get _googleAvailable => kIsWeb || Platform.isIOS || AppConfig.googleLoginNative;
 
   @override
   void dispose() {

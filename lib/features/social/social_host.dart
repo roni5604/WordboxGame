@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/social_provider.dart';
 import 'models/social_models.dart';
+import 'social_actions.dart';
 import 'services/social_repository.dart';
 import 'widgets/invite_dialog.dart';
 
@@ -167,8 +168,18 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
     final invite = _pendingInvites.removeAt(0);
     _showingInvite = true;
     try {
-      final accepted = await showInviteDialog(dialogContext, invite);
+      final answer = await showInviteDialog(dialogContext, invite);
+      final accepted = answer == InviteAnswer.accept;
       await _repo.respondToInvite(invite, accept: accepted).catchError((_) {});
+      if (answer == InviteAnswer.reportOrBlock && dialogContext.mounted) {
+        await SocialActions.showUserSafetyMenu(
+          dialogContext,
+          ref,
+          uid: invite.fromUid,
+          name: invite.fromName,
+          source: 'game_invite',
+        );
+      }
       if (accepted && mounted) {
         widget.router.push(
           '/multiplayer/online/join?code=${Uri.encodeComponent(invite.roomCode)}',

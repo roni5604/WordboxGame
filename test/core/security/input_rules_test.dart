@@ -21,6 +21,20 @@ void main() {
       expect(InputRules.sanitizeDisplayName(null), '');
     });
 
+    test('offensive names are detected, including obfuscation', () {
+      for (final bad in ['זונה', 'בן זונה', 'ש.ר.מ.ו.ט.ה', 'כוס אמק', 'מניאק123', 'f u c k', 'Fuuck'.replaceAll('uu', 'u'), 'sh1t', 'B!tch', 'נאצי', 'זין', 'ass']) {
+        expect(InputRules.isOffensiveName(bad), isTrue, reason: bad);
+        expect(InputRules.sanitizeDisplayName(bad), '', reason: bad);
+      }
+    });
+
+    test('ordinary names are not flagged', () {
+      for (final ok in ['דנה', 'רוני', 'כוסמת', 'זינגר', 'תחתית', 'Cassie', 'Dickens', 'Sussex', 'Grape', 'מוצץ', 'Roni M', 'שחקן/ית', 'מלך המילים', 'גלעד']) {
+        expect(InputRules.isOffensiveName(ok), isFalse, reason: ok);
+        expect(InputRules.sanitizeDisplayName(ok), isNotEmpty, reason: ok);
+      }
+    });
+
     test('photo URLs: only https from login providers', () {
       expect(InputRules.isTrustedPhotoUrl('https://lh3.googleusercontent.com/a/x=s96'), isTrue);
       expect(InputRules.isTrustedPhotoUrl('http://lh3.googleusercontent.com/a/x'), isFalse);

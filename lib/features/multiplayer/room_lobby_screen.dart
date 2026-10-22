@@ -318,6 +318,16 @@ class _RoomLobbyScreenState extends ConsumerState<RoomLobbyScreen> {
                             uid: player.uid,
                             name: player.displayName,
                           ),
+                          onSafety: social.isAvailable && player.uid != _myUid
+                              ? () => SocialActions.showUserSafetyMenu(
+                                    context,
+                                    ref,
+                                    uid: player.uid,
+                                    name: player.displayName,
+                                    source: 'room_lobby',
+                                    isFriend: friendIds.contains(player.uid),
+                                  )
+                              : null,
                         ).animate().fadeIn(duration: 250.ms).slideX(begin: 0.08, end: 0),
                       if (room.players.length < 2)
                         Padding(
@@ -751,6 +761,7 @@ class _PlayerRow extends StatelessWidget {
   final bool isFriend;
   final bool canAddFriend;
   final VoidCallback onAddFriend;
+  final VoidCallback? onSafety;
 
   const _PlayerRow({
     required this.player,
@@ -758,6 +769,7 @@ class _PlayerRow extends StatelessWidget {
     this.isFriend = false,
     this.canAddFriend = false,
     required this.onAddFriend,
+    this.onSafety,
   });
 
   @override
@@ -807,6 +819,13 @@ class _PlayerRow extends StatelessWidget {
               size: 38,
               tooltip: 'הוספה לחברים',
               onPressed: onAddFriend,
+            ),
+          if (onSafety != null)
+            IconButton(
+              tooltip: 'דיווח / חסימה',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF9A93AE)),
+              onPressed: onSafety,
             ),
         ],
       ),

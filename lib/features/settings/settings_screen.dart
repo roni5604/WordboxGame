@@ -14,6 +14,7 @@ import '../../core/ui/pressable.dart';
 import '../../data/models/auth_user.dart';
 import '../../data/services/firebase_bootstrap.dart';
 import '../../providers/auth_provider.dart';
+import '../social/community_safety.dart';
 import '../../providers/player_profile_provider.dart';
 
 /// צבעי מסך ההגדרות - סגול-כחלחל רגוע.
@@ -94,6 +95,13 @@ class SettingsScreen extends ConsumerWidget {
                       ? 'מחיקה לצמיתות של החשבון וכל הנתונים'
                       : 'מחיקה לצמיתות של כל הנתונים שלי',
                   onTap: () => _confirmDeleteAccount(context, ref),
+                ),
+                _ActionRow(
+                  icon: Icons.block_rounded,
+                  color: const Color(0xFF7B3FF2),
+                  label: 'משתמשים חסומים',
+                  subtitle: 'צפייה וביטול חסימה',
+                  onTap: () => CommunitySafety.showBlockedUsers(context),
                 ),
                 if (ads.isSupported && ads.privacyOptionsRequired)
                   _ActionRow(

@@ -26,6 +26,7 @@ import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/rules/rules_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/social/community_safety.dart';
 import '../../features/social/friends_screen.dart';
 import '../../features/social/play_with_friends_screen.dart';
 import '../../features/splash/splash_screen.dart';
@@ -114,13 +115,15 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/play/friends',
-      pageBuilder: (context, state) => appPage(state, const PlayWithFriendsScreen()),
+      pageBuilder: (context, state) => appPage(state, const CommunityRulesGate(child: PlayWithFriendsScreen())),
     ),
     GoRoute(
       path: '/friends',
       pageBuilder: (context, state) => popupPage(
         state,
-        FriendsScreen(initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0),
+        CommunityRulesGate(
+          child: FriendsScreen(initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0),
+        ),
       ),
     ),
     GoRoute(
@@ -129,9 +132,11 @@ final appRouter = GoRouter(
         state,
         // הזמנת חבר/ה מגיעה רק מתוך המשחק (extra), לא מפרמטרים בכתובת -
         // אחרת קישור חיצוני יכול היה לשלוח הזמנות בשמכם.
-        CreateRoomScreen(
-          inviteFriendUid: _extraString(state, 'inviteUid'),
-          inviteFriendName: _extraString(state, 'inviteName'),
+        CommunityRulesGate(
+          child: CreateRoomScreen(
+            inviteFriendUid: _extraString(state, 'inviteUid'),
+            inviteFriendName: _extraString(state, 'inviteName'),
+          ),
         ),
       ),
     ),
@@ -141,10 +146,12 @@ final appRouter = GoRouter(
         state,
         // הצטרפות אוטומטית (שגובה דמי כניסה) רק מאישור הזמנה בתוך המשחק.
         // קישור חיצוני רק ממלא את הקוד, והשחקן/ית לוחצ/ת "הצטרפות" בעצמו/ה.
-        JoinRoomScreen(
-          initialCode: state.uri.queryParameters['code'],
-          autoJoin: (state.extra is Map) && (state.extra as Map)['autoJoin'] == true,
-          expectedFee: (state.extra is Map) ? (state.extra as Map)['expectedFee'] as int? : null,
+        CommunityRulesGate(
+          child: JoinRoomScreen(
+            initialCode: state.uri.queryParameters['code'],
+            autoJoin: (state.extra is Map) && (state.extra as Map)['autoJoin'] == true,
+            expectedFee: (state.extra is Map) ? (state.extra as Map)['expectedFee'] as int? : null,
+          ),
         ),
       ),
     ),

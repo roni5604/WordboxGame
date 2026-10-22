@@ -458,3 +458,49 @@ describe('הזמנות למשחק', () => {
     await assertFails(getDoc(doc(db('eve'), 'invites/i1')));
   });
 });
+
+describe('חסימה ודיווח', () => {
+  function request(from, to) {
+    return { from, to, fromName: from, fromAvatarId: 'detective', fromPhotoUrl: null, toName: to, createdAt: serverTimestamp() };
+  }
+
+  test('משתמש/ת חוסמ/ת, רק הוא/היא רואה את הרשימה, ומבטל/ת חסימה', async () => {
+    await assertSucceeds(setDoc(doc(db('bob'), 'blocks/bob/users/eve'), { name: 'איב', createdAt: serverTimestamp() }));
+    await assertSucceeds(getDocs(collection(db('bob'), 'blocks/bob/users')));
+    await assertFails(getDocs(collection(db('eve'), 'blocks/bob/users')));
+    await assertFails(setDoc(doc(db('eve'), 'blocks/bob/users/alice'), { name: 'x', createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db('bob'), 'blocks/bob/users/bob'), { name: 'me', createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db('bob'), 'blocks/bob/users/x'), { name: 'x', createdAt: serverTimestamp(), extra: 1 }));
+    await assertSucceeds(deleteDoc(doc(db('bob'), 'blocks/bob/users/eve')));
+  });
+
+  test('משתמש/ת חסומ/ה לא יכול/ה לשלוח בקשת חברות או הזמנה', async () => {
+    await seed(async (f) => {
+      await setDoc(doc(f, 'publicProfiles/bob'), profile('בוב'));
+      await setDoc(doc(f, 'publicProfiles/eve'), profile('איב'));
+      await setDoc(doc(f, 'blocks/bob/users/eve'), { name: 'איב', createdAt: Timestamp.now() });
+      await setDoc(doc(f, 'rooms/12345'), room('eve'));
+      await setDoc(doc(f, 'rooms/12345/players/eve'), roomPlayer('איב', true));
+    });
+    await assertFails(setDoc(doc(db('eve'), 'friendRequests/eve_bob'), request('eve', 'bob')));
+    await assertFails(
+      setDoc(doc(db('eve'), 'invites/i1'), {
+        from: 'eve', to: 'bob', fromName: 'eve', fromAvatarId: 'detective', fromPhotoUrl: null, toName: 'bob',
+        roomCode: '12345', gridSize: 4, roundSeconds: 90, entryFee: 5, status: 'pending', createdAt: serverTimestamp(),
+      }),
+    );
+    // מי שלא חסומ/ה עדיין יכול/ה לשלוח
+    await seed((f) => setDoc(doc(f, 'publicProfiles/alice'), profile('אליס')));
+    await assertSucceeds(setDoc(doc(db('alice'), 'friendRequests/alice_bob'), request('alice', 'bob')));
+  });
+
+  test('דיווח: כתיבה בלבד, בשם עצמי, עם סיבה מוכרת', async () => {
+    const report = { reporter: 'bob', reported: 'eve', reportedName: 'איב', reason: 'offensive_name', context: 'friends', status: 'open', createdAt: serverTimestamp() };
+    await assertSucceeds(setDoc(doc(db('bob'), 'reports/r1'), report));
+    await assertFails(getDoc(doc(db('bob'), 'reports/r1')));
+    await assertFails(setDoc(doc(db('eve'), 'reports/r2'), report));
+    await assertFails(setDoc(doc(db('bob'), 'reports/r3'), { ...report, reason: 'bad' }));
+    await assertFails(setDoc(doc(db('bob'), 'reports/r4'), { ...report, reported: 'bob' }));
+    await assertFails(setDoc(doc(anon(), 'reports/r5'), report));
+  });
+});
