@@ -93,7 +93,7 @@ class FirebaseAuthRepository implements AuthRepository {
         // הודעה אחת לשני המקרים - כדי לא לחשוף אילו כתובות מייל רשומות.
         'user-not-found' || 'wrong-password' || 'invalid-credential' => 'המייל או הסיסמה לא נכונים.',
         'email-already-in-use' || 'credential-already-in-use' =>
-          'כתובת המייל הזו כבר משויכת לחשבון אחר.',
+          'כבר יש חשבון עם המייל הזה - בחרו "התחברות" במקום הרשמה.',
         'weak-password' => 'הסיסמה חלשה מדי - נסו סיסמה עם 8 תווים לפחות.',
         'network-request-failed' => 'בעיית רשת - בדקו את החיבור לאינטרנט ונסו שוב.',
         'popup-closed-by-user' || 'canceled' || 'sign_in_canceled' => 'ההתחברות בוטלה.',
@@ -140,6 +140,7 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<fb.UserCredential> _linkOrSignIn(
     fb.AuthCredential credential, {
     Future<fb.AuthCredential> Function()? freshCredential,
+    bool signInIfExists = true,
   }) async {
     final current = _auth.currentUser;
     fb.UserCredential result;
@@ -151,6 +152,8 @@ class FirebaseAuthRepository implements AuthRepository {
         return result;
       } on fb.FirebaseAuthException catch (e) {
         if (e.code != 'credential-already-in-use' && e.code != 'email-already-in-use') rethrow;
+        // בהרשמה (מייל) - חשבון קיים הוא שגיאה, לא התחברות שקטה שדורסת את השם.
+        if (!signInIfExists) rethrow;
         // החשבון כבר קיים (למשל התחברתם בעבר והתנתקתם): מתחברים אליו.
         // Firebase מחזיר בשגיאה קרדנציאל מעודכן שאפשר להשתמש בו; אם אין -
         // מבקשים קרדנציאל חדש (ב-Apple), ורק בלית ברירה משתמשים במקורי.
@@ -303,7 +306,10 @@ class FirebaseAuthRepository implements AuthRepository {
     }
     try {
       final credential = fb.EmailAuthProvider.credential(email: email, password: password);
-      final userCred = await _linkOrSignIn(credential);
+      final current = _auth.currentUser;
+      final userCred = (current != null && current.isAnonymous)
+          ? await _linkOrSignIn(credential, signInIfExists: false)
+          : await _auth.createUserWithEmailAndPassword(email: email, password: password);
       await userCred.user!.updateDisplayName(InputRules.sanitizeDisplayName(displayName));
       return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
     } catch (e) {
