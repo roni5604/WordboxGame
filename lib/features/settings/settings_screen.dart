@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -198,8 +199,9 @@ class SettingsScreen extends ConsumerWidget {
                     'מצא ת׳מילה',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
                   ),
+                  // באפליקציה לא מזכירים פלטפורמות אחרות (App Store 2.3.10).
                   Text(
-                    'משחקו של רוני מיכאלי · iPhone, Android ואתר',
+                    kIsWeb ? 'משחקו של רוני מיכאלי · iPhone, Android ואתר' : 'משחקו של רוני מיכאלי',
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontWeight: FontWeight.w600),
                   ),
                 ],
