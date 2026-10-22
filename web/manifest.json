@@ -7,7 +7,7 @@
     "display": "standalone",
     "background_color": "#FF8A3D",
     "theme_color": "#FF8A3D",
-    "description": "משחק מילים בעברית בסגנון Boggle/Wordbox - חברו אותיות שכנות, מצאו מילים, וטפסו במפת השלבים.",
+    "description": "משחק מילים בעברית - חברו אותיות שכנות, מצאו מילים, וטפסו במפת השלבים.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

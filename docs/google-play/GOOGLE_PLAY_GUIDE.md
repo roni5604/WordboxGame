@@ -7,7 +7,7 @@
   שני הקבצים **לא** נשמרים ב-git.
 - אייקון 512×512: `docs/google-play/icon-512.png`
 - תמונה ראשית (Feature graphic) 1024×500: `docs/google-play/feature-graphic-1024x500.png`
-- 7 צילומי מסך 1080×1920: `docs/google-play/screenshots/`
+- 7 צילומי מסך 1080×1920: `docs/google-play/screenshots/` (נוצרו מצילומי ה-App Store, בלי חפיפת טקסט)
 - כל הטקסטים למטה, מוכנים להעתקה.
 
 > ⚠️ **גיבוי חובה:** להעתיק את `~/upload-keystore.jks` ואת `android/key.properties`
@@ -48,7 +48,32 @@
 משחק מילים ממכר בעברית: גררו אצבע על אותיות ומצאו כמה שיותר מילים!
 ```
 
-תיאור מלא (עד 4000): אותו טקסט כמו ב-App Store, ב-`docs/app-store/APP_STORE_LISTING.md` (Description).
+תיאור מלא (עד 4000) - גרסת אנדרואיד (Google במקום Apple):
+```
+מצא ת׳מילה הוא משחק מילים ממכר בעברית. מחברים אותיות שכנות על הלוח (לרוחב, לאורך או באלכסון), מוצאים כמה שיותר מילים לפני שהזמן נגמר, ומתקדמים משלב לשלב.
+
+איך משחקים?
+גוררים אצבע על אותיות סמוכות כדי ליצור מילה. כל מילה נכונה מוסיפה נקודות, ומילים ארוכות שוות יותר. אותיות סופיות? אין צורך לחפש אותן: המשחק ממיר לבד ך, ם, ן, ף, ץ בסוף המילה.
+
+מה מחכה לכם:
+• 100 שלבים בעולמות צבעוניים, והלוח גדל משלב לשלב מ-3×3 ועד 7×7
+• מילון עברי עשיר עם עשרות אלפי מילים: שמות עצם, פעלים בכל הבניינים, תארים, נטיות וסלנג
+• אותיות קשות (ז, ט, צ, ג, ס, ק, פ) בסגול, שוות נקודה נוספת
+• שלושה כוכבים לכל שלב, תיבות מזל, גלגל מזל ופרסים
+• תחרות נגד המחשב: מרוץ מול 1-3 יריבים עם שעון רץ
+• משחק נגד חברים בזמן אמת: חדר פרטי, הזמנה בוואטסאפ, ודירוג חברים
+• אתגר יומי: לוח אחד לכל השחקנים, ניסיון אחד ביום, ורצף ימים עם בונוס
+• רמזים, בונוס יומי ועיצובים לאריחים
+• הבלש מילולי מלווה אתכם עם הדרכה קצרה וחוקים פשוטים
+
+מתאים לכל מי שאוהב תשבצים, חידות ומשחקי מילים, ורוצה לאמן את המוח בעברית.
+
+אפשר לשחק כאורחים בלי להירשם, ולהתחבר בכל רגע עם Google או מייל כדי לשמור את ההתקדמות ולשחק עם חברים.
+
+המשחק חינמי. יש בו רכישות אופציונליות של מטבעות ורמזים.
+
+משחקו של רוני מיכאלי.
+```
 
 קטגוריה: **Word** (מילים). אימייל: `roniro5604@gmail.com`. אתר: `https://roni5604.github.io/WordboxGame/`
 מדיניות פרטיות: `https://roni5604.github.io/WordboxGame/privacy.html`
@@ -61,8 +86,9 @@
 |---|---|
 | **Privacy policy** | `https://roni5604.github.io/WordboxGame/privacy.html` |
 | **Ads** (פרסומות) | **No** (בגרסה הזו אין פרסומות) |
+| **Advertising ID** | **No** - הרשאת AD_ID הוסרה מה-Manifest (ראו AndroidManifest.xml) |
 | **App access** | All functionality is available without special access (אפשר לשחק כאורח) |
-| **Content rating** (שאלון IARC) | קטגוריה: Game. אלימות, מין, שפה, סמים, הימורים: **No**. משתמשים מתקשרים ביניהם: **Yes** (משחק מול חברים וכינויים; אין צ'אט חופשי). רכישות דיגיטליות: **Yes** |
+| **Content rating** (שאלון IARC) | קטגוריה: Game. אלימות, מין, שפה, סמים, הימורים, הימורים מדומים: **No**. משתמשים מתקשרים ביניהם: **Yes** (חברים, כינויים והזמנות; אין צ'אט חופשי). שיתוף מיקום: **No**. רכישות דיגיטליות: **Yes**. Loot boxes בכסף: **No** (תיבות וגלגל מזל רק ממשחק) |
 | **Target audience** | **13+** (13-15, 16-17, 18+) |
 | **News app** | No |
 | **Data safety** | ראו למטה |
@@ -77,7 +103,7 @@
 - Financial info: **Purchase history**: App functionality.
 - App activity: **App interactions, Other user-generated content** (ניקוד, חברים): App functionality, Analytics.
 - App info and performance: **Crash logs, Diagnostics**: Analytics.
-- Device or other IDs: **Device or other IDs**: Analytics (Firebase).
+- Device or other IDs: **Device or other IDs**: Analytics (מזהה ההתקנה של Firebase; לא מזהה פרסום).
 - Shared with third parties: **No**. Collection is optional: Name/Email/Photos: **Optional** (אפשר לשחק כאורח).
 
 ---
@@ -101,4 +127,8 @@
 ---
 
 ## עוד דבר טכני (Claude יטפל)
-- להוסיף ב-Firebase את טביעת ה-SHA של מפתח Play App Signing (רק אם מפעילים התחברות Google באנדרואיד).
+- התחברות Google באנדרואיד: טביעות ה-SHA של מפתח ההעלאה כבר ב-Firebase. אחרי ההעלאה הראשונה
+  צריך להוסיף גם את SHA-1 ו-SHA-256 של **App signing key** (Play Console ← Test and release ←
+  App integrity ← App signing). בלי זה Google לא יעבוד באפליקציה שהותקנה מ-Play.
+- נבדק באמולטור (גרסת release): פתיחה, התחברות כאורח, משחק, חנות, כללי קהילה לפני כינוי,
+  סינון כינוי פוגעני, הוספת חבר, מחיקת חשבון. targetSdk 36, Billing 9.1, ספריות 16KB.

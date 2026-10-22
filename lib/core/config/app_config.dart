@@ -22,10 +22,9 @@ class AppConfig {
     defaultValue: true,
   );
 
-  /// התחברות עם Google באפליקציה (iOS/Android). דורשת הפעלת Google ב-Firebase
-  /// Authentication, טביעות SHA באנדרואיד, והורדה מחדש של google-services.json
-  /// ו-GoogleService-Info.plist. אחרי זה בונים עם GOOGLE_LOGIN_NATIVE=true.
-  /// באתר Google תמיד זמין.
+  /// מפעיל התחברות עם Google בפלטפורמות נוספות (למשל macOS). באתר, ב-iOS
+  /// ובאנדרואיד Google תמיד זמין. מפתח חתימה חדש באנדרואיד דורש להוסיף את טביעת
+  /// ה-SHA שלו ב-Firebase ולהוריד מחדש את google-services.json.
   static const bool googleLoginNative = bool.fromEnvironment('GOOGLE_LOGIN_NATIVE');
 
   /// התחברות עם Apple באתר. דורשת Services ID ומפתח פרטי של Apple בהגדרות
