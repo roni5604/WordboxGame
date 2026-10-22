@@ -18,11 +18,17 @@ import 'progress_repository.dart';
 /// שימו לב: ה-constructor דורש משתמש מחובר (גם אנונימי) - יש לוודא
 /// ש-FirebaseAuth.instance.currentUser אינו null לפני שימוש (למשל ע"י
 /// קריאה ל-FirebaseAuth.instance.signInAnonymously()).
+///
+/// [boundUid]: המשתמש/ת שההתקדמות הזו שייכת לו/לה. כשהחשבון מתחלף (התנתקות,
+/// התחברות לחשבון קיים), נוצר מופע חדש לחשבון החדש, ושמירות מאוחרות של
+/// המופע הישן *לא* נכתבות לחשבון החדש - אחרת שם, מטבעות והתקדמות של חשבון
+/// אחד היו דורסים חשבון אחר.
 class FirebaseProgressRepository implements ProgressRepository {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
+  final String? boundUid;
 
-  FirebaseProgressRepository({FirebaseFirestore? firestore, FirebaseAuth? auth})
+  FirebaseProgressRepository({FirebaseFirestore? firestore, FirebaseAuth? auth, this.boundUid})
       : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance;
 
@@ -50,7 +56,7 @@ class FirebaseProgressRepository implements ProgressRepository {
 
   @override
   Future<PlayerProfile> loadProfile() async {
-    final uid = await _ensureUid();
+    final uid = boundUid ?? await _ensureUid();
     final snapshot = await _getWithRetry(_profileDoc(uid));
     if (!snapshot.exists) {
       // מתנת פתיחה חד-פעמית לפרופיל ענן חדש (ראו PlayerProfile.starterHints).
@@ -106,7 +112,12 @@ class FirebaseProgressRepository implements ProgressRepository {
 
   @override
   Future<void> saveProfile(PlayerProfile profile) async {
-    final uid = await _ensureUid();
+    final bound = boundUid;
+    if (bound != null && _auth.currentUser?.uid != bound) {
+      // החשבון כבר התחלף: זו שמירה מאוחרת של החשבון הקודם - לא כותבים.
+      return;
+    }
+    final uid = bound ?? await _ensureUid();
     final levelsMap = {
       for (final entry in profile.levelProgress.entries)
         entry.key.toString(): {

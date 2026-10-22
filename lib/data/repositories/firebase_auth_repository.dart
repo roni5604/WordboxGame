@@ -9,6 +9,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'dart:convert';
 import 'dart:math';
 
+import '../services/auth_session.dart';
 import '../../core/analytics/crash_reporting.dart';
 import '../../core/security/input_rules.dart';
 import '../models/auth_user.dart';
@@ -184,8 +185,12 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<AuthUser> signInAsGuest() async {
     try {
-      final result = await _auth.signInAnonymously();
-      return _mapUser(result.user!, isNewUser: result.additionalUserInfo?.isNewUser ?? false);
+      final existing = _auth.currentUser;
+      if (existing != null && existing.isAnonymous) return _mapUser(existing);
+      // דרך AuthSession: אם חלק אחר במשחק כבר מבקש חיבור אורח באותו רגע
+      // (למשל טעינת הפרופיל אחרי התנתקות), נוצר רק משתמש/ת אורח/ת אחד/ת.
+      await AuthSession.ensureUid(_auth);
+      return _mapUser(_auth.currentUser!, isNewUser: true);
     } catch (e) {
       throw _friendlyError(e);
     }
