@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/share/share_service.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_dialog.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/social_provider.dart';
+import 'friends_screen.dart' show kFriendsGradient;
 import 'services/social_repository.dart';
 
 /// כללי הקהילה (EULA לתוכן משתמשים) ורשימת החסומים.
@@ -18,13 +21,25 @@ class CommunitySafety {
 
   static const _acceptedKey = 'community_rules_accepted_v1';
 
+  /// ההסכמה נשמרת לכל חשבון בנפרד: חשבון חדש (גם אחרי מחיקה או התנתקות)
+  /// מתבקש להסכים שוב.
+  static String _keyFor(String? uid) => uid == null ? _acceptedKey : '${_acceptedKey}_$uid';
+
   /// בודק/מבקש הסכמה לכללי הקהילה לפני שימוש ראשון בפיצ'רים החברתיים.
   /// מחזיר true אם אפשר להמשיך.
   static Future<bool> ensureAccepted(BuildContext context) async {
+    final container = ProviderScope.containerOf(context, listen: false);
+    String? uid;
+    try {
+      uid = (await container.read(authStateProvider.future).timeout(const Duration(seconds: 3)))?.uid;
+    } catch (_) {
+      uid = container.read(authStateProvider).valueOrNull?.uid;
+    }
+    final key = _keyFor(uid);
     SharedPreferences? prefs;
     try {
       prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool(_acceptedKey) == true) return true;
+      if (prefs.getBool(key) == true) return true;
     } catch (_) {
       // בלי אחסון מקומי - מבקשים הסכמה בכל פעם.
     }
@@ -66,7 +81,7 @@ class CommunitySafety {
     );
     if (ok == true) {
       try {
-        await prefs?.setBool(_acceptedKey, true);
+        await prefs?.setBool(key, true);
       } catch (_) {}
       return true;
     }
@@ -134,7 +149,8 @@ class CommunitySafety {
 }
 
 /// עוטף מסך חברתי: בכניסה הראשונה מבקש הסכמה לכללי הקהילה, ואם לא מסכימים -
-/// חוזר אחורה.
+/// חוזר אחורה. המסך עצמו נבנה רק אחרי ההסכמה, כדי שכללי הקהילה יופיעו
+/// ראשונים (לפני בחירת הכינוי במסך החברים, למשל).
 class CommunityRulesGate extends StatefulWidget {
   final Widget child;
   const CommunityRulesGate({super.key, required this.child});
@@ -144,16 +160,46 @@ class CommunityRulesGate extends StatefulWidget {
 }
 
 class _CommunityRulesGateState extends State<CommunityRulesGate> {
+  /// חשבונות שכבר הסכימו בהרצה הנוכחית - נכנסים מיד, בלי מסך ביניים.
+  static final _acceptedThisRun = <String?>{};
+
+  bool _accepted = false;
+
   @override
   void initState() {
     super.initState();
+    final uid = ProviderScope.containerOf(context, listen: false).read(authStateProvider).valueOrNull?.uid;
+    if (uid != null && _acceptedThisRun.contains(uid)) {
+      _accepted = true;
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final ok = await CommunitySafety.ensureAccepted(context);
-      if (!ok && mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
+      if (!mounted) return;
+      if (ok) {
+        if (uid != null) _acceptedThisRun.add(uid);
+        setState(() => _accepted = true);
+      } else if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else {
+        context.go('/home');
+      }
     });
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    if (_accepted) return widget.child;
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: kFriendsGradient,
+        ),
+      ),
+      child: SizedBox.expand(),
+    );
+  }
 }
