@@ -34,12 +34,58 @@ class _WebIap extends IapController {
   }
 }
 
+/// אפליקציה שבה החנות החזירה רק חלק מהמוצרים (למשל לפני אישור כולם).
+class _PartialIap extends IapController {
+  _PartialIap(super.ref, Map<String, String> prices) : super(autoInit: false) {
+    state = IapState(ready: true, available: prices.isNotEmpty, prices: prices);
+  }
+}
+
+Future<void> _openMoneyTab(WidgetTester tester, IapController Function(Ref ref) iap) async {
+  final router = GoRouter(
+    initialLocation: '/store',
+    routes: [
+      GoRoute(path: '/store', builder: (_, _) => const StoreScreen()),
+    ],
+  );
+  addTearDown(router.dispose);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        progressRepositoryProvider.overrideWithValue(
+          _MemoryProgressRepository(const PlayerProfile(coins: 200, hints: 3)),
+        ),
+        authStateProvider.overrideWith((ref) => Stream.value(null)),
+        adsGatewayProvider.overrideWith((ref) => FakeAdsGateway(supported: false)),
+        iapProvider.overrideWith(iap),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('כסף'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  testWidgets('באפליקציה מוצגות רק חבילות שהחנות החזירה, עם המחיר שלה', (tester) async {
+    await _openMoneyTab(tester, (ref) => _PartialIap(ref, {'wordbox_coins_200': '₪3.90'}));
+    expect(find.text('200 מטבעות'), findsOneWidget);
+    expect(find.text('₪3.90'), findsOneWidget);
+    expect(find.text('5 רמזים'), findsNothing);
+  });
+
+  testWidgets('באפליקציה בלי מוצרים מהחנות אין כפתורי קנייה', (tester) async {
+    await _openMoneyTab(tester, (ref) => _PartialIap(ref, const {}));
+    expect(find.text('החבילות לא זמינות כרגע. נסו שוב מאוחר יותר.'), findsOneWidget);
+    expect(find.byType(FilledButton), findsNothing);
+  });
+
   testWidgets('באתר לשונית הכסף מציגה שהרכישה זמינה רק באפליקציה', (tester) async {
     final router = GoRouter(
       initialLocation: '/store',
       routes: [
-        GoRoute(path: '/store', builder: (_, __) => const StoreScreen()),
+        GoRoute(path: '/store', builder: (_, _) => const StoreScreen()),
       ],
     );
     addTearDown(router.dispose);
@@ -85,7 +131,7 @@ void main() {
       routes: [
         GoRoute(
           path: '/result',
-          builder: (_, __) => LevelResultScreen(
+          builder: (_, _) => LevelResultScreen(
             levelNumber: 1,
             result: const GameScreenResult(
               score: 2,
@@ -98,8 +144,8 @@ void main() {
             ),
           ),
         ),
-        GoRoute(path: '/home', builder: (_, __) => const Scaffold(body: Text('home'))),
-        GoRoute(path: '/store', builder: (_, __) => const Scaffold(body: Text('store'))),
+        GoRoute(path: '/home', builder: (_, _) => const Scaffold(body: Text('home'))),
+        GoRoute(path: '/store', builder: (_, _) => const Scaffold(body: Text('store'))),
       ],
     );
     addTearDown(router.dispose);

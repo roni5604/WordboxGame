@@ -131,6 +131,13 @@
    הקובץ: `build/app/outputs/bundle/release/app-release.aab`.
 
 ### iOS (על Mac)
+0. דרישות: **macOS Tahoe 26.6 ומעלה + Xcode 27** (מה-App Store), ו-Flutter 3.47.
+   ההעלאה ל-App Store מחייבת Xcode 26 ומעלה. הפרויקט כבר עבר ל-UIScene (בלי זה
+   אפליקציה שנבנית ב-Xcode 27 לא נפתחת), ומינימום iOS הוא 15.0 (דרישת Firebase 12).
+   התוספים נטענים דרך Swift Package Manager (ברירת המחדל ב-Flutter 3.47).
+   מדריך מפורט צעד-אחר-צעד: `docs/app-store/IPHONE_RELEASE_GUIDE.md`; טקסטים
+   לדף החנות: `docs/app-store/APP_STORE_LISTING.md`; צילומי מסך:
+   `docs/app-store/screenshots-6.9/`.
 1. `cp ios/Flutter/AppSecrets.example.xcconfig ios/Flutter/AppSecrets.xcconfig` ולמלא.
 2. `open ios/Runner.xcworkspace` → Runner → Signing & Capabilities → לבחור Team.
    - Crashlytics: להוסיף ב-Runner → Build Phases את סקריפט העלאת ה-dSYM
@@ -217,7 +224,10 @@
 - [x] `ITSAppUsesNonExemptEncryption = NO` (לא צריך מסמכי הצפנה).
 - [x] התחברות עם Facebook הוסרה לגמרי. כפתור Google מוסתר באפליקציה עד שמגדירים אותו.
 - [x] פרסומות: AdMob (מתנה, מסך מלא, מובנית), UMP, ATT, SKAdNetwork, מכסות יומיות.
-- [x] רכישות: 6 חבילות, מחירים מקומיים, מניעת זיכוי כפול, רכישה ממתינה.
+- [x] רכישות: 6 חבילות, מחירים מקומיים, מניעת זיכוי כפול, רכישה ממתינה. באפליקציה
+      מוצגות רק חבילות שהחנות החזירה (בלי כפתורי קנייה שנכשלים).
+- [x] iOS: מחזור חיים UIScene (חובה ב-Xcode 27), מינימום iOS 15.0, Flutter 3.47.7.
+- [x] צילומי מסך לחנות (6.9") וטקסטים לדף האפליקציה ב-`docs/app-store/`.
 - [x] אייקונים, צלילים, Analytics (גרסת האפליקציה נקראת אוטומטית מ-`pubspec.yaml`).
 - [x] Crashlytics: דיווח קריסות ב-iOS/Android (בבילד release בלבד).
 - [x] ביטול טוקן Apple במחיקת חשבון. תמונת שיתוף (`web/og-image.png`). עברית כשפת האפליקציה ב-iOS.

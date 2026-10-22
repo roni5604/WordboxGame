@@ -321,6 +321,10 @@ class AnalyticsService {
   void share({required String method, required String contentType}) =>
       _log('share', {'method': method, 'content_type': contentType});
 
+  /// דיווח/חסימה של משתמש/ת אחר/ת (בלי מזהים אישיים).
+  void userReport({required String reason}) => _log('user_report', {'reason': reason});
+  void userBlock() => _log('user_block');
+
   void settingsChange({required String setting, required String value}) =>
       _log('settings_change', {'setting': setting, 'value': value});
 

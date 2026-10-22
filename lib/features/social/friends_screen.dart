@@ -457,7 +457,7 @@ class _OnlineNowStrip extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               physics: const ClampingScrollPhysics(),
               itemCount: friends.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, i) {
                 final p = friends[i].profile;
                 return Pressable(
@@ -501,21 +501,14 @@ class _FriendTile extends ConsumerWidget {
   final FriendEntry entry;
   const _FriendTile({required this.entry});
 
-  Future<void> _showMenu(BuildContext context, WidgetRef ref) async {
-    final remove = await showConfirmDialog(
-      context,
-      title: 'הסרת חבר',
-      message: 'להסיר את ${entry.profile.displayName} מרשימת החברים?',
-      confirmLabel: 'הסרה',
-      confirmPalette: CandyPalette.red,
-    );
-    if (!remove) return;
-    try {
-      await ref.read(socialRepositoryProvider).removeFriend(entry.uid);
-    } catch (e) {
-      if (context.mounted) GameToast.show(context, message: SocialActions.friendlyError(e), color: AppColors.error);
-    }
-  }
+  Future<void> _showMenu(BuildContext context, WidgetRef ref) => SocialActions.showUserSafetyMenu(
+        context,
+        ref,
+        uid: entry.uid,
+        name: entry.profile.displayName,
+        source: 'friends_list',
+        isFriend: true,
+      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -572,7 +565,12 @@ class _FriendTile extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'דיווח / חסימה',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF9A93AE)),
+                onPressed: () => _showMenu(context, ref),
+              ),
               SizedBox(
                 width: 88,
                 child: CandyButton(
@@ -641,20 +639,14 @@ Future<void> _showFriendCard(BuildContext context, FriendEntry entry) {
             },
           ),
           CandyButton(
-            label: 'הסרה מהחברים',
+            label: 'דיווח / חסימה / הסרה',
+            icon: Icons.shield_rounded,
             palette: CandyPalette.white,
             height: 46,
             fontSize: 15,
-            onPressed: () async {
+            onPressed: () {
               Navigator.of(dialogContext).pop();
-              final ok = await showConfirmDialog(
-                context,
-                title: 'הסרת חבר',
-                message: 'להסיר את ${p.displayName} מרשימת החברים?',
-                confirmLabel: 'הסרה',
-                confirmPalette: CandyPalette.red,
-              );
-              if (ok) await ref.read(socialRepositoryProvider).removeFriend(p.uid).catchError((_) {});
+              SocialActions.showUserSafetyMenu(context, ref, uid: p.uid, name: p.displayName, source: 'friend_card', isFriend: true);
             },
           ),
         ],
@@ -875,6 +867,18 @@ class _RequestsTab extends ConsumerWidget {
                     palette: CandyPalette.white,
                     tooltip: 'דחייה',
                     onPressed: () => repo.declineFriendRequest(r).catchError((_) {}),
+                  ),
+                  IconButton(
+                    tooltip: 'דיווח / חסימה',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF9A93AE)),
+                    onPressed: () => SocialActions.showUserSafetyMenu(
+                      context,
+                      ref,
+                      uid: r.fromUid,
+                      name: r.fromName,
+                      source: 'friend_request',
+                    ),
                   ),
                 ],
               ).animate().fadeIn(duration: 250.ms).scaleXY(begin: 0.96, end: 1),

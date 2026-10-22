@@ -9,6 +9,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'dart:convert';
 import 'dart:math';
 
+import '../services/auth_session.dart';
 import '../../core/analytics/crash_reporting.dart';
 import '../../core/security/input_rules.dart';
 import '../models/auth_user.dart';
@@ -92,17 +93,21 @@ class FirebaseAuthRepository implements AuthRepository {
         // הודעה אחת לשני המקרים - כדי לא לחשוף אילו כתובות מייל רשומות.
         'user-not-found' || 'wrong-password' || 'invalid-credential' => 'המייל או הסיסמה לא נכונים.',
         'email-already-in-use' || 'credential-already-in-use' =>
-          'כתובת המייל הזו כבר משויכת לחשבון אחר.',
+          'כבר יש חשבון עם המייל הזה - בחרו "התחברות" במקום הרשמה.',
         'weak-password' => 'הסיסמה חלשה מדי - נסו סיסמה עם 8 תווים לפחות.',
         'network-request-failed' => 'בעיית רשת - בדקו את החיבור לאינטרנט ונסו שוב.',
         'popup-closed-by-user' || 'canceled' || 'sign_in_canceled' => 'ההתחברות בוטלה.',
         'operation-not-allowed' => 'שיטת ההתחברות הזו לא מופעלת עדיין בפרויקט.',
         'too-many-requests' => 'יותר מדי ניסיונות. חכו כמה דקות ונסו שוב.',
-        _ => 'משהו השתבש בהתחברות. נסו שוב.',
+        _ => 'משהו השתבש בהתחברות (${error.code}). נסו שוב.',
       };
+      if (message.contains(error.code)) {
+        CrashReporting.recordNonFatal(error, reason: 'auth_${error.code}');
+      }
       return AuthException(message);
     }
-    return AuthException('משהו השתבש בהתחברות. נסו שוב.');
+    CrashReporting.recordNonFatal(error, reason: 'auth_unknown');
+    return const AuthException('משהו השתבש בהתחברות. נסו שוב.');
   }
 
   /// אחרי קישור/התחברות מוצלחת, מעתיק displayName/photoURL מ-providerData
@@ -129,9 +134,17 @@ class FirebaseAuthRepository implements AuthRepository {
   /// מנסה "לשדרג" משתמש אורח קיים לחשבון אמיתי (linkWithCredential) כדי
   /// לשמר את ההתקדמות שכבר נצברה; אם הקרדנציאל כבר שייך לחשבון אחר,
   /// נופלים חזרה להתחברות רגילה (המשתמש יעבור לפרופיל הקיים שלו בענן).
-  Future<fb.UserCredential> _linkOrSignIn(fb.AuthCredential credential) async {
+  /// [freshCredential]: ל-Apple - קרדנציאל חדש אם צריך להתחבר שוב. קרדנציאל
+  /// של Apple (עם nonce) הוא חד-פעמי: אחרי ניסיון קישור שנכשל, שימוש חוזר בו
+  /// נדחה ("Duplicate credential received" / missing-or-invalid-nonce).
+  Future<fb.UserCredential> _linkOrSignIn(
+    fb.AuthCredential credential, {
+    Future<fb.AuthCredential> Function()? freshCredential,
+    bool signInIfExists = true,
+  }) async {
     final current = _auth.currentUser;
     fb.UserCredential result;
+    var toSignIn = credential;
     if (current != null && current.isAnonymous) {
       try {
         result = await current.linkWithCredential(credential);
@@ -139,10 +152,20 @@ class FirebaseAuthRepository implements AuthRepository {
         return result;
       } on fb.FirebaseAuthException catch (e) {
         if (e.code != 'credential-already-in-use' && e.code != 'email-already-in-use') rethrow;
-        // ממשיכים להתחברות רגילה עם הקרדנציאל הקיים.
+        // בהרשמה (מייל) - חשבון קיים הוא שגיאה, לא התחברות שקטה שדורסת את השם.
+        if (!signInIfExists) rethrow;
+        // החשבון כבר קיים (למשל התחברתם בעבר והתנתקתם): מתחברים אליו.
+        // Firebase מחזיר בשגיאה קרדנציאל מעודכן שאפשר להשתמש בו; אם אין -
+        // מבקשים קרדנציאל חדש (ב-Apple), ורק בלית ברירה משתמשים במקורי.
+        final updated = e.credential;
+        if (updated != null) {
+          toSignIn = updated;
+        } else if (freshCredential != null) {
+          toSignIn = await freshCredential();
+        }
       }
     }
-    result = await _auth.signInWithCredential(credential);
+    result = await _auth.signInWithCredential(toSignIn);
     await _backfillProfileFromProvider(result.user!);
     return result;
   }
@@ -184,8 +207,12 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<AuthUser> signInAsGuest() async {
     try {
-      final result = await _auth.signInAnonymously();
-      return _mapUser(result.user!, isNewUser: result.additionalUserInfo?.isNewUser ?? false);
+      final existing = _auth.currentUser;
+      if (existing != null && existing.isAnonymous) return _mapUser(existing);
+      // דרך AuthSession: אם חלק אחר במשחק כבר מבקש חיבור אורח באותו רגע
+      // (למשל טעינת הפרופיל אחרי התנתקות), נוצר רק משתמש/ת אורח/ת אחד/ת.
+      await AuthSession.ensureUid(_auth);
+      return _mapUser(_auth.currentUser!, isNewUser: true);
     } catch (e) {
       throw _friendlyError(e);
     }
@@ -232,18 +259,21 @@ class FirebaseAuthRepository implements AuthRepository {
         throw const AuthException('התחברות עם Apple זמינה כרגע רק ב-iOS ובדפדפן.');
       }
 
-      final rawNonce = _generateNonce();
-      final nonce = _sha256(rawNonce);
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
-        nonce: nonce,
-      );
-      final credential = fb.OAuthProvider('apple.com').credential(
-        idToken: appleCredential.identityToken,
-        rawNonce: rawNonce,
-        accessToken: appleCredential.authorizationCode,
-      );
-      final userCred = await _linkOrSignIn(credential);
+      Future<fb.AuthCredential> newAppleCredential() async {
+        final rawNonce = _generateNonce();
+        final appleCredential = await SignInWithApple.getAppleIDCredential(
+          scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+          nonce: _sha256(rawNonce),
+        );
+        return fb.OAuthProvider('apple.com').credential(
+          idToken: appleCredential.identityToken,
+          rawNonce: rawNonce,
+          accessToken: appleCredential.authorizationCode,
+        );
+      }
+
+      final credential = await newAppleCredential();
+      final userCred = await _linkOrSignIn(credential, freshCredential: newAppleCredential);
       return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
     } on SignInWithAppleAuthorizationException catch (e) {
       throw AuthException(
@@ -276,7 +306,10 @@ class FirebaseAuthRepository implements AuthRepository {
     }
     try {
       final credential = fb.EmailAuthProvider.credential(email: email, password: password);
-      final userCred = await _linkOrSignIn(credential);
+      final current = _auth.currentUser;
+      final userCred = (current != null && current.isAnonymous)
+          ? await _linkOrSignIn(credential, signInIfExists: false)
+          : await _auth.createUserWithEmailAndPassword(email: email, password: password);
       await userCred.user!.updateDisplayName(InputRules.sanitizeDisplayName(displayName));
       return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
     } catch (e) {

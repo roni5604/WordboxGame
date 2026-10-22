@@ -165,4 +165,50 @@ void main() {
     expect(record.wins, 1);
     expect(record.losses, 1);
   });
+
+  test('חסימה: מסירה מהחברים, מוחקת בקשות, ונכנסת לרשימת החסומים', () async {
+    final dana = await player('dana', 'דנה');
+    final omer = await player('omer', 'עומר');
+    await dana.sendFriendRequest('omer', toName: 'עומר');
+    final incoming = await omer.watchIncomingRequests().first;
+    await omer.acceptFriendRequest(incoming.single);
+    expect(await dana.watchFriends().first, hasLength(1));
+
+    // בקשה ממתינה נוספת מאיב, ואז חסימה של עומר ושל איב
+    final eve = await player('eve', 'איב');
+    await eve.sendFriendRequest('dana');
+    await dana.blockUser('omer', name: 'עומר');
+    await dana.blockUser('eve', name: 'איב');
+
+    expect(await dana.watchFriends().first, isEmpty);
+    expect(await omer.watchFriends().first, isEmpty);
+    expect(await dana.watchIncomingRequests().first, isEmpty);
+    final blocked = await dana.watchBlockedUsers().first;
+    expect(blocked.map((b) => b.uid).toSet(), {'omer', 'eve'});
+    expect(blocked.firstWhere((b) => b.uid == 'omer').name, 'עומר');
+
+    await dana.unblockUser('eve');
+    expect((await dana.watchBlockedUsers().first).map((b) => b.uid), ['omer']);
+  });
+
+  test('דיווח נשמר עם המדווח/ת, הסיבה וכינוי מנוקה', () async {
+    final dana = await player('dana', 'דנה');
+    await dana.reportUser(uid: 'eve', name: 'זונה', reason: ReportReason.offensiveName, context: 'friends_list');
+    final reports = await firestore.collection('reports').get();
+    expect(reports.docs, hasLength(1));
+    final r = reports.docs.single.data();
+    expect(r['reporter'], 'dana');
+    expect(r['reported'], 'eve');
+    expect(r['reason'], 'offensive_name');
+    expect(r['status'], 'open');
+    expect(r['reportedName'], 'unknown');
+  });
+
+  test('אי אפשר לדווח או לחסום את עצמי', () async {
+    final dana = await player('dana', 'דנה');
+    await dana.reportUser(uid: 'dana', name: 'דנה', reason: ReportReason.other);
+    await dana.blockUser('dana');
+    expect((await firestore.collection('reports').get()).docs, isEmpty);
+    expect(await dana.watchBlockedUsers().first, isEmpty);
+  });
 }

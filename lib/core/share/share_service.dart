@@ -88,14 +88,16 @@ class ShareService {
     final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
     try {
       if (imagePng != null) {
-        await Share.shareXFiles(
-          [XFile.fromData(imagePng, mimeType: 'image/png', name: 'wordbox.png')],
+        await SharePlus.instance.share(ShareParams(
+          files: [XFile.fromData(imagePng, mimeType: 'image/png', name: 'wordbox.png')],
           text: text,
           subject: subject,
           sharePositionOrigin: origin,
-        );
+        ));
       } else {
-        await Share.share(text, subject: subject, sharePositionOrigin: origin);
+        await SharePlus.instance.share(
+          ShareParams(text: text, subject: subject, sharePositionOrigin: origin),
+        );
       }
     } catch (e) {
       debugPrint('system share failed: $e');

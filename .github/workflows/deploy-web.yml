@@ -29,7 +29,7 @@ jobs:
         with:
           # אותה גרסה כמו ב-CI (ci.yml), כדי שגרסת stable חדשה לא תשבור את
           # הפריסה בלי שהבדיקות ראו אותה קודם.
-          flutter-version: '3.35.5'
+          flutter-version: '3.47.7'
           channel: stable
           cache: true
 

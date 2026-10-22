@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 ///   publicProfiles/{friend}/friends/{uid}  - אני ברשימות של חברים
 ///   friendRequests (from/to = uid)         - בקשות חברות
 ///   invites (from/to = uid)                - הזמנות למשחק
+///   blocks/{uid}/users/*                   - רשימת החסומים שלי
 ///
 /// חדרי משחק (rooms) הם זמניים ומכילים רק כינוי וניקוד של סבב, ולכן לא
 /// נמחקים כאן.
@@ -38,6 +39,9 @@ class AccountDataEraser {
         refs.addAll(snap.docs.map((d) => d.reference));
       }
     }
+
+    final blocked = await _firestore.collection('blocks').doc(uid).collection('users').get();
+    refs.addAll(blocked.docs.map((d) => d.reference));
 
     refs
       ..add(profiles.doc(uid))

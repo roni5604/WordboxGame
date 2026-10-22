@@ -262,6 +262,19 @@ describe('חברים ובקשות חברות', () => {
     );
   });
 
+  test('שליחת בקשת חברות - בדיוק הרצף שהאפליקציה עושה (כולל בדיקת בקשה הפוכה שלא קיימת)', async () => {
+    await seedProfiles();
+    const alice = db('alice');
+    // 1. כבר חברים?  2. בוב כבר ביקש ממני?  3. הכרטיס שלי  4. יצירת הבקשה
+    await assertSucceeds(getDoc(doc(alice, 'publicProfiles/alice/friends/bob')));
+    await assertSucceeds(getDoc(doc(alice, 'friendRequests/bob_alice')));
+    await assertSucceeds(getDoc(doc(alice, 'publicProfiles/alice')));
+    await assertSucceeds(setDoc(doc(alice, 'friendRequests/alice_bob'), request('alice', 'bob')));
+    // אחרי שהבקשה קיימת - רק הצדדים שלה יכולים לקרוא אותה
+    await assertSucceeds(getDoc(doc(db('bob'), 'friendRequests/alice_bob')));
+    await assertFails(getDoc(doc(db('eve'), 'friendRequests/alice_bob')));
+  });
+
   test('אי אפשר להוסיף מישהו לחברים בלי בקשה', async () => {
     await seedProfiles();
     await assertFails(
@@ -456,5 +469,51 @@ describe('הזמנות למשחק', () => {
     await seed((f) => setDoc(doc(f, 'invites/i1'), invite('host', 'bob')));
     await assertFails(updateDoc(doc(db('bob'), 'invites/i1'), { status: 'accepted', entryFee: 0 }));
     await assertFails(getDoc(doc(db('eve'), 'invites/i1')));
+  });
+});
+
+describe('חסימה ודיווח', () => {
+  function request(from, to) {
+    return { from, to, fromName: from, fromAvatarId: 'detective', fromPhotoUrl: null, toName: to, createdAt: serverTimestamp() };
+  }
+
+  test('משתמש/ת חוסמ/ת, רק הוא/היא רואה את הרשימה, ומבטל/ת חסימה', async () => {
+    await assertSucceeds(setDoc(doc(db('bob'), 'blocks/bob/users/eve'), { name: 'איב', createdAt: serverTimestamp() }));
+    await assertSucceeds(getDocs(collection(db('bob'), 'blocks/bob/users')));
+    await assertFails(getDocs(collection(db('eve'), 'blocks/bob/users')));
+    await assertFails(setDoc(doc(db('eve'), 'blocks/bob/users/alice'), { name: 'x', createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db('bob'), 'blocks/bob/users/bob'), { name: 'me', createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db('bob'), 'blocks/bob/users/x'), { name: 'x', createdAt: serverTimestamp(), extra: 1 }));
+    await assertSucceeds(deleteDoc(doc(db('bob'), 'blocks/bob/users/eve')));
+  });
+
+  test('משתמש/ת חסומ/ה לא יכול/ה לשלוח בקשת חברות או הזמנה', async () => {
+    await seed(async (f) => {
+      await setDoc(doc(f, 'publicProfiles/bob'), profile('בוב'));
+      await setDoc(doc(f, 'publicProfiles/eve'), profile('איב'));
+      await setDoc(doc(f, 'blocks/bob/users/eve'), { name: 'איב', createdAt: Timestamp.now() });
+      await setDoc(doc(f, 'rooms/12345'), room('eve'));
+      await setDoc(doc(f, 'rooms/12345/players/eve'), roomPlayer('איב', true));
+    });
+    await assertFails(setDoc(doc(db('eve'), 'friendRequests/eve_bob'), request('eve', 'bob')));
+    await assertFails(
+      setDoc(doc(db('eve'), 'invites/i1'), {
+        from: 'eve', to: 'bob', fromName: 'eve', fromAvatarId: 'detective', fromPhotoUrl: null, toName: 'bob',
+        roomCode: '12345', gridSize: 4, roundSeconds: 90, entryFee: 5, status: 'pending', createdAt: serverTimestamp(),
+      }),
+    );
+    // מי שלא חסומ/ה עדיין יכול/ה לשלוח
+    await seed((f) => setDoc(doc(f, 'publicProfiles/alice'), profile('אליס')));
+    await assertSucceeds(setDoc(doc(db('alice'), 'friendRequests/alice_bob'), request('alice', 'bob')));
+  });
+
+  test('דיווח: כתיבה בלבד, בשם עצמי, עם סיבה מוכרת', async () => {
+    const report = { reporter: 'bob', reported: 'eve', reportedName: 'איב', reason: 'offensive_name', context: 'friends', status: 'open', createdAt: serverTimestamp() };
+    await assertSucceeds(setDoc(doc(db('bob'), 'reports/r1'), report));
+    await assertFails(getDoc(doc(db('bob'), 'reports/r1')));
+    await assertFails(setDoc(doc(db('eve'), 'reports/r2'), report));
+    await assertFails(setDoc(doc(db('bob'), 'reports/r3'), { ...report, reason: 'bad' }));
+    await assertFails(setDoc(doc(db('bob'), 'reports/r4'), { ...report, reported: 'bob' }));
+    await assertFails(setDoc(doc(anon(), 'reports/r5'), report));
   });
 });

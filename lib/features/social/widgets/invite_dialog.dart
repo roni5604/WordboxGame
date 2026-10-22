@@ -9,14 +9,16 @@ import 'presence_avatar.dart';
 
 /// החלון הקופץ שמופיע כשחבר/ה מזמין/ה אותך למשחק - בהשראת ה-"Friendly
 /// Battle" של Clash Royale: האוואטאר של המזמין/ה בתוך טבעת ספירה לאחור,
-/// פרטי המשחק, וכפתור גדול להצטרפות מיידית. מחזיר true אם אושר.
-Future<bool> showInviteDialog(BuildContext context, GameInvite invite) async {
-  final result = await showGameDialog<bool>(
+/// פרטי המשחק, וכפתור גדול להצטרפות מיידית.
+enum InviteAnswer { accept, decline, reportOrBlock }
+
+Future<InviteAnswer> showInviteDialog(BuildContext context, GameInvite invite) async {
+  final result = await showGameDialog<InviteAnswer>(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => _InviteDialog(invite: invite),
   );
-  return result ?? false;
+  return result ?? InviteAnswer.decline;
 }
 
 class _InviteDialog extends StatefulWidget {
@@ -36,7 +38,7 @@ class _InviteDialogState extends State<_InviteDialog> {
     _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) {
       if (!mounted) return;
       if (!widget.invite.isActive()) {
-        Navigator.of(context).pop(false);
+        Navigator.of(context).pop(InviteAnswer.decline);
         return;
       }
       setState(() {});
@@ -120,14 +122,22 @@ class _InviteDialogState extends State<_InviteDialog> {
           icon: Icons.sports_esports_rounded,
           palette: CandyPalette.green,
           height: 58,
-          onPressed: () => Navigator.of(context).pop(true),
+          onPressed: () => Navigator.of(context).pop(InviteAnswer.accept),
         ),
         CandyButton(
           label: 'לא עכשיו',
           palette: CandyPalette.white,
           height: 48,
           fontSize: 16,
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: () => Navigator.of(context).pop(InviteAnswer.decline),
+        ),
+        TextButton.icon(
+          onPressed: () => Navigator.of(context).pop(InviteAnswer.reportOrBlock),
+          icon: const Icon(Icons.flag_rounded, size: 18, color: Color(0xFF8A80A8)),
+          label: const Text(
+            'דיווח / חסימה',
+            style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF8A80A8)),
+          ),
         ),
       ],
     );

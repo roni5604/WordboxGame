@@ -14,6 +14,8 @@ import '../../core/ui/pressable.dart';
 import '../../data/models/auth_user.dart';
 import '../../data/services/firebase_bootstrap.dart';
 import '../../providers/auth_provider.dart';
+import '../auth/account_flows.dart';
+import '../social/community_safety.dart';
 import '../../providers/player_profile_provider.dart';
 
 /// צבעי מסך ההגדרות - סגול-כחלחל רגוע.
@@ -94,6 +96,13 @@ class SettingsScreen extends ConsumerWidget {
                       ? 'מחיקה לצמיתות של החשבון וכל הנתונים'
                       : 'מחיקה לצמיתות של כל הנתונים שלי',
                   onTap: () => _confirmDeleteAccount(context, ref),
+                ),
+                _ActionRow(
+                  icon: Icons.block_rounded,
+                  color: const Color(0xFF7B3FF2),
+                  label: 'משתמשים חסומים',
+                  subtitle: 'צפייה וביטול חסימה',
+                  onTap: () => CommunitySafety.showBlockedUsers(context),
                 ),
                 if (ads.isSupported && ads.privacyOptionsRequired)
                   _ActionRow(
@@ -217,16 +226,13 @@ class SettingsScreen extends ConsumerWidget {
     final ok = await showConfirmDialog(
       context,
       title: 'להתנתק?',
-      message: 'תישארו מחוברים כאורח/ת ותוכלו לשמור התקדמות מקומית, ותמיד אפשר להתחבר בחזרה מאותו חשבון.',
+      message: 'תחזרו למסך הפתיחה. ההתקדמות שלכם שמורה בחשבון ותחזור כשתתחברו שוב.',
       confirmLabel: 'התנתקות',
       confirmPalette: CandyPalette.blue,
     );
-    if (!ok) return;
-    final repo = ref.read(authRepositoryProvider);
+    if (!ok || !context.mounted) return;
     AnalyticsService.instance.settingsChange(setting: 'sign_out', value: 'confirmed');
-    await repo.signOut();
-    await repo.signInAsGuest();
-    if (context.mounted) context.go('/home');
+    await AccountFlows.signOutToStart(context, ref);
   }
 
   Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
@@ -252,11 +258,8 @@ class SettingsScreen extends ConsumerWidget {
         confirmLabel: 'להתחברות',
         confirmPalette: CandyPalette.blue,
       );
-      if (!relogin) return;
-      await repo.signOut();
-      await repo.signInAsGuest();
-      ref.invalidate(playerProfileProvider);
-      if (context.mounted) context.push('/auth');
+      if (!relogin || !context.mounted) return;
+      await AccountFlows.signOutToStart(context, ref);
       return;
     } on AuthException catch (e) {
       if (context.mounted) {
@@ -270,11 +273,11 @@ class SettingsScreen extends ConsumerWidget {
       // מצב מקומי: ההתקדמות שמורה רק במכשיר - מאפסים אותה.
       await ref.read(playerProfileProvider.notifier).resetProgress();
     }
-    await repo.signInAsGuest();
-    ref.invalidate(playerProfileProvider);
+    final guest = await repo.signInAsGuest();
+    await AccountFlows.reloadFor(ref, guest.uid);
     if (context.mounted) {
       GameToast.show(context, message: 'החשבון נמחק', icon: Icons.delete_forever_rounded);
-      context.go('/home');
+      context.go('/');
     }
   }
 

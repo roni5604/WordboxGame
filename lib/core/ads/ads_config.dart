@@ -27,6 +27,11 @@ class AdsConfig {
   );
   static const String nativeIos = String.fromEnvironment('ADMOB_NATIVE_IOS');
 
+  /// בקשת אישור מעקב (ATT) ב-iOS. כבויה כברירת מחדל: בלי NSUserTrackingUsageDescription
+  /// ב-Info.plist ובלי הצהרת Tracking ב-App Privacy, Apple דוחה כל בקשה כזו. כדי להפעיל:
+  /// להחזיר את המפתח ל-Info.plist, לעדכן את App Privacy ולבנות עם ATT_ENABLED=true.
+  static const bool trackingPrompt = bool.fromEnvironment('ATT_ENABLED');
+
   /// מזהה מפרסם AdSense לאתר (`ca-pub-...`). בלי המזהה האתר מציג
   /// את מודעת הדוגמה של Google. עם המזהה, בבילד release, רצות פרסומות אמיתיות.
   static const String adsenseClient = String.fromEnvironment('ADSENSE_CLIENT');

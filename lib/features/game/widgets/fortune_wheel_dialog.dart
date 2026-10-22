@@ -38,7 +38,7 @@ class FortuneWheelDialog extends ConsumerStatefulWidget {
         opacity: CurvedAnimation(parent: a, curve: Motion.out),
         child: ScaleTransition(scale: Tween(begin: 0.94, end: 1.0).animate(CurvedAnimation(parent: a, curve: Motion.out)), child: child),
       ),
-      pageBuilder: (context, _, __) => FortuneWheelDialog(prizeIndex: prizeIndex, prize: prize),
+      pageBuilder: (context, _, _) => FortuneWheelDialog(prizeIndex: prizeIndex, prize: prize),
     );
   }
 

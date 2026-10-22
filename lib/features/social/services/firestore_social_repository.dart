@@ -15,6 +15,8 @@ import 'social_repository.dart';
 ///   publicProfiles/{uid}/friends/{uid2}   - הרשומה שלי על חבר/ה (מאזן ראש בראש)
 ///   friendRequests/{from}_{to}            - בקשת חברות ממתינה
 ///   invites/{autoId}                      - הזמנה למשחק בחדר פרטי
+///   blocks/{uid}/users/{blockedUid}       - משתמשים שחסמתי (רק אני קורא/ת)
+///   reports/{autoId}                      - דיווחים על משתמשים (כתיבה בלבד)
 ///
 /// חוקי האבטחה המתאימים נמצאים ב-firestore.rules.
 class FirestoreSocialRepository implements SocialRepository {
@@ -28,6 +30,9 @@ class FirestoreSocialRepository implements SocialRepository {
   CollectionReference<Map<String, dynamic>> get _profiles => _firestore.collection('publicProfiles');
   CollectionReference<Map<String, dynamic>> get _requests => _firestore.collection('friendRequests');
   CollectionReference<Map<String, dynamic>> get _invites => _firestore.collection('invites');
+  CollectionReference<Map<String, dynamic>> get _reports => _firestore.collection('reports');
+  CollectionReference<Map<String, dynamic>> _blocksOf(String uid) =>
+      _firestore.collection('blocks').doc(uid).collection('users');
 
   CollectionReference<Map<String, dynamic>> _friendsOf(String uid) =>
       _profiles.doc(uid).collection('friends');
@@ -289,8 +294,14 @@ class FirestoreSocialRepository implements SocialRepository {
     if (alreadyFriends.exists) throw const SocialException('אתם כבר חברים!');
 
     // הצד השני כבר שלח לי בקשה? מאשרים מיד - בלי לחכות לשני הצדדים.
-    final reverse = await _requests.doc(FriendRequest.idFor(toUid, me)).get();
-    if (reverse.exists) {
+    // אם הבדיקה עצמה נכשלת (רשת/הרשאה) - ממשיכים לשליחה רגילה במקום להיכשל.
+    DocumentSnapshot<Map<String, dynamic>>? reverse;
+    try {
+      reverse = await _requests.doc(FriendRequest.idFor(toUid, me)).get();
+    } catch (_) {
+      reverse = null;
+    }
+    if (reverse != null && reverse.exists) {
       await acceptFriendRequest(_mapRequest(reverse));
       return true;
     }
@@ -444,6 +455,76 @@ class FirestoreSocialRepository implements SocialRepository {
       'status': (accept ? InviteStatus.accepted : InviteStatus.declined).name,
       'respondedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // דיווח וחסימה
+  // ---------------------------------------------------------------------------
+
+  @override
+  Future<void> reportUser({
+    required String uid,
+    required String name,
+    required ReportReason reason,
+    String context = '',
+  }) async {
+    final me = await ensureSignedIn();
+    if (uid == me) return;
+    await _reports.add({
+      'reporter': me,
+      'reported': uid,
+      'reportedName': InputRules.sanitizeDisplayName(name).isEmpty ? 'unknown' : InputRules.sanitizeDisplayName(name),
+      'reason': reason.code,
+      'context': context.length > 200 ? context.substring(0, 200) : context,
+      'status': 'open',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  @override
+  Future<void> blockUser(String uid, {String name = ''}) async {
+    final me = await ensureSignedIn();
+    if (uid == me) return;
+    await _blocksOf(me).doc(uid).set({
+      'name': InputRules.sanitizeDisplayName(name),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    // ניקוי כל הקשרים הקיימים. כל מחיקה בנפרד, כדי שכשל אחד (למשל מסמך
+    // שכבר לא קיים) לא יעצור את השאר.
+    Future<void> quietly(Future<void> Function() op) async {
+      try {
+        await op();
+      } catch (_) {}
+    }
+
+    await quietly(() => removeFriend(uid));
+    await quietly(() => _requests.doc(FriendRequest.idFor(me, uid)).delete());
+    await quietly(() => _requests.doc(FriendRequest.idFor(uid, me)).delete());
+    await quietly(() async {
+      final invites = await _invites.where('to', isEqualTo: me).where('from', isEqualTo: uid).get();
+      for (final doc in invites.docs) {
+        await doc.reference.delete();
+      }
+    });
+  }
+
+  @override
+  Future<void> unblockUser(String uid) async {
+    final me = await ensureSignedIn();
+    await _blocksOf(me).doc(uid).delete();
+  }
+
+  @override
+  Stream<List<BlockedUser>> watchBlockedUsers() async* {
+    final me = await ensureSignedIn();
+    yield* _blocksOf(me).snapshots().map((snap) => [
+          for (final doc in snap.docs)
+            BlockedUser(
+              uid: doc.id,
+              name: (doc.data()['name'] as String?)?.isNotEmpty == true ? doc.data()['name'] as String : 'שחקן/ית',
+              since: (doc.data()['createdAt'] as Timestamp?)?.toDate(),
+            ),
+        ]);
   }
 
   // ---------------------------------------------------------------------------

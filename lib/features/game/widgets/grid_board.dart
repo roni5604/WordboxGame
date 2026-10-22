@@ -224,7 +224,7 @@ class GridBoardState extends State<GridBoard> {
 
         final linePoints = [
           for (final p in _path) _centerForPosition(p, cellSize),
-          if (_dragPosition != null) _dragPosition!,
+          ?_dragPosition,
         ];
 
         TileVisualState stateFor(int r, int c) {

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_service.dart';
+import 'account_flows.dart';
 import '../../core/config/app_config.dart';
 import '../../core/security/input_rules.dart';
 import '../../core/theme/app_colors.dart';
@@ -45,10 +46,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   // באתר Apple דורש הגדרת Services ID ב-Firebase - מוסתר עד אז (ראו AppConfig).
   bool get _appleAvailable => kIsWeb ? AppConfig.appleLoginWeb : (Platform.isIOS || Platform.isMacOS);
 
-  // באפליקציה (iOS/Android) Google דורש הגדרה ילידית נוספת (Client ID).
-  // עד שמפעילים אותו בבילד הכפתור מוסתר, כדי שבודקי החנות לא יפגשו כפתור
-  // שלא עובד. ראו AppConfig.
-  bool get _googleAvailable => kIsWeb || AppConfig.googleLoginNative;
+  // ב-iOS ה-Client ID מוגדר (GIDClientID + REVERSED_CLIENT_ID). באנדרואיד
+  // Google דורש עוד טביעות SHA ב-Firebase, ולכן נשאר מאחורי GOOGLE_LOGIN_NATIVE.
+  bool get _googleAvailable => kIsWeb || Platform.isIOS || AppConfig.googleLoginNative;
 
   @override
   void dispose() {
@@ -73,6 +73,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     try {
       final user = await task();
       if (action != 'signout') _logAuth(before, user);
+      if (!mounted) return;
+      // התחברות לחשבון קיים (uid אחר מהאורח/ת): טוענים את ההתקדמות של
+      // החשבון *לפני* כל עדכון, כדי שנתוני האורח/ת לא ידרסו אותה.
+      if (before?.uid != user.uid) await AccountFlows.reloadFor(ref, user.uid);
       if (!mounted) return;
       // אחרי כל התחברות מוצלחת לחשבון אמיתי (לא אורח/ת), מסנכרנים את השם
       // מהספק (Google/Apple/מייל) לפרופיל - כך שהשם והתמונה
@@ -181,10 +185,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 if (isRealAccount) ...[
                   _AccountCard(
                     user: user,
-                    onSignOut: () => _run('signout', () async {
-                      await repo.signOut();
-                      return await repo.signInAsGuest();
-                    }),
+                    onSignOut: () async {
+                      setState(() => _busyAction = 'signout');
+                      try {
+                        await AccountFlows.signOutToStart(context, ref);
+                      } finally {
+                        if (mounted) setState(() => _busyAction = null);
+                      }
+                    },
                   ),
                   const SizedBox(height: 20),
                 ] else ...[

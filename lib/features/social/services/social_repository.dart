@@ -54,6 +54,27 @@ class MyPublicInfo {
       Object.hash(displayName, avatarId, photoUrl, totalStars, highestLevel, dailyDate, dailyScore, dailyStreak);
 }
 
+/// סיבת דיווח על משתמש/ת (נשמרת כמחרוזת ב-reports/{id}.reason).
+enum ReportReason {
+  offensiveName('offensive_name', 'כינוי פוגעני או לא הולם'),
+  harassment('harassment', 'הטרדה או בריונות'),
+  spam('spam', 'ספאם או הזמנות חוזרות'),
+  cheating('cheating', 'רמאות'),
+  other('other', 'סיבה אחרת');
+
+  const ReportReason(this.code, this.labelHe);
+  final String code;
+  final String labelHe;
+}
+
+/// משתמש/ת שחסמתי.
+class BlockedUser {
+  final String uid;
+  final String name;
+  final DateTime? since;
+  const BlockedUser({required this.uid, required this.name, this.since});
+}
+
 /// כל מה שקשור לחברים: כרטיס ציבורי, נוכחות (מי מחובר), בקשות חברות,
 /// רשימת חברים עם מאזן "ראש בראש", והזמנות למשחק בזמן אמת.
 ///
@@ -100,6 +121,20 @@ abstract class SocialRepository {
   Stream<List<GameInvite>> watchIncomingInvites();
   Stream<List<GameInvite>> watchSentInvites(String roomCode);
   Future<void> respondToInvite(GameInvite invite, {required bool accept});
+
+  /// דיווח על משתמש/ת לצוות המשחק (נבדק תוך 24 שעות).
+  Future<void> reportUser({
+    required String uid,
+    required String name,
+    required ReportReason reason,
+    String context = '',
+  });
+
+  /// חסימה: מסיר/ה מהחברים, מוחק/ת בקשות והזמנות בינינו, ומונע/ת מהצד השני
+  /// לשלוח לי בקשות חברות או הזמנות (נאכף גם בחוקי Firestore).
+  Future<void> blockUser(String uid, {String name = ''});
+  Future<void> unblockUser(String uid);
+  Stream<List<BlockedUser>> watchBlockedUsers();
 
   /// מעדכן סטטיסטיקה אחרי משחק בחדר פרטי: המונה הכללי שלי, ומאזן "ראש
   /// בראש" מול כל יריב/ה שהוא/היא גם חבר/ה.
@@ -191,6 +226,24 @@ class OfflineSocialRepository implements SocialRepository {
 
   @override
   Future<void> respondToInvite(GameInvite invite, {required bool accept}) async {}
+
+  @override
+  Future<void> reportUser({
+    required String uid,
+    required String name,
+    required ReportReason reason,
+    String context = '',
+  }) async =>
+      _fail();
+
+  @override
+  Future<void> blockUser(String uid, {String name = ''}) async => _fail();
+
+  @override
+  Future<void> unblockUser(String uid) async => _fail();
+
+  @override
+  Stream<List<BlockedUser>> watchBlockedUsers() => Stream.value(const []);
 
   @override
   Future<void> recordMatch({required Map<String, int> scores, required String myUid}) async {}

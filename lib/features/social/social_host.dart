@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/social_provider.dart';
 import 'models/social_models.dart';
+import 'social_actions.dart';
 import 'services/social_repository.dart';
 import 'widgets/invite_dialog.dart';
 
@@ -167,8 +168,18 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
     final invite = _pendingInvites.removeAt(0);
     _showingInvite = true;
     try {
-      final accepted = await showInviteDialog(dialogContext, invite);
+      final answer = await showInviteDialog(dialogContext, invite);
+      final accepted = answer == InviteAnswer.accept;
       await _repo.respondToInvite(invite, accept: accepted).catchError((_) {});
+      if (answer == InviteAnswer.reportOrBlock && dialogContext.mounted) {
+        await SocialActions.showUserSafetyMenu(
+          dialogContext,
+          ref,
+          uid: invite.fromUid,
+          name: invite.fromName,
+          source: 'game_invite',
+        );
+      }
       if (accepted && mounted) {
         widget.router.push(
           '/multiplayer/online/join?code=${Uri.encodeComponent(invite.roomCode)}',
@@ -217,8 +228,8 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
   @override
   Widget build(BuildContext context) {
     if (_repo.isAvailable) {
-      ref.listen(playerProfileProvider, (_, __) => _schedulePublish());
-      ref.listen(authStateProvider, (_, __) => _schedulePublish());
+      ref.listen(playerProfileProvider, (_, _) => _schedulePublish());
+      ref.listen(authStateProvider, (_, _) => _schedulePublish());
       ref.listen<AsyncValue<List<GameInvite>>>(incomingInvitesProvider, (_, next) {
         final invites = next.valueOrNull;
         if (invites != null) _onInvites(invites);

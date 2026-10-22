@@ -102,7 +102,7 @@ class AdsMobileGateway extends AdsGateway {
       await _quota.load();
       await _requestConsent();
       await _syncAnalyticsConsent();
-      if (Platform.isIOS) await _requestAtt();
+      if (Platform.isIOS && AdsConfig.trackingPrompt) await _requestAtt();
       _canRequestAds = await ConsentInformation.instance.canRequestAds();
       final privacy = await ConsentInformation.instance
           .getPrivacyOptionsRequirementStatus();
@@ -112,8 +112,7 @@ class AdsMobileGateway extends AdsGateway {
         await MobileAds.instance.updateRequestConfiguration(
           RequestConfiguration(
             maxAdContentRating: MaxAdContentRating.t,
-            tagForChildDirectedTreatment: TagForChildDirectedTreatment.no,
-            tagForUnderAgeOfConsent: TagForUnderAgeOfConsent.no,
+            ageRestrictedTreatment: AgeRestrictedTreatment.unspecified,
           ),
         );
         await MobileAds.instance.initialize();

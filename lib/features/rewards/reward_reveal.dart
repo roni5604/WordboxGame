@@ -103,7 +103,7 @@ class RewardReveal extends ConsumerStatefulWidget {
       barrierColor: const Color(0xD9100822),
       transitionDuration: Motion.standard,
       transitionBuilder: (context, a, _, child) => FadeTransition(opacity: CurvedAnimation(parent: a, curve: Motion.out), child: child),
-      pageBuilder: (context, _, __) => RewardReveal(
+      pageBuilder: (context, _, _) => RewardReveal(
         contents: contents,
         charge: charge,
         startRarity: startRarity,
