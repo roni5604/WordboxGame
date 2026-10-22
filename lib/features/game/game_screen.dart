@@ -41,6 +41,7 @@ import 'widgets/words_goal_panel.dart';
 import '../../core/platform/top_bar_tint.dart';
 import '../../core/platform/browser_back_guard.dart';
 import '../../core/feedback/haptics.dart';
+import '../auth/sign_in_methods.dart';
 
 /// תוצאת שלב שהושלם - מועברת למסך התוצאה דרך go_router `extra`.
 class GameScreenResult extends Equatable {
@@ -1037,7 +1038,7 @@ class _GameHeader extends ConsumerWidget {
         title: 'רמזים שמורים לרשומים',
         ribbon: CandyPalette.gold,
         message:
-            'הרשמו בחינם עם Google, Apple או מייל וקבלו רמזי מתנה '
+            'הרשמו בחינם עם ${signInMethodsText()} וקבלו רמזי מתנה '
             'מיד ובונוס יומי - בלי לאבד את ההתקדמות הנוכחית שלכם.',
         actions: [
           CandyButton(

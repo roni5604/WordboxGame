@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_service.dart';
 import 'account_flows.dart';
+import 'sign_in_methods.dart';
 import '../../core/config/app_config.dart';
 import '../../core/security/input_rules.dart';
 import '../../core/theme/app_colors.dart';
@@ -43,12 +44,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _showEmailForm = false;
   String? _busyAction;
 
-  // באתר Apple דורש הגדרת Services ID ב-Firebase - מוסתר עד אז (ראו AppConfig).
-  bool get _appleAvailable => kIsWeb ? AppConfig.appleLoginWeb : (Platform.isIOS || Platform.isMacOS);
+  bool get _appleAvailable => appleSignInAvailable();
 
-  // ב-iOS ה-Client ID מוגדר (GIDClientID + REVERSED_CLIENT_ID). באנדרואיד
-  // Google דורש עוד טביעות SHA ב-Firebase, ולכן נשאר מאחורי GOOGLE_LOGIN_NATIVE.
-  bool get _googleAvailable => kIsWeb || Platform.isIOS || AppConfig.googleLoginNative;
+  // ב-iOS ה-Client ID מוגדר (GIDClientID + REVERSED_CLIENT_ID). באנדרואיד טביעות
+  // ה-SHA של מפתח ההעלאה ושל Play App Signing רשומות ב-Firebase.
+  bool get _googleAvailable => kIsWeb || Platform.isIOS || Platform.isAndroid || AppConfig.googleLoginNative;
 
   @override
   void dispose() {

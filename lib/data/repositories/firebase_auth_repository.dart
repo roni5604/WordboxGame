@@ -236,8 +236,13 @@ class FirebaseAuthRepository implements AuthRepository {
       final userCred = await _linkOrSignIn(credential);
       return _mapUser(userCred.user!, isNewUser: userCred.additionalUserInfo?.isNewUser ?? false);
     } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) throw const AuthException('ההתחברות בוטלה.');
+      CrashReporting.recordNonFatal(e, reason: 'google_sign_in_${e.code.name}');
+      // באנדרואיד "unknownError" מגיע בעיקר כשאין חשבון Google במכשיר.
       throw AuthException(
-        e.code.name == 'canceled' ? 'ההתחברות בוטלה.' : 'ההתחברות עם Google נכשלה (${e.code.name}).',
+        e.code == GoogleSignInExceptionCode.unknownError
+            ? 'לא הצלחנו להתחבר עם Google. ודאו שיש חשבון Google במכשיר (הגדרות ← חשבונות), או התחברו עם מייל.'
+            : 'ההתחברות עם Google נכשלה (${e.code.name}).',
       );
     } catch (e) {
       throw _friendlyError(e);

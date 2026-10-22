@@ -12,7 +12,20 @@
           "package_name": "com.wordboxil.wordbox_hebrew"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "856063251417-pqt6pcboeofscpmn0u0fphrfhb2041iv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wordboxil.wordbox_hebrew",
+            "certificate_hash": "69a51e297863b92de5566c300805c6a6233d6449"
+          }
+        },
+        {
+          "client_id": "856063251417-6pdhr62deh7ruaonk122vgk5smpams2u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAtJePOWx0Xv3-lplC0bKh4L-ofTqTpPNo"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "856063251417-6pdhr62deh7ruaonk122vgk5smpams2u.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "856063251417-i648s5kktpk583ofkugn2geuk9raf49a.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.wordboxil.wordboxHebrew"
+              }
+            }
+          ]
         }
       }
     }

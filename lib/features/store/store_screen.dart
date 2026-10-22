@@ -17,6 +17,7 @@ import '../ads/native_ad_card.dart';
 import '../ads/store_ad_gift_card.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/platform/top_bar_tint.dart';
+import '../auth/sign_in_methods.dart';
 
 class _HintPack {
   final int hints;
@@ -517,8 +518,8 @@ class _GuestHintsCta extends StatelessWidget {
               style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 10),
-            const Text(
-              'הרשמו בחינם עם Google, Apple או מייל - ותקבלו רמזי '
+            Text(
+              'הרשמו בחינם עם ${signInMethodsText()} - ותקבלו רמזי '
               'מתנה מיד, בונוס יומי עם רמזים ומטבעות, ואפשרות לקנות עוד עם '
               'המטבעות שלכם.',
               textAlign: TextAlign.center,
