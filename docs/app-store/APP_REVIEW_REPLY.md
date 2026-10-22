@@ -37,7 +37,7 @@ Apple ביקשה הקלטת מסך ממכשיר אמיתי + 6 תשובות. ה�
 
 Hello App Review team,
 
-Thank you for reviewing מצא ת׳מילה ("Find the Word"). Here is the requested information. The screen recording (iPhone, latest iOS, TestFlight build 1.0.0 (5)) is attached.
+Thank you for reviewing מצא ת׳מילה ("Find the Word"). Here is the requested information. The screen recording (iPhone, latest iOS, build 1.0.0 (10), the build attached to this submission) is attached.
 
 **1. Screen recording** - attached. It starts from launching the app and shows: sign-in with Apple (account creation/login), gameplay, an In-App Purchase, reporting and blocking another user, the blocked-users list, and account deletion.
 
