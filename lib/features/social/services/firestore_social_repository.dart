@@ -294,8 +294,14 @@ class FirestoreSocialRepository implements SocialRepository {
     if (alreadyFriends.exists) throw const SocialException('אתם כבר חברים!');
 
     // הצד השני כבר שלח לי בקשה? מאשרים מיד - בלי לחכות לשני הצדדים.
-    final reverse = await _requests.doc(FriendRequest.idFor(toUid, me)).get();
-    if (reverse.exists) {
+    // אם הבדיקה עצמה נכשלת (רשת/הרשאה) - ממשיכים לשליחה רגילה במקום להיכשל.
+    DocumentSnapshot<Map<String, dynamic>>? reverse;
+    try {
+      reverse = await _requests.doc(FriendRequest.idFor(toUid, me)).get();
+    } catch (_) {
+      reverse = null;
+    }
+    if (reverse != null && reverse.exists) {
       await acceptFriendRequest(_mapRequest(reverse));
       return true;
     }

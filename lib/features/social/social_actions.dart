@@ -279,7 +279,7 @@ class SocialActions {
     if (e is SocialException) return e.message;
     final text = e.toString();
     if (text.contains('permission-denied') || text.contains('PERMISSION_DENIED')) {
-      return 'שרת החברים עדיין מתעדכן - נסו שוב בעוד כמה דקות.';
+      return 'הפעולה לא הצליחה. נסו שוב בעוד רגע.';
     }
     if (text.contains('unavailable') || text.contains('network')) {
       return 'אין חיבור לאינטרנט כרגע.';

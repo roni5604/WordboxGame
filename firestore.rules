@@ -185,7 +185,11 @@ service cloud.firestore {
     }
 
     match /friendRequests/{requestId} {
-      allow read: if signedIn()
+      // get של בקשה שלא קיימת (בדיקה "האם הצד השני כבר ביקש ממני?") חייב
+      // לעבור - אחרת כל בקשת חברות נכשלת. מסמך שלא קיים לא חושף כלום.
+      allow get: if signedIn()
+        && (resource == null || resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow list: if signedIn()
         && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['from', 'to', 'fromName', 'fromAvatarId', 'fromPhotoUrl', 'toName', 'createdAt'])

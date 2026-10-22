@@ -262,6 +262,19 @@ describe('חברים ובקשות חברות', () => {
     );
   });
 
+  test('שליחת בקשת חברות - בדיוק הרצף שהאפליקציה עושה (כולל בדיקת בקשה הפוכה שלא קיימת)', async () => {
+    await seedProfiles();
+    const alice = db('alice');
+    // 1. כבר חברים?  2. בוב כבר ביקש ממני?  3. הכרטיס שלי  4. יצירת הבקשה
+    await assertSucceeds(getDoc(doc(alice, 'publicProfiles/alice/friends/bob')));
+    await assertSucceeds(getDoc(doc(alice, 'friendRequests/bob_alice')));
+    await assertSucceeds(getDoc(doc(alice, 'publicProfiles/alice')));
+    await assertSucceeds(setDoc(doc(alice, 'friendRequests/alice_bob'), request('alice', 'bob')));
+    // אחרי שהבקשה קיימת - רק הצדדים שלה יכולים לקרוא אותה
+    await assertSucceeds(getDoc(doc(db('bob'), 'friendRequests/alice_bob')));
+    await assertFails(getDoc(doc(db('eve'), 'friendRequests/alice_bob')));
+  });
+
   test('אי אפשר להוסיף מישהו לחברים בלי בקשה', async () => {
     await seedProfiles();
     await assertFails(
