@@ -5,7 +5,8 @@ import 'package:audioplayers/audioplayers.dart';
 /// בלי לחתוך אחד את השני (למשל שני "פינג" של מציאת מילה ברצף מהיר).
 ///
 /// כל הקבצים ב-assets/audio נוצרו פרוצדורלית (ראו tool/generate_sfx.py) -
-/// טונים סינתטיים פשוטים, בלי תלות בקבצי אודיו חיצוניים או סוגיות רישוי.
+/// בועות, קלימבה, מרימבה ו"פשששש", בלי קבצי אודיו חיצוניים או סוגיות רישוי.
+/// כולם באותו סולם, כך שצלילים שמתנגנים יחד נשמעים הרמוניים.
 class SoundService {
   SoundService() : _silent = false;
 
@@ -46,14 +47,36 @@ class SoundService {
     }
   }
 
-  /// מילה תקינה נמצאה - ארפג'יו שמח וקצר.
-  Future<void> playSuccess() => _play('success_word.wav');
+  /// רצף מילים: כל מילה שנמצאת תוך [_comboWindow] מהקודמת (בלי שגיאה
+  /// באמצע) מתחילה טון גבוה יותר - תחושת "התלהטות" כמו בקנדי קראש.
+  static const _comboWindow = Duration(seconds: 8);
+  int _combo = 0;
+  DateTime? _lastWordAt;
 
-  /// ניסיון מילה לא תקין/כפול - צליל שלילי קצר, לא מציק.
-  Future<void> playError() => _play('error_word.wav', volume: 0.6);
+  /// מילה תקינה נמצאה. [letters] = אורך המילה: 5 אותיות ומעלה מקבלות
+  /// חגיגה גדולה יותר ("פששש" עם נצנצים ו"וואו").
+  Future<void> playSuccess({int letters = 0}) {
+    final now = DateTime.now();
+    final last = _lastWordAt;
+    _combo = last != null && now.difference(last) < _comboWindow ? _combo + 1 : 0;
+    _lastWordAt = now;
+    if (letters >= 5) return _play('success_long.wav', volume: 0.85);
+    return _play('success_${_combo.clamp(0, 4)}.wav');
+  }
 
-  /// נגיעה ראשונה באות בתחילת גרירה.
-  Future<void> playTileTap() => _play('tile_tap.wav', volume: 0.5);
+  /// ניסיון מילה לא תקין/כפול - צליל שלילי קצר, לא מציק. שובר את הרצף.
+  Future<void> playError() {
+    _combo = 0;
+    _lastWordAt = null;
+    return _play('error_word.wav', volume: 0.6);
+  }
+
+  /// אות נוספה לנתיב בזמן גרירה - כל אות עולה צליל אחד בסולם
+  /// ([index] = מיקום האות במילה, 0 = הראשונה).
+  Future<void> playTileTap([int index = 0]) => _play('tile_${index.clamp(0, 11)}.wav', volume: 0.5);
+
+  /// ערבוב אותיות הלוח - מפל בועות קטן.
+  Future<void> playShuffle() => _play('shuffle.wav', volume: 0.7);
 
   /// סיום שלב בהצלחה - פנפרה קטנה.
   Future<void> playLevelComplete() => _play('level_complete.wav');

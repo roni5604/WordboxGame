@@ -9,6 +9,7 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/ui/app_scroll_behavior.dart';
 import 'core/ui/pressable.dart';
+import 'features/game/widgets/grid_board.dart';
 import 'features/social/social_host.dart';
 import 'providers/auth_provider.dart';
 import 'providers/player_profile_provider.dart';
@@ -36,6 +37,8 @@ class _WordboxAppState extends ConsumerState<WordboxApp> with WidgetsBindingObse
     }, fireImmediately: true);
     // כל לחיצה על כפתור באפליקציה משמיעה את אותו "טאפ" עדין.
     PressFeedback.onPress = () => ref.read(soundServiceProvider).playButtonTap();
+    // כל אות שמחברים על הלוח עולה צליל אחד בסולם.
+    GridBoard.onTileAdded = (index) => ref.read(soundServiceProvider).playTileTap(index);
     // הגדרת "רטט" בפרופיל קובעת את כל הרטט באפליקציה (גם באתר).
     ref.listenManual(
       playerProfileProvider,

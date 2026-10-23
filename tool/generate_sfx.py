@@ -1,363 +1,370 @@
 #!/usr/bin/env python3
 """
-מייצר את כל צלילי המשחק (SFX) באופן פרוצדורלי, בלי תלות בקבצי אודיו
-חיצוניים או סוגיות רישוי - רק גלי סינוס/משולש עם envelope, לפי מתכונים
-פשוטים (רצף תדרים + משכים). מריצים פעם אחת ושומרים ל-assets/audio/*.wav.
+מייצר את כל צלילי המשחק (SFX) באופן פרוצדורלי - בלי קבצי אודיו חיצוניים
+ובלי סוגיות רישוי. המנוע (כלים, הד, "פשששש", קולות) נמצא ב-tool/sfx/synth.py.
 
-הרצה:  python3 tool/generate_sfx.py
+הצלילים נבחרו במעבדת הצלילים מתוך שלוש חבילות, וכל אחד מגיע מהחבילה שנבחרה לו:
+  - בועות: משחק עצמו (אותיות, מילים, שגיאה, כוכב, סיום שלב, כפתורים), פרס אגדי, זיקוק
+  - קריסטל (קלימבה/צ'לסטה): רמז, בונוס יומי, פתיחת פרס רגיל/נדיר/אפי, איסוף
+  - עץ (מרימבה ובלוק עץ): מטבעות, טיימר, לחיצות על התיבה, עליית דרגה, גלגל המזל
+כל הצלילים בסולם פנטטוני של דו - כך שגם כשהם מתנגנים יחד הם נשמעים הרמוניים.
+
+לכל צליל יש אורך מקסימלי (MAX) שמתאים לאנימציה שהוא מלווה במסך: למשל מילה
+נמצאה = באנר של 900ms, שגיאה = הבהוב של 260ms, לחיצה על תיבה = כל 230ms לפחות.
+
+הרצה (צריך numpy ו-scipy):
+    python3 -m venv /tmp/sfx && /tmp/sfx/bin/pip install numpy scipy
+    /tmp/sfx/bin/python tool/generate_sfx.py               # הכל
+    /tmp/sfx/bin/python tool/generate_sfx.py hint coin     # רק חלק
 """
-import math
 import os
-import struct
-import wave
+import sys
+import zlib
 
-SAMPLE_RATE = 44100
-OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "audio")
+import numpy as np
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'sfx'))
+import synth as S  # noqa: E402
+from synth import (  # noqa: E402
+    SR, T, Mix, brass, bubble, celesta, coin_ring, drop, fmbell, glock, highpass, kalimba,
+    lowpass, marimba, midi, modal, n, noise, pad, penta_note, pop, save, shhh, thud, voice, whoosh,
+)
 
-def note(freq, duration, volume=0.5, wave_shape="sine", fade=0.012):
-    """מייצר מקטע טון בודד (רשימת samples בין -1..1) עם fade-in/out קצר
-    כדי למנוע 'קליק' בתחילת/סוף הטון, ו-envelope שדועך בעדינות (ADSR פשוט)."""
-    n = int(SAMPLE_RATE * duration)
-    samples = []
-    fade_n = max(1, int(SAMPLE_RATE * fade))
-    for i in range(n):
-        t = i / SAMPLE_RATE
-        if wave_shape == "sine":
-            raw = math.sin(2 * math.pi * freq * t)
-        elif wave_shape == "triangle":
-            raw = 2 * abs(2 * ((freq * t) % 1) - 1) - 1
-        elif wave_shape == "square":
-            raw = 1.0 if math.sin(2 * math.pi * freq * t) >= 0 else -1.0
-        else:
-            raw = math.sin(2 * math.pi * freq * t)
-
-        # envelope: fade-in, sustain עם decay עדין, fade-out בסוף
-        decay = math.exp(-2.0 * t / max(duration, 0.001))
-        env = decay
-        if i < fade_n:
-            env *= i / fade_n
-        if i > n - fade_n:
-            env *= (n - i) / fade_n
-        samples.append(raw * env * volume)
-    return samples
+OUT_DIR = os.path.join(os.path.dirname(__file__), '..', 'assets', 'audio')
 
 
-def silence(duration):
-    return [0.0] * int(SAMPLE_RATE * duration)
+# --- הכלים של כל חבילה ---------------------------------------------------------
+
+def bubble_note(f, v=1.0):
+    """"בלופ" של בועה עם נצנוץ פעמון עדין מעליו - הכלי המלודי של חבילת הבועות."""
+    x = bubble(f, 0.22, 1.35, 0.09, v) * 0.8
+    return x + glock(f * 2, 0.5, 0.18 * v)[: len(x)]
 
 
-def mix(*tracks):
-    """מערבב כמה 'רצועות' (רשימות samples) יחד - עבור אקורדים/שכבות."""
-    length = max(len(t) for t in tracks)
-    out = [0.0] * length
-    for track in tracks:
-        for i, s in enumerate(track):
-            out[i] += s
-    peak = max((abs(s) for s in out), default=1.0) or 1.0
-    if peak > 1.0:
-        out = [s / peak for s in out]
+def crystal_note(f, v=1.0):
+    return kalimba(f, 1.4, v)
+
+
+def crystal_hi(f, d=0.6, v=1.0):
+    return celesta(f, max(d, 0.9), v)
+
+
+def wood_note(f, v=1.0):
+    return marimba(f, 1.0, v)
+
+
+def wood_hi(f, d=0.6, v=1.0):
+    return glock(f, d, v)
+
+
+def coins_wood(m, at=0.0, g=1.0):
+    m.add(coin_ring(n('B6'), 0.35), at, 0.55 * g, -0.2)
+    m.add(coin_ring(n('E7'), 0.6), at + 0.07, 0.7 * g, 0.2)
+    m.add(marimba(n('E6'), 0.4), at + 0.07, 0.25 * g)
+
+
+def coins_crystal(m, at=0.0, g=1.0):
+    m.add(fmbell(n('B6'), 0.4, ratio=2.0, index=1.5, dec=0.15), at, 0.5 * g, -0.2)
+    m.add(fmbell(n('E7'), 0.9, ratio=2.0, index=1.8, dec=0.3), at + 0.07, 0.7 * g, 0.2)
+    m.add(celesta(n('B7'), 0.5), at + 0.09, 0.15 * g)
+
+
+def v_wow():
+    return voice(0.8, [(0, 330), (0.25, 480), (0.6, 440), (1, 300)],
+                 [(0, 'u'), (0.18, 'a'), (0.55, 'a'), (0.8, 'o'), (1, 'u')])
+
+
+def v_woohoo():
+    a = voice(0.3, [(0, 400), (1, 520)], [(0, 'u'), (1, 'u')])
+    b = voice(0.55, [(0, 520), (0.4, 720), (1, 640)], [(0, 'u'), (0.3, 'o'), (1, 'u')])
+    out = np.zeros(int(SR * 0.9))
+    out[: len(a)] += a
+    s = int(SR * 0.32)
+    out[s: s + len(b)] += b
     return out
 
 
-def save_wav(path, samples):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with wave.open(path, "w") as f:
-        f.setnchannels(1)
-        f.setsampwidth(2)
-        f.setframerate(SAMPLE_RATE)
-        frames = b"".join(
-            struct.pack("<h", int(max(-1.0, min(1.0, s)) * 32000)) for s in samples
-        )
-        f.writeframes(frames)
-    print(f"נכתב: {path} ({len(samples) / SAMPLE_RATE:.2f}s)")
+def choir(dur):
+    """מקהלת "אההה" - אקורד דו מז'ור רחב שמתנפח לאט."""
+    return pad([n('C4'), n('E4'), n('G4'), n('C5')], dur, 1.0, 'a', 0.25)
 
 
-# תדרי תווים (A4=440 בסיס, סולם דו-מז'ור בקירוב) לנוחות הרכבת מנגינות קטנות
-C4, D4, E4, F4, G4, A4, B4 = 261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88
-C5, D5, E5, F5, G5, A5, B5, C6 = 523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50
+def pshhh_up(dur=0.6):
+    """"פשששיו" - רעש שעולה למעלה ומתפוגג."""
+    return whoosh(dur, 500, 7000, 1.4, 1.0, 0.75)
 
 
-def make_success_word():
-    """מציאת מילה תקינה: ארפג'יו קצר ועולה, שמח וקצבי."""
-    seq = []
-    for f in (E5, G5, C6):
-        seq += note(f, 0.09, volume=0.55, wave_shape="triangle")
-    return seq
+def sparkle_pshhh(m, at=0.0, g=1.0, inst=glock):
+    """"פששש עם נצנצים" - שכבה קסומה למילה ארוכה."""
+    m.add(whoosh(0.7, 800, 9000, 1.2, 0.6, 0.6), at, g)
+    m.add(shhh(0.6, 0.35, 7000, 0.25), at + 0.3, g)
+    m.sparkle(at + 0.15, 0.6, 12, inst=inst, gain=0.3 * g)
 
 
-def make_error_word():
-    """מילה לא תקינה: שני טונים יורדים, קצרים וממוקדים - לא מציק."""
-    seq = note(A4, 0.09, volume=0.4, wave_shape="square")
-    seq += note(F4, 0.13, volume=0.35, wave_shape="square")
-    return seq
+# --- משחק: בועות ---------------------------------------------------------------
+
+def tile(k):
+    """חיבור אות: כל אות נוספת עולה צליל אחד בסולם (k = מיקום האות במילה).
+    האצבע עוברת אות כל ~120ms, אז הצליל קצר וכמעט בלי הד."""
+    return Mix(0.4).add(bubble(penta_note(k, 67), 0.16, 1.6, 0.05, 0.95), 0).render(0.5, 0.07, max_dur=0.35)
 
 
-def make_tile_tap():
-    """נגיעה ראשונה באות - "טיק" רך וקצרצר."""
-    return note(880, 0.035, volume=0.25, wave_shape="sine", fade=0.005)
+def success(combo):
+    """מילה נמצאה. כל מילה ברצף (combo 0..4) מתחילה גבוה יותר - כמו קנדי קראש.
+    הבאנר "מילה נמצאה" מוצג 900ms."""
+    r = 72 + [0, 2, 4, 5, 7][combo]
+    m = Mix(1.0)
+    m.add(pop(0.18), 0)
+    for i, iv in enumerate((0, 4, 7, 12)):
+        m.add(bubble_note(midi(r + iv), 0.6 + 0.12 * i), 0.045 * i, 0.8, (i - 1.5) * 0.25)
+    m.add(glock(midi(r + 24), 0.8, 0.5), 0.17, 0.25, 0.4)
+    m.add(glock(midi(r + 19), 0.8, 0.4), 0.2, 0.18, -0.4)
+    m.add(shhh(0.35, 0.25, 6000, 0.1), 0.14)
+    return m.render(0.8, 0.12, max_dur=0.9)
 
 
-def make_level_complete():
-    """סיום שלב מוצלח: ריצת תווים עולה + אקורד סיום שמח."""
-    seq = []
-    for f in (C5, E5, G5, C6, E5, G5):
-        seq += note(f, 0.11, volume=0.5, wave_shape="triangle")
-    seq += silence(0.03)
-    chord = mix(
-        note(C5, 0.6, volume=0.35, wave_shape="triangle"),
-        note(E5, 0.6, volume=0.3, wave_shape="triangle"),
-        note(G5, 0.6, volume=0.3, wave_shape="triangle"),
-        note(C6, 0.6, volume=0.25, wave_shape="sine"),
-    )
-    seq += chord
-    return seq
+def success_long():
+    """מילה ארוכה (5 אותיות ומעלה): ארפג'יו ארוך, "פששש עם נצנצים" ו"וואו"."""
+    m = Mix(1.5)
+    for i, iv in enumerate((0, 4, 7, 12, 16)):
+        m.add(bubble_note(midi(72 + iv), 0.6 + 0.08 * i), 0.05 * i, 0.75, (i - 2) * 0.2)
+    for iv in (12, 16, 19, 24):
+        m.add(bubble_note(midi(72 + iv), 0.7), 0.3, 0.5)
+    sparkle_pshhh(m, 0.0, 0.6)
+    m.add(v_wow(), 0.32, 0.5)
+    return m.render(1.0, 0.15, max_dur=1.4)
 
 
-def make_hint():
-    """שימוש ברמז: "נצנוץ" קסום - סוויפ עולה מהיר עם המון תווים קצרים."""
-    seq = []
-    freqs = [C5, D5, E5, G5, A5, C6, D5 * 2]
-    for f in freqs:
-        seq += note(f, 0.05, volume=0.35, wave_shape="sine", fade=0.006)
-    return seq
+def error_word():
+    """מילה שגויה/כפולה: "בּוֹפּ" כפול יורד, רך ולא מעניש. הלוח מהבהב 260ms."""
+    m = Mix(0.5)
+    m.add(drop(520, 230, 0.2, 0.09), 0.0, 0.9)
+    m.add(drop(330, 150, 0.22, 0.1), 0.12, 0.7)
+    return m.render(0.4, 0.07, max_dur=0.45)
 
 
-def make_coin():
-    """קבלת/רכישת מטבעות: "צ'ינג" בהיר וקצר."""
-    seq = mix(note(C6, 0.14, volume=0.45, wave_shape="sine"), note(E5 * 2, 0.14, volume=0.3, wave_shape="sine"))
-    return seq
+def star_gained():
+    """כוכב חדש: הכוכב בפאנל מתמלא מיד (350ms) - נצנוץ עולה מעל צליל המילה."""
+    m = Mix(1.1)
+    for i in range(6):
+        m.add(glock(penta_note(5 + i, 72), 0.7, 0.8), 0.04 * i, 0.45, -0.6 + 0.24 * i)
+    m.add(bubble_note(n('C5'), 0.7), 0, 0.5)
+    m.add(bubble_note(n('G5'), 0.7), 0.2, 0.45)
+    m.add(shhh(0.45, 0.25, 6500, 0.18), 0.2)
+    return m.render(0.8, 0.13, max_dur=1.0)
 
 
-def make_daily_reward():
-    """בונוס יומי: ג'ינגל קצר וחגיגי."""
-    seq = []
-    for f in (C5, E5, G5, C6):
-        seq += note(f, 0.1, volume=0.5, wave_shape="triangle")
-    seq += mix(
-        note(C5, 0.35, volume=0.3, wave_shape="triangle"),
-        note(G5, 0.35, volume=0.25, wave_shape="triangle"),
-        note(C6, 0.35, volume=0.25, wave_shape="sine"),
-    )
-    return seq
+def level_complete():
+    """סיום שלב: מנגינה קצרה, אקורד, נצנצים ו"ווהוו" - יחד עם הקונפטי (2 שניות)."""
+    m = Mix(2.4)
+    for f, at, v in (('G4', 0, .7), ('C5', .11, .75), ('E5', .22, .8), ('G5', .33, .85), ('E5', .5, .75), ('G5', .61, .85)):
+        m.add(bubble_note(n(f), v), at, 0.8)
+    for f in ('C5', 'E5', 'G5', 'C6'):
+        m.add(bubble_note(n(f), 0.9), 0.74, 0.55)
+    m.add(pad([n('C4'), n('G4'), n('C5'), n('E5')], 1.5, 1.0, 'a', 0.2), 0.7, 0.35)
+    m.add(whoosh(0.5, 600, 7000, 1.4, 0.3, 0.8), 0.32)
+    m.sparkle(0.76, 0.9, 14, inst=glock, gain=0.2)
+    m.add(v_woohoo(), 0.8, 0.5)
+    return m.render(1.0, 0.14, max_dur=2.4)
 
 
-def make_button_tap():
-    """קליק UI כללי - עדין ולא פולשני."""
-    return note(1200, 0.025, volume=0.18, wave_shape="sine", fade=0.004)
+def button_tap():
+    """לחיצה על כפתור - הצליל שנשמע הכי הרבה, אז קצרצר ויבש."""
+    x = bubble(n('C6'), 0.08, 1.7, 0.018, 0.9) + np.pad(pop(0.3), (0, int(SR * 0.06)))
+    return Mix(0.2).add(x, 0).render(0.4, 0.05, max_dur=0.12)
 
 
-def make_timer_warning():
-    """אזהרת זמן אוזל (כמה שניות אחרונות) - "טיק" חד יותר."""
-    return note(660, 0.07, volume=0.4, wave_shape="square", fade=0.008)
+def shuffle():
+    """ערבוב האותיות: מפל בועות קטן בגבהים אקראיים, כמו אותיות שמתערבלות."""
+    m = Mix(0.7)
+    for i, k in enumerate((7, 3, 9, 5, 1, 8, 4)):
+        m.add(bubble(penta_note(k, 67), 0.12, 1.6, 0.04, 0.8), 0.05 * i + S.rng.uniform(0, 0.015), 0.7, S.rng.uniform(-0.7, 0.7))
+    m.add(whoosh(0.4, 3000, 600, 1.6, 0.25, 0.4), 0.0)
+    return m.render(0.6, 0.1, max_dur=0.6)
 
 
-def make_star_gained():
-    """כוכב הושג במהלך השלב (לא סיום שלב) - "שאבב" זוהר וקצר, שמח יותר
-    מ-success_word אך קצר בהרבה מ-level_complete, כדי לחגוג רגע ביניים
-    (הגעה ליעד המילים, או לכוכב הבא) בלי להפריע לקצב המשחק."""
-    seq = []
-    for f in (G5, C6, D5 * 2):
-        seq += note(f, 0.08, volume=0.5, wave_shape="sine")
-    seq += mix(
-        note(C6, 0.22, volume=0.35, wave_shape="sine"),
-        note(G5, 0.22, volume=0.25, wave_shape="triangle"),
-    )
-    return seq
+def firework():
+    """זיקוק: מתנגן ברגע ההתפוצצות (ההבזק), אז ה"בום" בהתחלה ואחריו קרקל
+    שנמשך כמו הניצוצות (~1.1-1.8 שניות)."""
+    m = Mix(1.4)
+    boom = thud(95, 32, 0.6, 1.0) + lowpass(noise(0.6), 900) * np.exp(-T(0.6) / 0.12) * 0.6
+    m.add(boom, 0.0, 0.9)
+    for _ in range(55):
+        at = 0.04 + S.rng.uniform(0, 0.9) ** 1.4
+        k = int(SR * 0.006)
+        c = highpass(noise(k / SR), 2500) * np.exp(-np.arange(k) / (SR * 0.0012))
+        m.add(c, at, S.rng.uniform(0.15, 0.4) * (1.3 - at), S.rng.uniform(-0.9, 0.9))
+    m.sparkle(0.08, 0.7, 8, inst=glock, gain=0.08, rise=False)
+    return m.render(1.4, 0.22, max_dur=1.2)
 
 
-# --- תיבות מזל ודרגות נדירות -------------------------------------------------
-import random as _random
-
-_rng = _random.Random(7)  # קבוע - כדי שהקבצים ייווצרו זהים בכל הרצה
-
-
-def sweep(f0, f1, duration, volume=0.4, fade=0.01):
-    """גליסנדו (תדר שמשתנה בהדרגה) - "ווש" של עליית דרגה."""
-    n = int(SAMPLE_RATE * duration)
-    out, phase = [], 0.0
-    fade_n = max(1, int(SAMPLE_RATE * fade))
-    for i in range(n):
-        t = i / n
-        f = f0 * (f1 / f0) ** t
-        phase += 2 * math.pi * f / SAMPLE_RATE
-        env = math.sin(math.pi * t) ** 0.6
-        if i < fade_n:
-            env *= i / fade_n
-        out.append(math.sin(phase) * env * volume)
-    return out
+def reveal_legendary():
+    """פרס אגדי: פנפרה, ובדיוק ב-1.4 שניות (כשתותחי הקונפטי השניים יורים)
+    אקורד גדול עם מקהלת "אההה", נצנצים ו"וואו"."""
+    m = Mix(3.0)
+    m.add(thud(110, 35, 0.6, 1.0), 0).add(whoosh(0.5, 4000, 250, 1.4, 0.55, 0.1), 0)
+    for f, at, d in (('G4', .05, .12), ('C5', .16, .12), ('E5', .27, .12), ('G5', .38, .35), ('E5', .76, .12), ('G5', .87, .45)):
+        m.add(brass(n(f), d + 0.1, 0.9), at, 0.55)
+        m.add(bubble_note(n(f), 0.6), at, 0.3)
+    for f in ('C4', 'G4', 'C5', 'E5', 'G5'):
+        m.add(brass(n(f), 1.5, 0.6), 1.4, 0.22)
+    m.add(choir(1.6), 1.3, 0.55)
+    m.sparkle(1.4, 1.2, 22, inst=glock, gain=0.2, rise=False)
+    m.add(shhh(1.0, 0.2, 7000, 0.45), 1.4)
+    m.add(v_wow(), 1.45, 0.4)
+    return m.render(2.0, 0.26, max_dur=3.0)
 
 
-def brass(freq, duration, volume=0.4):
-    """צליל "חצוצרה" פשוט - כמה הרמוניות עם attack רך, לפנפרה אגדית."""
-    n = int(SAMPLE_RATE * duration)
-    out = []
-    for i in range(n):
-        t = i / SAMPLE_RATE
-        attack = min(1.0, t / 0.03)
-        decay = math.exp(-1.6 * t / max(duration, 0.001))
-        v = sum(math.sin(2 * math.pi * freq * h * t) / h for h in (1, 2, 3, 4, 5))
-        out.append(v * 0.45 * attack * decay * volume)
-    tail = max(1, int(SAMPLE_RATE * 0.015))
-    for i in range(tail):
-        out[-1 - i] *= i / tail
-    return out
+# --- קריסטל --------------------------------------------------------------------
+
+def hint():
+    """רמז: "פשששיו" שעולה למעלה + נצנוץ צ'לסטה, בזמן שהאותיות נדלקות על הלוח."""
+    m = Mix(1.3)
+    m.add(pshhh_up(0.6), 0, 0.6)
+    m.sparkle(0.12, 0.45, 10, lo=79, hi=100, inst=crystal_hi, gain=0.3)
+    m.add(crystal_hi(n('E7'), 1.0, 0.7), 0.58, 0.35)
+    return m.render(2.0, 0.24, max_dur=1.3)
 
 
-def noise_burst(duration, volume=0.4, decay=18.0):
-    """פיצוץ רעש קצר (זיקוק/פופ)."""
-    n = int(SAMPLE_RATE * duration)
-    out, last = [], 0.0
-    for i in range(n):
-        t = i / SAMPLE_RATE
-        last = 0.6 * last + 0.4 * (_rng.random() * 2 - 1)  # מסנן נמוך פשוט
-        out.append(last * math.exp(-decay * t) * volume)
-    return out
+def daily_reward():
+    m = Mix(1.6)
+    for i, f in enumerate(('C5', 'E5', 'G5', 'C6')):
+        m.add(crystal_note(n(f), 0.75), 0.09 * i, 0.8)
+    for f in ('C5', 'G5', 'C6', 'E6'):
+        m.add(crystal_note(n(f), 0.8), 0.4, 0.5)
+    for j in range(6):
+        coins_crystal(m, 0.42 + j * 0.09 + S.rng.uniform(0, 0.03), 0.45 - j * 0.04)
+    m.add(pad([n('C4'), n('G4'), n('E5')], 1.0, 1.0, 'a'), 0.38, 0.3)
+    return m.render(2.0, 0.28, max_dur=1.6)
 
 
-def crackle(duration, volume=0.25, density=60):
-    """נצנוצי "קרקל" של זיקוק - פולסים אקראיים קצרצרים."""
-    out = [0.0] * int(SAMPLE_RATE * duration)
-    for _ in range(int(density * duration)):
-        start = _rng.randrange(0, max(1, len(out) - 400))
-        f = _rng.uniform(2500, 5200)
-        for j in range(300):
-            out[start + j] += math.sin(2 * math.pi * f * j / SAMPLE_RATE) * math.exp(-j / 60) * volume * _rng.uniform(0.4, 1)
-    return out
+def reveal_common():
+    """פרס רגיל: כפתור האיסוף נדלק אחרי 650ms."""
+    m = Mix(0.8)
+    m.add(pop(0.7), 0).add(thud(200, 90, 0.12, 0.6), 0)
+    m.add(crystal_note(n('G5'), 0.8), 0.04, 0.7).add(crystal_note(n('C6'), 0.9), 0.14, 0.75)
+    m.add(shhh(0.3, 0.2, 6000, 0.1), 0.03)
+    return m.render(1.6, 0.22, max_dur=0.8)
 
 
-def offset(samples, seconds):
-    return silence(seconds) + samples
+def reveal_rare():
+    m = Mix(1.3)
+    m.add(thud(180, 60, 0.25, 0.9), 0).add(pop(0.6), 0)
+    for i, f in enumerate(('C5', 'E5', 'G5', 'C6')):
+        m.add(crystal_note(n(f), 0.8), 0.05 + 0.08 * i, 0.7)
+    for f in ('C5', 'G5', 'E6'):
+        m.add(crystal_note(n(f), 0.8), 0.38, 0.45)
+    m.sparkle(0.36, 0.5, 9, inst=crystal_hi, gain=0.2)
+    return m.render(2.0, 0.26, max_dur=1.3)
 
 
-def make_charge(step):
-    """לחיצה על תיבה סגורה: "טוק" עמוק + צלצול שעולה עם כל לחיצה."""
-    base = [C5, E5, G5, C6][step]
-    return mix(
-        sweep(180, 70, 0.12, volume=0.55),
-        offset(note(base, 0.16, volume=0.35, wave_shape="triangle"), 0.01),
-        offset(note(base * 2, 0.12, volume=0.12, wave_shape="sine"), 0.02),
-    )
+def reveal_epic():
+    """פרס אפי: גשם קונפטי מתחיל ב-0.5 שניות - שם נוחת האקורד."""
+    m = Mix(1.9)
+    m.add(thud(130, 40, 0.45, 1.0), 0).add(whoosh(0.4, 3000, 300, 1.5, 0.5, 0.1), 0)
+    for i, f in enumerate(('A4', 'C#5', 'E5', 'A5', 'C#6', 'E6')):
+        m.add(crystal_note(n(f), 0.8), 0.05 + 0.065 * i, 0.7, (i - 2.5) * 0.2)
+    m.add(pad([n('A3'), n('E4'), n('A4'), n('C#5'), n('E5')], 1.3, 1.0, 'a', 0.1), 0.45, 0.4)
+    for f in ('A5', 'C#6', 'E6'):
+        m.add(crystal_note(n(f), 0.9), 0.47, 0.45)
+    m.sparkle(0.47, 0.9, 16, inst=crystal_hi, gain=0.2, rise=False)
+    return m.render(2.2, 0.28, max_dur=1.9)
 
 
-def make_rarity_up():
-    """עליית דרגה: "ווש" עולה + אקורד נוצץ."""
-    return mix(
-        sweep(300, 1800, 0.32, volume=0.35),
-        offset(mix(note(E5, 0.3, 0.25, "triangle"), note(G5, 0.3, 0.22, "triangle"), note(C6, 0.35, 0.22, "sine")), 0.22),
-        offset(crackle(0.4, volume=0.08, density=40), 0.2),
-    )
+def collect():
+    """איסוף פרס: המסך נסגר 180ms אחרי הלחיצה, הצליל ממשיך עוד רגע אחריו."""
+    m = Mix(0.7)
+    for j in range(4):
+        coins_crystal(m, j * 0.07, 0.6)
+    for f in ('G5', 'C6', 'E6'):
+        m.add(crystal_note(n(f), 0.8), 0.28, 0.5)
+    m.add(shhh(0.4, 0.2, 6000, 0.15), 0.28)
+    return m.render(2.0, 0.24, max_dur=0.7)
 
 
-def make_reveal_common():
-    return mix(
-        noise_burst(0.12, volume=0.35, decay=30),
-        offset(note(G5, 0.1, 0.4, "triangle") + note(C6, 0.22, 0.38, "triangle"), 0.04),
-    )
+# --- עץ ------------------------------------------------------------------------
+
+def coin():
+    m = Mix(0.6)
+    coins_wood(m)
+    return m.render(0.8, 0.13, max_dur=0.6)
 
 
-def make_reveal_rare():
-    arp = []
-    for f in (C5, E5, G5, C6):
-        arp += note(f, 0.08, 0.42, "triangle")
-    return mix(
-        noise_burst(0.18, volume=0.4, decay=20),
-        offset(arp, 0.05),
-        offset(mix(note(C5, 0.6, 0.25, "triangle"), note(G5, 0.6, 0.22, "triangle"), note(E5 * 2, 0.6, 0.18, "sine")), 0.37),
-        offset(crackle(0.6, volume=0.1, density=50), 0.3),
-    )
+def charge(k):
+    """לחיצה על תיבה סגורה ([k] 0..3, עולה עם כל לחיצה). לחיצות מגיעות כל
+    230ms לפחות, אז הצליל קצר כדי שלא יתערבב עם הבא."""
+    m = Mix(0.5)
+    m.add(thud(170, 60, 0.2, 1.0), 0, 0.8)
+    f = n(('C5', 'E5', 'G5', 'C6')[k])
+    m.add(wood_note(f, 0.8), 0.01, 0.55)
+    m.add(wood_hi(f * 2, 0.4, 0.5), 0.02, 0.15 + 0.05 * k)
+    m.add(shhh(0.2 + 0.05 * k, 0.12 + 0.05 * k, 6000, 0.08), 0.0)
+    return m.render(0.6, 0.12, max_dur=0.45)
 
 
-def make_reveal_epic():
-    arp = []
-    for f in (A4, C5, E5, A5, C6, E5 * 2):
-        arp += note(f, 0.075, 0.42, "triangle")
-    chord = mix(
-        note(A4, 1.0, 0.25, "triangle"), note(E5, 1.0, 0.22, "triangle"),
-        note(A5, 1.0, 0.2, "sine"), note(C6 * 1.059, 1.0, 0.16, "sine"),  # C# - מז'ור
-    )
-    return mix(
-        noise_burst(0.3, volume=0.5, decay=12),
-        offset(arp, 0.06),
-        offset(chord, 0.5),
-        offset(crackle(1.0, volume=0.12, density=70), 0.45),
-    )
+def rarity_up():
+    """התיבה עלתה דרגה: "ווש" עולה שנוחת באקורד בסוף המורפינג (420ms)."""
+    m = Mix(1.0)
+    m.add(whoosh(0.4, 350, 6500, 1.6, 0.7, 0.85), 0)
+    for f in ('E5', 'G5', 'C6', 'E6'):
+        m.add(wood_note(n(f), 0.8), 0.35, 0.45)
+    m.sparkle(0.35, 0.4, 8, inst=wood_hi, gain=0.2)
+    return m.render(1.1, 0.19, max_dur=0.95)
 
 
-def make_reveal_legendary():
-    fanfare = []
-    for f, d in ((G4, 0.12), (C5, 0.12), (E5, 0.12), (G5, 0.3), (E5, 0.12), (G5, 0.6)):
-        fanfare += brass(f, d, volume=0.5)
-    shimmer = []
-    for i in range(14):
-        shimmer += note([C6, E5 * 2, G5 * 2][i % 3], 0.05, 0.12, "sine", fade=0.004)
-    chord = mix(
-        brass(C5, 1.4, 0.35), brass(E5, 1.4, 0.3), brass(G5, 1.4, 0.28),
-        note(C6, 1.4, 0.2, "sine"), note(C6 * 2, 1.4, 0.06, "sine"),
-    )
-    return mix(
-        noise_burst(0.45, volume=0.55, decay=8),
-        offset(fanfare, 0.08),
-        offset(chord, 1.5),
-        offset(shimmer, 1.5),
-        offset(crackle(2.2, volume=0.13, density=80), 0.5),
-    )
+def timer_warning():
+    """שניות אחרונות: "טוק" של בלוק עץ, פעם בשנייה - קצר וברור."""
+    x = modal(n('A5'), 0.2, [(1, 1, 0.04), (2.6, 0.5, 0.02), (4.3, 0.2, 0.01)], 1.0, strike=0.6, strike_fc=4000, dec_scale=False)
+    return Mix(0.3).add(lowpass(x, 5000), 0).render(0.4, 0.06, max_dur=0.25)
 
 
-def make_firework():
-    """זיקוק: "בום" עמום + קרקל נוצץ."""
-    return mix(
-        sweep(140, 45, 0.35, volume=0.55),
-        noise_burst(0.5, volume=0.45, decay=9),
-        offset(crackle(0.7, volume=0.14, density=90), 0.12),
-    )
-
-
-def make_wheel_tick():
-    """קליק של המחוג בגלגל המזל."""
-    return mix(note(1800, 0.02, 0.3, "square", fade=0.002), noise_burst(0.02, 0.2, 120))
-
-
-def make_collect():
-    """איסוף פרס: "צ'ינג" כפול עולה."""
-    return note(E5 * 2, 0.09, 0.4, "sine") + mix(note(G5 * 2, 0.25, 0.4, "sine"), note(C6, 0.25, 0.25, "triangle"))
+def wheel_tick():
+    """"קליק" של המחוג בגלגל המזל - יכול להגיע כמה פעמים בשנייה."""
+    k = int(SR * 0.008)
+    c = S.bandpass(noise(k / SR), 1800, 5000) * np.exp(-np.arange(k) / (SR * 0.0015))
+    tone = modal(1700, 0.04, [(1, 1, 0.008)], 0.4, dec_scale=False)
+    x = np.zeros(int(SR * 0.05))
+    x[:k] += c
+    x[: len(tone)] += tone
+    return Mix(0.1).add(x, 0).render(0.3, 0.03, max_dur=0.05)
 
 
 RECIPES = {
-    "success_word.wav": make_success_word,
-    "error_word.wav": make_error_word,
-    "tile_tap.wav": make_tile_tap,
-    "level_complete.wav": make_level_complete,
-    "hint.wav": make_hint,
-    "coin.wav": make_coin,
-    "daily_reward.wav": make_daily_reward,
-    "button_tap.wav": make_button_tap,
-    "timer_warning.wav": make_timer_warning,
-    "star_gained.wav": make_star_gained,
-    "charge_0.wav": lambda: make_charge(0),
-    "charge_1.wav": lambda: make_charge(1),
-    "charge_2.wav": lambda: make_charge(2),
-    "charge_3.wav": lambda: make_charge(3),
-    "rarity_up.wav": make_rarity_up,
-    "reveal_common.wav": make_reveal_common,
-    "reveal_rare.wav": make_reveal_rare,
-    "reveal_epic.wav": make_reveal_epic,
-    "reveal_legendary.wav": make_reveal_legendary,
-    "firework.wav": make_firework,
-    "wheel_tick.wav": make_wheel_tick,
-    "collect.wav": make_collect,
+    **{f'tile_{k}.wav': (lambda k=k: tile(k)) for k in range(12)},
+    **{f'success_{c}.wav': (lambda c=c: success(c)) for c in range(5)},
+    'success_long.wav': success_long,
+    'error_word.wav': error_word,
+    'star_gained.wav': star_gained,
+    'level_complete.wav': level_complete,
+    'button_tap.wav': button_tap,
+    'shuffle.wav': shuffle,
+    'firework.wav': firework,
+    'reveal_legendary.wav': reveal_legendary,
+    'hint.wav': hint,
+    'timer_warning.wav': timer_warning,
+    'daily_reward.wav': daily_reward,
+    'reveal_common.wav': reveal_common,
+    'reveal_rare.wav': reveal_rare,
+    'reveal_epic.wav': reveal_epic,
+    'collect.wav': collect,
+    'coin.wav': coin,
+    **{f'charge_{k}.wav': (lambda k=k: charge(k)) for k in range(4)},
+    'rarity_up.wav': rarity_up,
+    'wheel_tick.wav': wheel_tick,
 }
 
 
 def main():
-    import sys
-    only = set(sys.argv[1:])  # אפשר לייצר רק קבצים מסוימים: generate_sfx.py firework.wav
+    only = {a if a.endswith('.wav') else a + '.wav' for a in sys.argv[1:]}
     for filename, builder in RECIPES.items():
         if only and filename not in only:
             continue
-        samples = builder()
-        save_wav(os.path.join(OUT_DIR, filename), samples)
+        # זרע קבוע לכל קובץ - אותו פלט בכל הרצה, גם כשמייצרים רק חלק מהקבצים.
+        S.rng = np.random.default_rng(zlib.crc32(filename.encode()))
+        stereo = builder()
+        save(os.path.join(OUT_DIR, filename), stereo)
+        print(f'נכתב: {filename} ({stereo.shape[1] / SR:.2f}s)')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

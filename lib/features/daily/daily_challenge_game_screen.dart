@@ -216,7 +216,7 @@ class _DailyChallengeGameScreenState extends ConsumerState<DailyChallengeGameScr
     final result = session.submitPath(path);
     switch (result.status) {
       case WordSubmitStatus.accepted:
-        ref.read(soundServiceProvider).playSuccess();
+        ref.read(soundServiceProvider).playSuccess(letters: path.length);
         _showBanner(result.bannerText);
       case WordSubmitStatus.duplicate:
         ref.read(soundServiceProvider).playError();

@@ -218,7 +218,7 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
 
     switch (result.status) {
       case WordSubmitStatus.accepted:
-        ref.read(soundServiceProvider).playSuccess();
+        ref.read(soundServiceProvider).playSuccess(letters: path.length);
         _showBanner(result.bannerText);
         final prev = _gains['\u0000me'];
         _gains['\u0000me'] = ((prev?.$1 ?? 0) + 1, result.pointsAwarded);
