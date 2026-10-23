@@ -439,7 +439,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     if (!mounted) return;
     session.reshuffleLetters(Random());
     _boardKey.currentState?.clearHint();
-    ref.read(soundServiceProvider).playSuccess();
+    ref.read(soundServiceProvider).playShuffle();
     setState(() {});
     _showBanner('האותיות עורבבו');
   }
@@ -580,7 +580,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
 
     switch (result.status) {
       case WordSubmitStatus.accepted:
-        ref.read(soundServiceProvider).playSuccess();
+        ref.read(soundServiceProvider).playSuccess(letters: path.length);
         Haptics.success();
         _showBanner(result.bannerText);
         setState(() {});

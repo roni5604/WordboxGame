@@ -48,6 +48,10 @@ class GridBoard extends StatefulWidget {
     this.markerSkin,
   });
 
+  /// נקרא בכל פעם שאות נוספת לנתיב ([index] = מיקומה במילה, 0 = הראשונה).
+  /// app.dart מחבר אותו לצליל שעולה בסולם עם כל אות.
+  static void Function(int index) onTileAdded = (_) {};
+
   @override
   State<GridBoard> createState() => GridBoardState();
 }
@@ -97,6 +101,7 @@ class GridBoardState extends State<GridBoard> {
       _isError = false;
     });
     Haptics.selection();
+    if (_path.isNotEmpty) GridBoard.onTileAdded(0);
     _notifyWordChanged();
   }
 
@@ -112,6 +117,7 @@ class GridBoardState extends State<GridBoard> {
     if (changed) {
       if (_path.length > previousLength) {
         Haptics.selection();
+        GridBoard.onTileAdded(_path.length - 1);
       } else {
         Haptics.light();
       }
