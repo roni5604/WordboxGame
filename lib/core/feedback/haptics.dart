@@ -22,6 +22,18 @@ class Haptics {
   static void medium() => _fire(HapticFeedback.mediumImpact, const [18]);
   static void heavy() => _fire(HapticFeedback.heavyImpact, const [30]);
 
+  /// אות נוספה למילה ([index] = מיקומה, 0 = הראשונה) - מסונכרן עם הצליל
+  /// שעולה בסולם: הרטט מתחזק ככל שהמילה מתארכת, כך שמילה ארוכה "מרגישים" ביד.
+  static void tile(int index) {
+    if (index < 3) {
+      _fire(HapticFeedback.selectionClick, const [6]);
+    } else if (index < 5) {
+      _fire(HapticFeedback.lightImpact, const [10]);
+    } else {
+      _fire(HapticFeedback.mediumImpact, const [16]);
+    }
+  }
+
   /// "הצלחה" - שתי פעימות קצרות (כמו אישור באייפון).
   static void success() => _pattern(const [_P.medium, _P.gap(90), _P.light], const [16, 70, 12]);
 

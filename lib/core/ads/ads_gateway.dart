@@ -12,6 +12,9 @@ abstract class AdsGateway extends ChangeNotifier {
 
   bool get isRewardedReady;
 
+  /// מודעה במסך מלא מוצגת כרגע (מוזיקת הרקע נעצרת בזמן הזה).
+  bool get isShowingFullScreen => false;
+
   int get adHintsRemaining;
 
   int get storeRewardsRemaining;

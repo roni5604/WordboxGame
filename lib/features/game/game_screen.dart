@@ -31,6 +31,7 @@ import '../../providers/letter_frequency_provider.dart';
 import '../../providers/level_boards_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
+import '../../core/audio/music_service.dart';
 import 'widgets/current_word_badge.dart';
 import 'widgets/found_words_panel.dart';
 import 'widgets/grid_board.dart';
@@ -174,9 +175,14 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
   int _hintsUsed = 0;
   int _shufflesUsed = 0;
 
+  bool _levelStartPlayed = false;
+  late final MusicService _music;
+
   @override
   void initState() {
     super.initState();
+    // בזמן המשחק עצמו אין מוזיקת רקע - רק אפקטים.
+    _music = ref.read(musicServiceProvider)..enterGame();
     _analytics = ref.read(analyticsProvider);
     _config = CampaignLevels.byLevelNumber(widget.levelNumber);
     _remaining = _config.timeLimit;
@@ -321,6 +327,10 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
   }
 
   void _startTimer() {
+    if (!_levelStartPlayed) {
+      _levelStartPlayed = true;
+      ref.read(soundServiceProvider).playLevelStart();
+    }
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       if (!mounted) return;
@@ -786,6 +796,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _bannerTimer?.cancel();
+    _music.leaveGame();
     super.dispose();
   }
 

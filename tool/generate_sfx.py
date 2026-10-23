@@ -4,7 +4,7 @@
 ובלי סוגיות רישוי. המנוע (כלים, הד, "פשששש", קולות) נמצא ב-tool/sfx/synth.py.
 
 הצלילים נבחרו במעבדת הצלילים מתוך שלוש חבילות, וכל אחד מגיע מהחבילה שנבחרה לו:
-  - בועות: משחק עצמו (אותיות, מילים, שגיאה, כוכב, סיום שלב, כפתורים), פרס אגדי, זיקוק
+  - בועות: משחק עצמו (אותיות, מילים, שגיאה, כוכב, תחילת/סיום שלב, כפתורים), פרס אגדי, זיקוק
   - קריסטל (קלימבה/צ'לסטה): רמז, בונוס יומי, פתיחת פרס רגיל/נדיר/אפי, איסוף
   - עץ (מרימבה ובלוק עץ): מטבעות, טיימר, לחיצות על התיבה, עליית דרגה, גלגל המזל
 כל הצלילים בסולם פנטטוני של דו - כך שגם כשהם מתנגנים יחד הם נשמעים הרמוניים.
@@ -215,6 +215,35 @@ def reveal_legendary():
     return m.render(2.0, 0.26, max_dur=3.0)
 
 
+def _go_sting(m, at=0.0):
+    """"יאללה!" - ריצת בועות מהירה למעלה, "פשש" עולה ואקורד שמח."""
+    m.add(pop(0.4), at)
+    m.add(whoosh(0.35, 600, 7000, 1.5, 0.45, 0.8), at - 0.2 if at >= 0.2 else at)
+    for i, f in enumerate(('C5', 'E5', 'G5', 'C6', 'E6')):
+        m.add(bubble_note(n(f), 0.7 + 0.06 * i), at + 0.04 * i, 0.75, (i - 2) * 0.25)
+    for f in ('C5', 'E5', 'G5', 'C6'):
+        m.add(bubble_note(n(f), 0.85), at + 0.22, 0.5)
+    m.sparkle(at + 0.22, 0.45, 9, inst=glock, gain=0.2)
+
+
+def level_start():
+    """תחילת שלב (בלי ספירה לאחור): "יאללה!" קצר - הטיימר מתחיל לרוץ."""
+    m = Mix(1.2)
+    _go_sting(m, 0.0)
+    return m.render(0.9, 0.13, max_dur=1.1)
+
+
+def countdown():
+    """ספירה לאחור 3-2-1-יאללה: הספרות מופיעות כל 700ms (StartCountdown),
+    אז שלוש "בלופ" עולות ב-0/0.7/1.4 שניות, ו"יאללה!" ב-2.1."""
+    m = Mix(3.2)
+    for i, f in enumerate(('G4', 'C5', 'E5')):
+        m.add(bubble_note(n(f), 0.8), 0.7 * i, 0.8)
+        m.add(glock(n(f) * 2, 0.4, 0.4), 0.7 * i, 0.2)
+    _go_sting(m, 2.1)
+    return m.render(0.9, 0.13, max_dur=3.2)
+
+
 # --- קריסטל --------------------------------------------------------------------
 
 def hint():
@@ -338,6 +367,8 @@ RECIPES = {
     'level_complete.wav': level_complete,
     'button_tap.wav': button_tap,
     'shuffle.wav': shuffle,
+    'level_start.wav': level_start,
+    'countdown.wav': countdown,
     'firework.wav': firework,
     'reveal_legendary.wav': reveal_legendary,
     'hint.wav': hint,

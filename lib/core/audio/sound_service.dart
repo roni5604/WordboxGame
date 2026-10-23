@@ -20,15 +20,30 @@ class SoundService {
   /// נגני האודיו נוצרים רק בצליל הראשון (ולא בעליית האפליקציה) - חוסך
   /// עבודה בפריים הראשון.
   List<AudioPlayer>? _poolStorage;
-  List<AudioPlayer> get _pool => _poolStorage ??= List.generate(6, (_) {
+  List<AudioPlayer> get _pool => _poolStorage ??= _createPool();
+
+  List<AudioPlayer> _createPool() {
+    ensureAudioContext();
+    return List.generate(6, (_) {
     final p = AudioPlayer();
     // fire-and-forget עם catchError: בסביבת בדיקות (widget tests) אין
     // ערוץ פלטפורמה אמיתי לאודיו, וזה לא אמור להפיל שום טסט.
     p.setPlayerMode(PlayerMode.lowLatency).catchError((_) {});
     p.setReleaseMode(ReleaseMode.stop).catchError((_) {});
     return p;
-  });
+    });
+  }
+
   int _next = 0;
+
+  static Future<void>? _audioContext;
+
+  /// הגדרת אודיו משותפת לכל הנגנים (אפקטים ומוזיקה), פעם אחת: הצלילים
+  /// שלנו מתערבבים עם מוזיקה שמתנגנת מאפליקציה אחרת ולא עוצרים אותה
+  /// (iOS: mixWithOthers, Android: בלי audio focus).
+  static Future<void> ensureAudioContext() => _audioContext ??= AudioPlayer.global
+      .setAudioContext(AudioContextConfig(focus: AudioContextConfigFocus.mixWithOthers).build())
+      .catchError((_) {});
 
   /// כאשר false (השחקן/ית כיבו צלילים בהגדרות), כל קריאה הופכת ל-no-op.
   bool enabled = true;
@@ -74,6 +89,12 @@ class SoundService {
   /// אות נוספה לנתיב בזמן גרירה - כל אות עולה צליל אחד בסולם
   /// ([index] = מיקום האות במילה, 0 = הראשונה).
   Future<void> playTileTap([int index = 0]) => _play('tile_${index.clamp(0, 11)}.wav', volume: 0.5);
+
+  /// תחילת שלב בלי ספירה לאחור - "יאללה!" קצר כשהטיימר מתחיל.
+  Future<void> playLevelStart() => _play('level_start.wav', volume: 0.75);
+
+  /// ספירה לאחור 3-2-1-יאללה (מסונכרן ל-StartCountdown: צעד כל 700ms).
+  Future<void> playCountdown() => _play('countdown.wav', volume: 0.75);
 
   /// ערבוב אותיות הלוח - מפל בועות קטן.
   Future<void> playShuffle() => _play('shuffle.wav', volume: 0.7);

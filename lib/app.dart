@@ -10,6 +10,7 @@ import 'core/theme/app_theme.dart';
 import 'core/ui/app_scroll_behavior.dart';
 import 'core/ui/pressable.dart';
 import 'features/game/widgets/grid_board.dart';
+import 'features/game/widgets/pause_menu.dart';
 import 'features/social/social_host.dart';
 import 'providers/auth_provider.dart';
 import 'providers/player_profile_provider.dart';
@@ -36,9 +37,20 @@ class _WordboxAppState extends ConsumerState<WordboxApp> with WidgetsBindingObse
       if (previous?.valueOrNull == null && next.valueOrNull != null) _rescheduleReminders();
     }, fireImmediately: true);
     // כל לחיצה על כפתור באפליקציה משמיעה את אותו "טאפ" עדין.
-    PressFeedback.onPress = () => ref.read(soundServiceProvider).playButtonTap();
-    // כל אות שמחברים על הלוח עולה צליל אחד בסולם.
-    GridBoard.onTileAdded = (index) => ref.read(soundServiceProvider).playTileTap(index);
+    // באתר - הלחיצה הראשונה היא גם הרגע שמותר בו להתחיל את מוזיקת הרקע.
+    PressFeedback.onPress = () {
+      ref.read(soundServiceProvider).playButtonTap();
+      ref.read(musicServiceProvider).userInteracted();
+    };
+    // כל אות שמחברים על הלוח עולה צליל אחד בסולם, ורטט שמתחזק עם אורך המילה.
+    GridBoard.onTileAdded = (index) {
+      ref.read(soundServiceProvider).playTileTap(index);
+      ref.read(musicServiceProvider).userInteracted();
+    };
+    // ספירה לאחור לפני משחק (3-2-1-יאללה) עם ג'ינגל מסונכרן.
+    StartCountdown.onStart = () => ref.read(soundServiceProvider).playCountdown();
+    // מוזיקת הרקע מתחילה ברגע שהפרופיל נטען (אם היא מופעלת בהגדרות).
+    ref.read(musicServiceProvider);
     // הגדרת "רטט" בפרופיל קובעת את כל הרטט באפליקציה (גם באתר).
     ref.listenManual(
       playerProfileProvider,
@@ -66,6 +78,9 @@ class _WordboxAppState extends ConsumerState<WordboxApp> with WidgetsBindingObse
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // מוזיקה נעצרת כשהאפליקציה ברקע (inactive = רגע מעבר, למשל מרכז הבקרה - ממשיכים).
+    ref.read(musicServiceProvider).foreground =
+        state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
     if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) _rescheduleReminders();
   }
 

@@ -181,6 +181,7 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
 
   Future<void> setSoundOn(bool value) => _mutate((c) => c.copyWith(soundOn: value));
   Future<void> setHapticsOn(bool value) => _mutate((c) => c.copyWith(hapticsOn: value));
+  Future<void> setMusicOn(bool value) => _mutate((c) => c.copyWith(musicOn: value));
   Future<void> setOnboardingCompleted() =>
       _mutate((c) => c.copyWith(onboardingCompleted: true));
   Future<void> setDisplayName(String name) =>

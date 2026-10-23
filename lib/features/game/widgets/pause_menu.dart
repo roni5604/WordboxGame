@@ -84,6 +84,10 @@ class StartCountdown extends StatefulWidget {
 
   const StartCountdown({super.key, required this.onDone, this.from = 3});
 
+  /// נקרא כשהספירה מתחילה - app.dart מחבר אותו לג'ינגל הספירה, שמסונכרן
+  /// לקצב של 700ms לצעד.
+  static VoidCallback onStart = () {};
+
   @override
   State<StartCountdown> createState() => _StartCountdownState();
 }
@@ -97,6 +101,12 @@ class _StartCountdownState extends State<StartCountdown> with SingleTickerProvid
         ..forward().whenComplete(() {
           if (mounted) widget.onDone();
         });
+
+  @override
+  void initState() {
+    super.initState();
+    StartCountdown.onStart();
+  }
 
   @override
   void dispose() {
