@@ -41,7 +41,7 @@ Thank you for reviewing מצא ת׳מילה ("Find the Word"). Here is the reque
 
 **1. Screen recording** - attached. It starts from launching the app and shows: sign-in with Apple (account creation/login), gameplay, an In-App Purchase, reporting and blocking another user, the blocked-users list, and account deletion.
 
-**2. Purpose and audience** - A Hebrew word-search puzzle game for Hebrew speakers aged 13+. Players drag a finger across adjacent letters to form Hebrew words on a grid that grows from 3×3 to 7×7 across 100 levels. It offers vocabulary practice and a daily brain challenge in Hebrew, a language with very few quality word games, plus a daily challenge and friendly real-time matches with friends.
+**2. Purpose and audience** - A Hebrew word-search puzzle game for Hebrew speakers aged 13+. Players drag a finger across adjacent letters to form Hebrew words on a grid that grows from 3×3 to 6×6 across 100 levels (up to 7×7 in private rooms with friends). It offers vocabulary practice and a daily brain challenge in Hebrew, a language with very few quality word games, plus a daily challenge and friendly real-time matches with friends.
 
 **3. Setup and access** - No account or credentials are needed. On the first screen tap "המשך כאורח/ת בלי להתחבר" (Continue as guest). Home screen: "המשך משחק" (Continue) starts the next level; "שחק נגד המחשב" (vs computer); "שחק נגד חברים" (vs friends); "אתגר יומי" (daily challenge); "חנות" (Store); gear icon = Settings. Optional sign-in: Settings → "התחברות / הרשמה" (Apple, Google or email). Account deletion: Settings → "מחיקת חשבון". Report/Block: the ⋮ button next to any other user (friends list, friend requests, game invites, room lobby). Blocked users: Settings → "משתמשים חסומים".
 
