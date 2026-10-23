@@ -270,6 +270,17 @@ class _LevelNodePainter extends CustomPainter {
         ).createShader(Rect.fromCircle(center: center, radius: radius)),
     );
 
+    // ברק "סוכריה" בחלק העליון - נותן לצומת נפח, כמו כפתורי מפות במשחקי פאזל.
+    if (isUnlocked) {
+      canvas.save();
+      canvas.clipPath(path);
+      canvas.drawOval(
+        Rect.fromCenter(center: center - Offset(0, radius * 0.55), width: radius * 1.5, height: radius * 0.8),
+        Paint()..color = Colors.white.withValues(alpha: isCompleted || look != _NodeLook.normal ? 0.32 : 0.6),
+      );
+      canvas.restore();
+    }
+
     canvas.drawPath(
       path,
       Paint()

@@ -75,7 +75,7 @@ void main() {
 
   testWidgets('scrolling away shows "my level" and tapping it returns', (tester) async {
     await pumpMap(tester, 30);
-    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, 3000));
+    await tester.drag(find.byKey(const ValueKey('campaign-map')), const Offset(0, 3000));
     // מחכים שהגלילה (fling) תיעצר ושהכפתור יסיים להופיע.
     for (int i = 0; i < 30; i++) {
       await tester.pump(const Duration(milliseconds: 50));

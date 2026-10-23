@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,32 +14,25 @@ import '../../game_engine/chapters.dart';
 import '../../game_engine/models/level_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
+import '../../providers/sound_provider.dart';
 import '../profile/widgets/avatar_widget.dart';
+import 'map/explorer_critters.dart';
+import 'map/map_billboards.dart';
+import 'map/map_layout.dart';
+import 'map/world_scene_painter.dart';
+import 'map/world_theme.dart';
 import 'widgets/chapter_gate.dart';
 import 'widgets/level_node.dart';
-import 'widgets/path_painter.dart';
-import 'widgets/world_map_backdrop.dart';
 import '../../core/platform/top_bar_tint.dart';
 import '../../core/feedback/haptics.dart';
 
-const double _nodeSpacingY = 136;
-const double _amplitude = 90;
-
-/// רווח נוסף לפני השלב הראשון של עולם חדש - כדי ששער-המעבר (_WorldGate)
-/// יהיה רחב ובולט, והרקע של העולם הבא כבר יתחיל מאחוריו.
-const double _worldBannerGap = 176;
-
-class _WorldBannerData {
-  final WorldTier tier;
-  final int worldIndex;
-  final double centerY;
-
-  const _WorldBannerData({required this.tier, required this.worldIndex, required this.centerY});
-}
-
 /// מפת השלבים (הקמפיין) - מגיעים לכאן בלחיצה על "שחקו!" בתפריט הראשי.
-/// הרקע והמסלול מחליפים צבע לפי העולם בגלילה, כדי שההבדל בין העולמות
-/// יורגש גם בלי לקרוא את הבאנר.
+///
+/// המפה מוצגת בפרספקטיבה תלת-ממדית: השביל של זואי מתפתל אל האופק, השלבים
+/// הבאים מתרחקים ומתכווצים, וכל עולם הוא "רמה" בנוף עם צבעים, קישוטים וחיה
+/// חוקרת משלו. בין העולמות זורם נהר זוהר עם גשר, וכשחוצים אותו השמיים
+/// מתחלפים ונכנס כרטיס "עולם חדש". את הנוף מצייר [WorldScenePainter], ומעליו
+/// "שלטים עומדים" (שלבים, זואי, חיות, שלטי עולם) שממוקמים לפי אותה הקרנה.
 class CampaignMapScreen extends ConsumerStatefulWidget {
   const CampaignMapScreen({super.key});
 
@@ -46,316 +40,495 @@ class CampaignMapScreen extends ConsumerStatefulWidget {
   ConsumerState<CampaignMapScreen> createState() => _CampaignMapScreenState();
 }
 
-class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> {
-  final _scrollController = ScrollController();
-  int _visibleWorldIndex = 0;
+class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> with TickerProviderStateMixin {
+  final CampaignMapLayout _layout = CampaignMapLayout.campaign;
 
-  /// השלב שאליו גללנו אוטומטית לאחרונה. גוללים שוב רק כשהשלב הנוכחי
-  /// משתנה (למשל הפרופיל נטען, או שלב חדש נפתח) - לא "חוטפים" גלילה ידנית.
+  /// המצלמה: ה-u שנמצא על קו המיקוד. גרירה/טלטול/טיסה מזיזים אותה.
+  late final AnimationController _camera = AnimationController.unbounded(vsync: this);
+
+  /// שעון האווירה (מים זורמים, גחליליות, עננים, תנועות החיות).
+  late final AnimationController _ambient = AnimationController(
+    vsync: this,
+    duration: Duration(seconds: WorldScenePainter.ambientSeconds.round()),
+  )..repeat();
+
+  /// השלב שאליו "טסנו" לאחרונה. טסים שוב רק כשהשלב הנוכחי משתנה (למשל
+  /// הפרופיל נטען, או שלב חדש נפתח) - לא "חוטפים" גלילה ידנית.
   int? _scrolledForLevel;
 
-  /// מיקום (Y בתוך המפה) של השלב הבא לשחק - לגלילה ולכפתור "לשלב שלי".
-  double? _currentNodeY;
+  /// בזמן טיסה אוטומטית לא מציגים כרטיס עולם לכל נהר שחולפים מעליו.
+  bool _autoFlight = false;
+  bool _building = false;
+  int _focusWorld = -1;
+  int? _titleWorld;
+  int _titleSerial = 0;
+  double _dragY = 0;
+  double _topInset = 0;
 
-  /// האם השלב הנוכחי מחוץ לתצוגה (ואז מופיע כפתור "לשלב שלי").
-  bool _currentOutOfView = false;
+  double get _minCamera => _layout.firstU - 80;
+  double get _maxCamera => _layout.lastU + 120;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    _camera.addListener(_onCamera);
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    _camera.removeListener(_onCamera);
+    _camera.dispose();
+    _ambient.dispose();
     super.dispose();
   }
 
-  double _targetOffsetFor(double nodeY) {
-    final viewport = _scrollController.position.viewportDimension;
-    final max = _scrollController.position.maxScrollExtent;
-    // השלב הנוכחי מעט מתחת לאמצע המסך - כך רואים גם את השלבים הבאים.
-    return (nodeY - viewport * 0.55).clamp(0.0, max);
+  int _worldAt(double camera) => _layout.zoneAt(camera + 180).worldIndex;
+
+  void _onCamera() {
+    final w = _worldAt(_camera.value);
+    if (w == _focusWorld) return;
+    final first = _focusWorld < 0;
+    if (_building) {
+      _focusWorld = w;
+      return;
+    }
+    setState(() => _focusWorld = w);
+    if (!first && !_autoFlight) _showTitle(w);
   }
 
-  void _scrollToCurrent({bool fromEntry = false}) {
-    final y = _currentNodeY;
-    if (y == null || !_scrollController.hasClients) return;
-    final target = _targetOffsetFor(y);
-    if (fromEntry) {
-      // "נוחתים" ליד השלב ומחליקים אליו - מרגיש כמו מצלמה שמתמקדת, בלי
-      // לגלול את כל המפה מההתחלה.
-      final max = _scrollController.position.maxScrollExtent;
-      _scrollController.jumpTo((target + 260).clamp(0.0, max));
-      _scrollController.animateTo(target, duration: const Duration(milliseconds: 900), curve: Curves.easeOutCubic);
-    } else {
-      _scrollController.animateTo(target, duration: const Duration(milliseconds: 650), curve: Curves.easeInOutCubic);
-    }
+  void _showTitle(int world) {
+    Haptics.light();
+    // צליל קריסטל עדין יחד עם כרטיס העולם (מעל מוזיקת התפריטים).
+    ref.read(soundServiceProvider).playStarGained();
+    setState(() {
+      _titleWorld = world;
+      _titleSerial++;
+    });
   }
 
-  void _onScroll() {
-    final context = this.context;
-    if (!context.mounted) return;
-    final nodeY = _currentNodeY;
-    if (nodeY != null && _scrollController.hasClients) {
-      final top = _scrollController.offset;
-      final bottom = top + _scrollController.position.viewportDimension;
-      final out = nodeY < top + 40 || nodeY > bottom - 40;
-      if (out != _currentOutOfView) setState(() => _currentOutOfView = out);
+  void _flyTo(double target, {Duration? duration, Curve curve = Curves.easeInOutCubic}) {
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final from = _camera.value;
+    final worldBefore = _worldAt(from);
+    _autoFlight = true;
+    void land() {
+      _autoFlight = false;
+      if (!mounted) return;
+      final w = _worldAt(_camera.value);
+      if (w != worldBefore) _showTitle(w);
     }
-    final bands = _lastBands;
-    if (bands.isEmpty) return;
-    final viewport = MediaQuery.sizeOf(context).height * 0.42;
-    final focusY = _scrollController.offset + viewport;
-    var next = bands.first.worldIndex;
-    for (final band in bands) {
-      if (focusY >= band.startY) next = band.worldIndex;
+
+    if (reduceMotion) {
+      _camera.value = target;
+      land();
+      return;
     }
-    if (next != _visibleWorldIndex) {
-      setState(() => _visibleWorldIndex = next);
-    }
+    final ms = duration ?? Duration(milliseconds: (420 + (target - from).abs() / 30).clamp(420, 900).round());
+    _camera.animateTo(target, duration: ms, curve: curve).whenCompleteOrCancel(land);
   }
 
-  List<WorldBand> _lastBands = const [];
+  double _targetFor(PlayerProfile profile) => _layout.nodeFor(profile.highestUnlockedLevel).u;
 
-  Widget _chapterMarkerAt({
-    required BuildContext context,
-    required PlayerProfile profile,
-    required LevelConfig level,
-    required Offset position,
-    required double centerX,
-    required double width,
-  }) {
-    const markerWidth = 104.0;
-    final half = LevelNode.sizeFor(level) / 2;
-    // בצד הנגדי למסלול, כדי לא להסתיר את הצומת או את הקו.
-    final left = position.dx >= centerX ? position.dx - half - 10 - markerWidth : position.dx + half + 10;
-    final chapter = CampaignChapters.chapterOf(level.levelNumber);
-    return Positioned(
-      left: left.clamp(8.0, width - markerWidth - 8),
-      top: position.dy - 17,
-      width: markerWidth,
-      child: _ChapterMarker(
-        chapter: chapter,
-        open: profile.isChapterOpen(chapter),
-        reached: profile.isLevelUnlocked(level.levelNumber),
-        requiredStars: CampaignChapters.requiredStars(chapter),
-        onTap: () {
-          if (!profile.isChapterOpen(chapter) && profile.isLevelUnlocked(level.levelNumber)) {
-            showChapterGateDialog(context, chapter);
+  // ---------------------------------------------------------------- גרירה
+
+  MapProjection _projection(Size size) => MapProjection.screen(size, _topInset, _camera.value);
+
+  void _onDragStart(DragStartDetails d) {
+    _camera.stop();
+    _autoFlight = false;
+    _dragY = d.localPosition.dy;
+  }
+
+  void _onDragUpdate(DragUpdateDetails d, Size size) {
+    final from = _dragY;
+    _dragY = d.localPosition.dy;
+    var du = _projection(size).dragDelta(from, _dragY);
+    final c = _camera.value;
+    // התנגדות "גומי" מעבר לקצוות.
+    if ((c < _minCamera && du < 0) || (c > _maxCamera && du > 0)) du *= 0.3;
+    _camera.value = c + du;
+  }
+
+  void _onDragEnd(DragEndDetails d, Size size) {
+    final v = _projection(size).flingVelocity(d.velocity.pixelsPerSecond.dy).clamp(-16000.0, 16000.0);
+    _camera.animateWith(
+      BouncingScrollSimulation(
+        spring: SpringDescription.withDampingRatio(mass: 0.5, stiffness: 100, ratio: 1.1),
+        position: _camera.value,
+        velocity: v,
+        leadingExtent: _minCamera,
+        trailingExtent: _maxCamera,
+      ),
+    );
+  }
+
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent) return;
+    _camera.stop();
+    _camera.value = (_camera.value - event.scrollDelta.dy * 2.4).clamp(_minCamera, _maxCamera);
+  }
+
+  // ---------------------------------------------------------------- בנייה
+
+  @override
+  Widget build(BuildContext context) {
+    final profileAsync = ref.watch(playerProfileProvider);
+    _topInset = MediaQuery.paddingOf(context).top;
+
+    return Scaffold(
+      backgroundColor: WorldTheme.of(math.max(0, _focusWorld)).sky.first,
+      body: profileAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, st) => const Center(child: Text('לא הצלחנו לטעון את הפרופיל. נסו שוב.')),
+        data: (profile) {
+          final target = _targetFor(profile);
+          if (_scrolledForLevel != profile.highestUnlockedLevel) {
+            final firstTime = _scrolledForLevel == null;
+            _scrolledForLevel = profile.highestUnlockedLevel;
+            if (firstTime) {
+              // כניסה קולנועית: מתחילים מעט "מאחור" ומרחפים קדימה אל השלב הנוכחי,
+              // וכרטיס העולם יורד מלמעלה.
+              _autoFlight = true;
+              _building = true;
+              _camera.value = target - 900;
+              _building = false;
+              _titleWorld = _worldAt(target);
+              _titleSerial++;
+            }
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              if (firstTime) {
+                _flyTo(target, duration: const Duration(milliseconds: 1250), curve: Curves.easeOutCubic);
+              } else {
+                _flyTo(target);
+              }
+            });
           }
+
+          final sky = WorldTheme.of(math.max(0, _focusWorld)).sky;
+          final tier = _tierFor(math.max(0, _focusWorld));
+          return TopBarTint(
+            color: sky.first,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final size = constraints.biggest;
+                return Listener(
+                  onPointerSignal: _onPointerSignal,
+                  child: GestureDetector(
+                    key: const ValueKey('campaign-map'),
+                    behavior: HitTestBehavior.opaque,
+                    onVerticalDragStart: _onDragStart,
+                    onVerticalDragUpdate: (d) => _onDragUpdate(d, size),
+                    onVerticalDragEnd: (d) => _onDragEnd(d, size),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: RepaintBoundary(
+                            child: CustomPaint(
+                              painter: WorldScenePainter(
+                                layout: _layout,
+                                camera: _camera,
+                                ambient: _ambient,
+                                topInset: _topInset,
+                                trailU: target,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: AnimatedBuilder(
+                            animation: _camera,
+                            builder: (context, _) => Stack(
+                              clipBehavior: Clip.none,
+                              children: _billboards(context, profile, size, target),
+                            ),
+                          ),
+                        ),
+                        // הסרגל העליון "צף" על השמיים.
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            padding: EdgeInsets.only(top: _topInset),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [sky.first, sky.first.withValues(alpha: 0.85), sky.first.withValues(alpha: 0)],
+                                stops: const [0, 0.6, 1],
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: _TopBar(
+                                coins: profile.coins,
+                                totalStars: profile.totalStars,
+                                worldLabel: 'עולם ${tier.index + 1} · ${tier.titleHe}',
+                                worldIndex: tier.index,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_titleWorld != null)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: _topInset + 70,
+                            child: Center(
+                              child: WorldTitleCard(
+                                key: ValueKey('title-$_titleSerial'),
+                                tier: _tierFor(_titleWorld!),
+                                worldIndex: _titleWorld!,
+                                ambient: _ambient,
+                              ),
+                            ),
+                          ),
+                        // כפתור צף "לשלב שלי" - מופיע רק כשמתרחקים מהשלב הנוכחי.
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: MediaQuery.paddingOf(context).bottom + 18,
+                          child: AnimatedBuilder(
+                            animation: _camera,
+                            builder: (context, _) => _jumpButton(profile, target),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
         },
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final profileAsync = ref.watch(playerProfileProvider);
-
-    return Scaffold(
-      body: profileAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, st) => const Center(child: Text('לא הצלחנו לטעון את הפרופיל. נסו שוב.')),
-        data: (profile) {
-          final levels = CampaignLevels.all;
-          final width = MediaQuery.of(context).size.width;
-          final centerX = width / 2;
-
-          final positions = <Offset>[];
-          final worldBanners = <_WorldBannerData>[
-            _WorldBannerData(tier: levels.first.tier, worldIndex: levels.first.tier.index, centerY: 56),
-          ];
-          final bands = <WorldBand>[];
-          double y = 150.0;
-          var bandStart = 0.0;
-          var bandTier = levels.first.tier;
-
-          for (int i = 0; i < levels.length; i++) {
-            final isNewWorldStart = i > 0 && levels[i].tier != levels[i - 1].tier;
-            if (isNewWorldStart) {
-              bands.add(WorldBand(tier: bandTier, worldIndex: bandTier.index, startY: bandStart, endY: y));
-              worldBanners.add(
-                _WorldBannerData(
-                  tier: levels[i].tier,
-                  worldIndex: levels[i].tier.index,
-                  centerY: y + _worldBannerGap / 2,
+  Widget _jumpButton(PlayerProfile profile, double target) {
+    final rel = target - _camera.value;
+    final away = !_autoFlight && (rel > 1350 || rel < -300);
+    return Center(
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        transitionBuilder: (child, a) => ScaleTransition(
+          scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack),
+          child: FadeTransition(opacity: a, child: child),
+        ),
+        child: away
+            ? SizedBox(
+                key: const ValueKey('jump'),
+                width: 200,
+                child: CandyButton(
+                  label: 'לשלב שלי',
+                  subtitle: 'שלב ${profile.highestUnlockedLevel}',
+                  icon: rel > 0 ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                  palette: CandyPalette.green,
+                  height: 54,
+                  fontSize: 17,
+                  onPressed: () => _flyTo(target),
                 ),
-              );
-              y += _worldBannerGap;
-              bandStart = y - _worldBannerGap;
-              bandTier = levels[i].tier;
-            }
-            final x = centerX + _amplitude * math.sin(i * 0.9);
-            positions.add(Offset(x, y));
-            y += _nodeSpacingY;
-          }
-
-          final currentIndex = (profile.highestUnlockedLevel - 1).clamp(0, levels.length - 1);
-          _currentNodeY = positions[currentIndex].dy;
-          if (_scrolledForLevel != profile.highestUnlockedLevel) {
-            final firstTime = _scrolledForLevel == null;
-            _scrolledForLevel = profile.highestUnlockedLevel;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _scrollToCurrent(fromEntry: firstTime);
-            });
-          }
-
-          final totalHeight = y + 180;
-          bands.add(WorldBand(tier: bandTier, worldIndex: bandTier.index, startY: bandStart, endY: totalHeight));
-          _lastBands = bands;
-
-          final fallbackTier = levels
-              .firstWhere((l) => l.levelNumber == profile.highestUnlockedLevel, orElse: () => levels.first)
-              .tier;
-          final visibleTier =
-              CampaignLevels.worldOrder[_visibleWorldIndex.clamp(0, CampaignLevels.worldOrder.length - 1)];
-          final headerTier = _scrollController.hasClients ? visibleTier : fallbackTier;
-
-          final segmentColors = [
-            for (int i = 1; i < levels.length; i++) AppColors.pathColorForWorldIndex(levels[i].tier.index),
-          ];
-
-          final map = Container(
-            color: AppColors.gradientForWorldIndex(headerTier.index).first,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  _TopBar(
-                    coins: profile.coins,
-                    totalStars: profile.totalStars,
-                    worldLabel: headerTier.titleHe,
-                    worldIndex: headerTier.index,
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      child: SizedBox(
-                        width: width,
-                        height: totalHeight,
-                        child: Stack(
-                          children: [
-                            CustomPaint(
-                              size: Size(width, totalHeight),
-                              painter: WorldMapBackdrop(bands: bands, width: width),
-                            ),
-                            CustomPaint(
-                              size: Size(width, totalHeight),
-                              painter: PathPainter(points: positions, segmentColors: segmentColors),
-                            ),
-                            for (final banner in worldBanners)
-                              Positioned(
-                                left: 12,
-                                right: 12,
-                                top: banner.centerY - 48,
-                                child: _WorldGate(tier: banner.tier, worldIndex: banner.worldIndex),
-                              ),
-                            for (int i = 0; i < levels.length; i++)
-                              Positioned(
-                                left: positions[i].dx - LevelNode.sizeFor(levels[i]) / 2,
-                                top: positions[i].dy - LevelNode.sizeFor(levels[i]) / 2,
-                                child: LevelNode(
-                                  config: levels[i],
-                                  progress: profile.progressFor(levels[i].levelNumber),
-                                  isUnlocked: profile.canPlayLevel(levels[i].levelNumber),
-                                  isNextToPlay: levels[i].levelNumber == profile.highestUnlockedLevel &&
-                                      profile.canPlayLevel(levels[i].levelNumber),
-                                  onTap: () => context.push('/level/${levels[i].levelNumber}/intro'),
-                                  onLockedTap: () {
-                                    Haptics.medium();
-                                    if (profile.isBlockedByChapterGate(levels[i].levelNumber)) {
-                                      showChapterGateDialog(
-                                        context,
-                                        CampaignChapters.chapterOf(levels[i].levelNumber),
-                                      );
-                                      return;
-                                    }
-                                    GameToast.show(
-                                      context,
-                                      message:
-                                          'שלב ${levels[i].levelNumber} עוד נעול - סיימו את שלב ${profile.highestUnlockedLevel} כדי להתקדם',
-                                      icon: Icons.lock_rounded,
-                                      color: const Color(0xFF7B3FF2),
-                                    );
-                                  },
-                                ),
-                              ),
-                            // תווית "פרק N" ליד השלב הראשון של כל פרק, עם מצב השער שלו.
-                            for (int i = 0; i < levels.length; i++)
-                              if (CampaignChapters.isGateLevel(levels[i].levelNumber))
-                                _chapterMarkerAt(
-                                  context: context,
-                                  profile: profile,
-                                  level: levels[i],
-                                  position: positions[i],
-                                  centerX: centerX,
-                                  width: width,
-                                ),
-                            // "אתם כאן": האוואטאר של השחקן/ית מרחף מעל השלב הבא.
-                            Positioned(
-                              left: positions[currentIndex].dx - 26,
-                              top: positions[currentIndex].dy - LevelNode.sizeFor(levels[currentIndex]) / 2 - 74,
-                              child: IgnorePointer(
-                                child: _YouAreHereMarker(
-                                  avatarId: profile.avatarId,
-                                  photoUrl: ref.watch(authStateProvider).valueOrNull?.photoUrl,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-
-          return TopBarTint(
-            color: AppColors.gradientForWorldIndex(headerTier.index).first,
-            child: Stack(
-              children: [
-                map,
-                // כפתור צף "לשלב שלי" - מופיע רק כשגוללים רחוק מהשלב הנוכחי.
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: MediaQuery.paddingOf(context).bottom + 18,
-                  child: Center(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 280),
-                      transitionBuilder: (child, a) => ScaleTransition(
-                        scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack),
-                        child: FadeTransition(opacity: a, child: child),
-                      ),
-                      child: _currentOutOfView
-                          ? SizedBox(
-                              key: const ValueKey('jump'),
-                              width: 200,
-                              child: CandyButton(
-                                label: 'לשלב שלי',
-                                subtitle: 'שלב ${profile.highestUnlockedLevel}',
-                                icon: _scrollController.hasClients && (_currentNodeY ?? 0) < _scrollController.offset
-                                    ? Icons.keyboard_arrow_up_rounded
-                                    : Icons.keyboard_arrow_down_rounded,
-                                palette: CandyPalette.green,
-                                height: 54,
-                                fontSize: 17,
-                                onPressed: _scrollToCurrent,
-                              ),
-                            )
-                          : const SizedBox.shrink(key: ValueKey('none')),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
+              )
+            : const SizedBox.shrink(key: ValueKey('none')),
       ),
+    );
+  }
+
+  /// כל מה ש"עומד" על הקרקע - ממוקם וממוזער לפי ההקרנה, מהרחוק לקרוב.
+  List<Widget> _billboards(BuildContext context, PlayerProfile profile, Size size, double target) {
+    final p = _projection(size);
+    final items = <(double, Widget)>[];
+
+    void place({
+      required String id,
+      required double u,
+      required double lateral,
+      required double width,
+      required double height,
+      required double anchorY,
+      required Widget child,
+      bool keepOnScreen = false,
+    }) {
+      final rel = u - p.camera;
+      if (rel < -MapProjection.visibleBehind || rel > MapProjection.visibleAhead) return;
+      var point = p.point(u, lateral);
+      if (point.dx < -width || point.dx > size.width + width) return;
+      final s = p.billboardScale(u);
+      if (keepOnScreen) {
+        final half = width * s / 2 + 4;
+        point = Offset(point.dx.clamp(half, math.max(half, size.width - half)), point.dy);
+      }
+      // נמוג בעדינות לכיוון האופק.
+      final fade = ((MapProjection.visibleAhead - rel) / 420).clamp(0.0, 1.0);
+      Widget body = Transform.scale(
+        scale: s,
+        alignment: Alignment(0, anchorY / height * 2 - 1),
+        child: child,
+      );
+      if (fade < 1) body = Opacity(opacity: fade, child: body);
+      items.add((
+        u,
+        Positioned(
+          key: ValueKey(id),
+          left: point.dx - width / 2,
+          top: point.dy - anchorY,
+          width: width,
+          height: height,
+          child: body,
+        ),
+      ));
+    }
+
+    final current = _layout.nodeFor(profile.highestUnlockedLevel);
+    // זואי עומדת בצד שממנו השביל *לא* ממשיך, כדי לא להסתיר את השלב הבא.
+    final next = _layout.nodes[math.min(current.level.levelNumber, _layout.nodes.length - 1)];
+    final zoeySide = next.lateral >= current.lateral ? -1.0 : 1.0;
+    final zoeyLateral = (current.lateral + zoeySide * 0.46).clamp(-0.92, 0.92);
+
+    for (final node in _layout.nodes) {
+      final level = node.level;
+      final size = LevelNode.sizeFor(level);
+      place(
+        id: 'node-${level.levelNumber}',
+        u: node.u,
+        lateral: node.lateral,
+        width: 124,
+        height: 152,
+        anchorY: 14 + size / 2,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: LevelNode(
+              config: level,
+              progress: profile.progressFor(level.levelNumber),
+              isUnlocked: profile.canPlayLevel(level.levelNumber),
+              isNextToPlay: level.levelNumber == profile.highestUnlockedLevel && profile.canPlayLevel(level.levelNumber),
+              onTap: () => context.push('/level/${level.levelNumber}/intro'),
+              onLockedTap: () => _onLockedTap(profile, level.levelNumber),
+            ),
+          ),
+        ),
+      );
+
+      // תווית "פרק N" ליד השלב הראשון של כל פרק, בצד הנגדי לשביל.
+      if (CampaignChapters.isGateLevel(level.levelNumber)) {
+        final chapter = CampaignChapters.chapterOf(level.levelNumber);
+        place(
+          id: 'chapter-$chapter',
+          u: node.u + 0.5,
+          lateral: node == current
+              ? (current.lateral - zoeySide * 0.6).clamp(-0.95, 0.95)
+              // בשלב הראשון של עולם - בצד החיצוני, כי בצד השני עומד שלט העולם.
+              : ((level.levelNumber - 1) % CampaignLevels.levelsPerWorld == 0 ? _outsideLateral(node.lateral, 0.6) : _besideLateral(node.lateral, 0.6)),
+          width: 104,
+          height: 34,
+          anchorY: 17,
+          child: _ChapterMarker(
+            chapter: chapter,
+            open: profile.isChapterOpen(chapter),
+            reached: profile.isLevelUnlocked(level.levelNumber),
+            requiredStars: CampaignChapters.requiredStars(chapter),
+            onTap: () {
+              if (!profile.isChapterOpen(chapter) && profile.isLevelUnlocked(level.levelNumber)) {
+                showChapterGateDialog(context, chapter);
+              }
+            },
+          ),
+        );
+      }
+
+      // החיות החוקרות של העולם - שתיים בכל עולם, ליד השביל.
+      final inWorld = (level.levelNumber - 1) % CampaignLevels.levelsPerWorld;
+      if ((inWorld == 3 || inWorld == 14) && node != current) {
+        final theme = WorldTheme.of(level.tier.index);
+        place(
+          id: 'critter-${level.levelNumber}',
+          u: node.u - 30,
+          lateral: _besideLateral(node.lateral, 0.66),
+          width: 70,
+          height: 80,
+          anchorY: 80,
+          child: ExplorerCritter(kind: theme.explorer, ambient: _ambient, size: 70, phase: inWorld * 1.3),
+        );
+      }
+    }
+
+    // שלטי עולם ליד כל גשר.
+    for (final river in _layout.rivers) {
+      final firstNode = _layout.nodes.firstWhere((n) => n.u > river.u);
+      final firstLevel = firstNode.level;
+      place(
+        id: 'sign-${river.toWorldIndex}',
+        // שלט דרך בגדה הקרובה, ליד הגשר: "מכאן נכנסים לעולם הבא".
+        u: river.u - CampaignMapLayout.riverHalfWidth - 20,
+        lateral: firstNode.lateral >= 0 ? -0.62 : 0.62,
+        keepOnScreen: true,
+        width: 150,
+        height: 118,
+        anchorY: 118,
+        child: Transform.scale(
+          scale: 0.86,
+          alignment: Alignment.bottomCenter,
+          child: WorldSign(
+            tier: firstLevel.tier,
+            worldIndex: river.toWorldIndex,
+            locked: !profile.isLevelUnlocked(firstLevel.levelNumber),
+          ),
+        ),
+      );
+    }
+
+    // זואי ליד השלב הבא, ומעליו הסיכה עם האוואטאר של השחקן/ית (אם בחרו אחר).
+    place(
+      id: 'zoey',
+      u: current.u - 70,
+      lateral: zoeyLateral,
+      width: 84,
+      height: 92,
+      anchorY: 88,
+      keepOnScreen: true,
+      child: const ZoeyGuide(height: 92),
+    );
+    final photoUrl = ref.watch(authStateProvider).valueOrNull?.photoUrl;
+    if (profile.avatarId != 'detective' || photoUrl != null) {
+      final nodeSize = LevelNode.sizeFor(current.level);
+      place(
+        id: 'you',
+        u: current.u - 1,
+        lateral: current.lateral,
+        width: 52,
+        height: 66,
+        anchorY: 66 + nodeSize / 2 + 4,
+        child: IgnorePointer(child: _YouAreHereMarker(avatarId: profile.avatarId, photoUrl: photoUrl)),
+      );
+    }
+
+    items.sort((a, b) => b.$1.compareTo(a.$1));
+    return [for (final item in items) item.$2];
+  }
+
+  WorldTier _tierFor(int worldIndex) => WorldTier.values[worldIndex.clamp(0, WorldTier.values.length - 1)];
+
+  /// מיקום צידי ליד שלב - בצד שפונה למרכז, כדי לא לכסות את השביל.
+  double _besideLateral(double nodeLateral, double gap) =>
+      (nodeLateral >= 0 ? nodeLateral - gap : nodeLateral + gap).clamp(-0.95, 0.95);
+
+  double _outsideLateral(double nodeLateral, double gap) =>
+      (nodeLateral >= 0 ? nodeLateral + gap : nodeLateral - gap).clamp(-0.95, 0.95);
+
+  void _onLockedTap(PlayerProfile profile, int levelNumber) {
+    Haptics.medium();
+    if (profile.isBlockedByChapterGate(levelNumber)) {
+      showChapterGateDialog(context, CampaignChapters.chapterOf(levelNumber));
+      return;
+    }
+    GameToast.show(
+      context,
+      message: 'שלב $levelNumber עוד נעול - סיימו את שלב ${profile.highestUnlockedLevel} כדי להתקדם',
+      icon: Icons.lock_rounded,
+      color: const Color(0xFF7B3FF2),
     );
   }
 }
@@ -453,79 +626,6 @@ class _TopBar extends StatelessWidget {
           _Pill(icon: Icons.star_rounded, iconColor: AppColors.star, label: '$totalStars'),
           const SizedBox(width: 8),
           _Pill(icon: Icons.paid_rounded, iconColor: Colors.amberAccent, label: '$coins'),
-        ],
-      ),
-    );
-  }
-}
-
-/// שער מעבר-עולם רחב - מוצג במפה לפני הצומת הראשון של כל עולם חדש.
-/// האייקון, השם והצבע של העולם הבא ממלאים את רוחב המסך, כדי שהמעבר
-/// יורגש בגלילה גם ממרחק.
-class _WorldGate extends StatelessWidget {
-  final WorldTier tier;
-  final int worldIndex;
-
-  const _WorldGate({required this.tier, required this.worldIndex});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.gradientForWorldIndex(worldIndex);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: colors),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white, width: 2.5),
-        boxShadow: [
-          BoxShadow(color: colors.last.withValues(alpha: 0.45), blurRadius: 18, spreadRadius: 1),
-          const BoxShadow(color: Colors.black38, blurRadius: 12, offset: Offset(0, 6)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-            ),
-            child: Icon(AppColors.iconForWorldIndex(worldIndex), color: Colors.white, size: 26),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'עולם ${worldIndex + 1}',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  tier.titleHe,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Text(
-              '${tier.gridSize}×${tier.gridSize}',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
-            ),
-          ),
         ],
       ),
     );
