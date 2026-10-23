@@ -29,6 +29,9 @@ class AdsWebGateway extends AdsGateway {
   bool _initialized = false;
   bool _canRequestAds = false;
   bool _showing = false;
+
+  @override
+  bool get isShowingFullScreen => _showing;
   String? _lastShowFailureReason;
 
   /// בלי מזהה AdSense אמיתי נשארים על מודעת הדוגמה של Google,

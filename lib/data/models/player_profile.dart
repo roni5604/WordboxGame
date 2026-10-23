@@ -11,6 +11,9 @@ class PlayerProfile extends Equatable {
   final int highestUnlockedLevel;
   final bool soundOn;
   final bool hapticsOn;
+
+  /// מוזיקת רקע (נפרדת מ"צלילים" - אפשר אפקטים בלי מוזיקה).
+  final bool musicOn;
   final bool onboardingCompleted;
   final String displayName;
 
@@ -86,6 +89,7 @@ class PlayerProfile extends Equatable {
     this.highestUnlockedLevel = 1,
     this.soundOn = true,
     this.hapticsOn = true,
+    this.musicOn = true,
     this.onboardingCompleted = false,
     this.displayName = 'שחקן/ית',
     this.avatarId = 'detective',
@@ -153,6 +157,7 @@ class PlayerProfile extends Equatable {
     int? highestUnlockedLevel,
     bool? soundOn,
     bool? hapticsOn,
+    bool? musicOn,
     bool? onboardingCompleted,
     String? displayName,
     String? avatarId,
@@ -183,6 +188,7 @@ class PlayerProfile extends Equatable {
       highestUnlockedLevel: highestUnlockedLevel ?? this.highestUnlockedLevel,
       soundOn: soundOn ?? this.soundOn,
       hapticsOn: hapticsOn ?? this.hapticsOn,
+      musicOn: musicOn ?? this.musicOn,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       displayName: displayName ?? this.displayName,
       avatarId: avatarId ?? this.avatarId,
@@ -228,6 +234,7 @@ class PlayerProfile extends Equatable {
         highestUnlockedLevel,
         soundOn,
         hapticsOn,
+        musicOn,
         onboardingCompleted,
         displayName,
         avatarId,

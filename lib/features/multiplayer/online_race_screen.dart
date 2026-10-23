@@ -22,6 +22,7 @@ import '../../providers/letter_frequency_provider.dart';
 import '../../providers/multiplayer_repository_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
+import '../../core/audio/music_service.dart';
 import '../game/widgets/current_word_badge.dart';
 import '../game/widgets/found_words_panel.dart';
 import '../game/widgets/grid_board.dart';
@@ -104,9 +105,13 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     );
   }
 
+  late final MusicService _music;
+
   @override
   void initState() {
     super.initState();
+    // בזמן המשחק עצמו אין מוזיקת רקע - רק אפקטים.
+    _music = ref.read(musicServiceProvider)..enterGame();
     _repo = ref.read(multiplayerRepositoryProvider);
     _repo.ensureSignedIn().then((uid) {
       if (mounted) setState(() => _myUid = uid);
@@ -166,6 +171,7 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
 
     if (!mounted) return;
     setState(() => _session = session);
+    ref.read(soundServiceProvider).playLevelStart();
     _matchStartedAt = DateTime.now();
     _matchPlayers = room.players.length;
     _analytics.mpMatchStart(mode: 'friends', players: _matchPlayers, gridSize: room.gridSize);
@@ -361,6 +367,7 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     _roomSub?.cancel();
     _ticker?.cancel();
     _bannerTimer?.cancel();
+    _music.leaveGame();
     super.dispose();
   }
 

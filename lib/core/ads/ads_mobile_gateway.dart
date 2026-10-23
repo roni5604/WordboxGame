@@ -35,6 +35,9 @@ class AdsMobileGateway extends AdsGateway {
   bool _canRequestAds = false;
   bool _privacyOptionsRequired = false;
   bool _showing = false;
+
+  @override
+  bool get isShowingFullScreen => _showing;
   String? _lastShowFailureReason;
   bool _rewardedLoading = false;
   bool _interstitialLoading = false;

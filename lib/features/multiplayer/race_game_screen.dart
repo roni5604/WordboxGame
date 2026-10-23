@@ -20,6 +20,7 @@ import '../../providers/dictionary_provider.dart';
 import '../../providers/letter_frequency_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
+import '../../core/audio/music_service.dart';
 import '../game/widgets/current_word_badge.dart';
 import '../game/widgets/found_words_panel.dart';
 import '../game/widgets/grid_board.dart';
@@ -86,9 +87,13 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
     );
   }
 
+  late final MusicService _music;
+
   @override
   void initState() {
     super.initState();
+    // בזמן המשחק עצמו אין מוזיקת רקע - רק אפקטים.
+    _music = ref.read(musicServiceProvider)..enterGame();
     _remaining = widget.config.timeLimit;
     WidgetsBinding.instance.addObserver(this);
     _initRace();
@@ -325,6 +330,7 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _bannerTimer?.cancel();
+    _music.leaveGame();
     super.dispose();
   }
 

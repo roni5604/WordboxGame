@@ -100,8 +100,12 @@ class GridBoardState extends State<GridBoard> {
       _dragPosition = localOffset;
       _isError = false;
     });
-    Haptics.selection();
-    if (_path.isNotEmpty) GridBoard.onTileAdded(0);
+    if (_path.isNotEmpty) {
+      Haptics.tile(0);
+      GridBoard.onTileAdded(0);
+    } else {
+      Haptics.selection();
+    }
     _notifyWordChanged();
   }
 
@@ -116,7 +120,7 @@ class GridBoardState extends State<GridBoard> {
     });
     if (changed) {
       if (_path.length > previousLength) {
-        Haptics.selection();
+        Haptics.tile(_path.length - 1);
         GridBoard.onTileAdded(_path.length - 1);
       } else {
         Haptics.light();

@@ -58,6 +58,16 @@ class SettingsScreen extends ConsumerWidget {
                   },
                 ),
                 _ToggleRow(
+                  icon: Icons.music_note_rounded,
+                  color: const Color(0xFFE0459B),
+                  label: 'מוזיקה',
+                  value: profile.musicOn,
+                  onChanged: (value) {
+                    analytics.settingsChange(setting: 'music', value: value ? 'on' : 'off');
+                    notifier.setMusicOn(value);
+                  },
+                ),
+                _ToggleRow(
                   icon: Icons.vibration_rounded,
                   color: const Color(0xFF7B3FF2),
                   label: 'רטט',
