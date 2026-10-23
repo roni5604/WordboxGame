@@ -1,4 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
+
+import 'web_sfx_stub.dart' if (dart.library.js_interop) 'web_sfx_web.dart';
 
 /// שירות צלילים פשוט - מנגן אפקטים קצרים (SFX) לאירועי משחק מרכזיים.
 /// שומר "בריכה" קטנה של נגנים כדי שכמה צלילים יוכלו להתנגן זה על זה
@@ -8,7 +11,29 @@ import 'package:audioplayers/audioplayers.dart';
 /// בועות, קלימבה, מרימבה ו"פשששש", בלי קבצי אודיו חיצוניים או סוגיות רישוי.
 /// כולם באותו סולם, כך שצלילים שמתנגנים יחד נשמעים הרמוניים.
 class SoundService {
-  SoundService() : _silent = false;
+  SoundService() : _silent = false {
+    // באתר: Web Audio במקום אלמנטי <audio> (בלי דיליי בגרירת אותיות), וצלילי
+    // המשחק נטענים מראש ברקע.
+    if (kIsWeb) _web = WebSfx.create()?..preload(_gameplaySounds);
+  }
+
+  /// הצלילים שנשמעים במהלך משחק - נטענים ראשונים באתר.
+  static final _gameplaySounds = [
+    for (var i = 0; i < 12; i++) 'tile_$i.wav',
+    'button_tap.wav',
+    for (var i = 0; i < 5; i++) 'success_$i.wav',
+    'success_long.wav',
+    'error_word.wav',
+    'countdown.wav',
+    'level_start.wav',
+    'star_gained.wav',
+    'timer_warning.wav',
+    'shuffle.wav',
+    'hint.wav',
+    'level_complete.wav',
+  ];
+
+  WebSfx? _web;
 
   /// שירות שקט לחלוטין שלא יוצר נגני אודיו כלל - לבדיקות ולצילומי מסך.
   SoundService.silent() : _silent = true {
@@ -48,8 +73,13 @@ class SoundService {
   /// כאשר false (השחקן/ית כיבו צלילים בהגדרות), כל קריאה הופכת ל-no-op.
   bool enabled = true;
 
-  Future<void> _play(String file, {double volume = 0.8}) async {
+  Future<void> _play(String file, {double volume = 0.8, String? channel}) async {
     if (!enabled || _silent) return;
+    final web = _web;
+    if (web != null) {
+      web.play(file, volume, channel: channel);
+      return;
+    }
     final player = _pool[_next];
     _next = (_next + 1) % _pool.length;
     try {
@@ -88,7 +118,8 @@ class SoundService {
 
   /// אות נוספה לנתיב בזמן גרירה - כל אות עולה צליל אחד בסולם
   /// ([index] = מיקום האות במילה, 0 = הראשונה).
-  Future<void> playTileTap([int index = 0]) => _play('tile_${index.clamp(0, 11)}.wav', volume: 0.5);
+  Future<void> playTileTap([int index = 0]) =>
+      _play('tile_${index.clamp(0, 11)}.wav', volume: 0.5, channel: 'tile');
 
   /// תחילת שלב בלי ספירה לאחור - "יאללה!" קצר כשהטיימר מתחיל.
   Future<void> playLevelStart() => _play('level_start.wav', volume: 0.75);
@@ -147,6 +178,7 @@ class SoundService {
   Future<void> playCollect() => _play('collect.wav', volume: 0.75);
 
   void dispose() {
+    _web?.dispose();
     for (final p in _poolStorage ?? const <AudioPlayer>[]) {
       p.dispose();
     }

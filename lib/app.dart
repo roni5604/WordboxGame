@@ -51,6 +51,9 @@ class _WordboxAppState extends ConsumerState<WordboxApp> with WidgetsBindingObse
     StartCountdown.onStart = () => ref.read(soundServiceProvider).playCountdown();
     // מוזיקת הרקע מתחילה ברגע שהפרופיל נטען (אם היא מופעלת בהגדרות).
     ref.read(musicServiceProvider);
+    // שירות הצלילים נוצר כבר בעלייה - באתר זה מתחיל לטעון את צלילי המשחק
+    // ברקע, כדי שהאות הראשונה שגוררים כבר תישמע.
+    ref.read(soundServiceProvider);
     // הגדרת "רטט" בפרופיל קובעת את כל הרטט באפליקציה (גם באתר).
     ref.listenManual(
       playerProfileProvider,

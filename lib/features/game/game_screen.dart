@@ -34,6 +34,7 @@ import '../../providers/sound_provider.dart';
 import '../../core/audio/music_service.dart';
 import 'widgets/current_word_badge.dart';
 import 'widgets/found_words_panel.dart';
+import 'widgets/game_tutorial.dart';
 import 'widgets/grid_board.dart';
 import 'widgets/mascot_widget.dart';
 import 'widgets/pause_menu.dart';
@@ -165,7 +166,15 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
 
   String? _tutorialWord;
   List<GridPosition>? _tutorialPath;
-  bool _showTutorialOverlay = false;
+
+  /// הדרכת שלב 1 (ראו [GameTutorialOverlay]); null = אין הדרכה פעילה.
+  TutorialStep? _tutorialStep;
+  int _tutorialNudge = 0;
+  bool _tutorialCelebrating = false;
+  final _timerKey = GlobalKey();
+  final _goalKey = GlobalKey();
+  final _powersKey = GlobalKey();
+  final _boardAreaKey = GlobalKey();
 
   // Analytics (level_start / level_end / level_quit) - see analytics_service.dart.
   late final AnalyticsService _analytics;
@@ -296,8 +305,9 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
   }
 
   /// בשלב 1 בלבד (ורק בפעם הראשונה): לפני שהטיימר מתחיל לרוץ, מדגישים
-  /// (בזהב, באופן "דביק" - בלי להיעלם אוטומטית) את הנתיב של מילה מוכרת
-  /// שהוצבה בכוונה על הלוח, ומציגים בועת טקסט מנחה עם כפתור התחלה.
+  /// (בזהב, באופן "דביק") את הנתיב של מילה מוכרת שהוצבה בכוונה על הלוח,
+  /// והשחקן/ית מנסה בעצמו/ה לכתוב אותה - ואז שני הסברים קצרים (נקודות,
+  /// שעון ועזרה). ראו [GameTutorialOverlay].
   Future<void> _maybeShowTutorial() async {
     final word = _tutorialWord;
     final path = _tutorialPath;
@@ -313,17 +323,51 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     }
 
     if (!mounted) return;
-    setState(() => _showTutorialOverlay = true);
+    setState(() => _tutorialStep = TutorialStep.drag);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _boardKey.currentState?.showHint(path, duration: null);
     });
   }
 
+  void _nextTutorialStep() {
+    final step = _tutorialStep;
+    if (step == null) return;
+    Haptics.selection();
+    if (step == TutorialStep.timer) {
+      _dismissTutorial();
+      return;
+    }
+    setState(() => _tutorialStep = TutorialStep.values[step.index + 1]);
+  }
+
   void _dismissTutorial() {
-    setState(() => _showTutorialOverlay = false);
+    if (_tutorialStep == null) return;
+    setState(() {
+      _tutorialStep = null;
+      _tutorialCelebrating = false;
+    });
     _boardKey.currentState?.clearHint();
     ref.read(playerProfileProvider.notifier).setLevel1TutorialSeen();
     _startTimer();
+  }
+
+  /// תוצאת ניסיון בזמן שלב הגרירה של ההדרכה: מילה תקינה -> חגיגה ומעבר
+  /// להסבר הבא; אחרת - "כמעט!" והאצבע ממשיכה להדגים.
+  void _onTutorialAttempt({required bool accepted}) {
+    if (_tutorialStep != TutorialStep.drag || _tutorialCelebrating) return;
+    if (!accepted) {
+      setState(() => _tutorialNudge++);
+      return;
+    }
+    _boardKey.currentState?.clearHint();
+    setState(() => _tutorialCelebrating = true);
+    Future.delayed(const Duration(milliseconds: 1600), () {
+      if (!mounted || _tutorialStep != TutorialStep.drag) return;
+      setState(() {
+        _tutorialCelebrating = false;
+        _tutorialStep = TutorialStep.score;
+      });
+    });
   }
 
   void _startTimer() {
@@ -473,10 +517,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     }
     _analytics
       ..spendVirtualCurrency(currency: 'coins', value: cost, itemName: 'level_skip')
-      ..worldUnlockedIfCrossed(
-        highestBefore: highestBefore,
-        highestAfter: max(highestBefore, widget.levelNumber + 1),
-      );
+      ..worldUnlockedIfCrossed(highestBefore: highestBefore, highestAfter: max(highestBefore, widget.levelNumber + 1));
     _logLevelQuit('skip');
     _finished = true;
     _ticker?.cancel();
@@ -587,6 +628,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     final session = _session;
     if (session == null || _finished) return;
     final result = session.submitPath(path);
+    _onTutorialAttempt(accepted: result.status == WordSubmitStatus.accepted);
 
     switch (result.status) {
       case WordSubmitStatus.accepted:
@@ -603,6 +645,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
         // "סיים לפני הזמן!"), בלי לחכות שהזמן יגמר או שכל מילות הלוח
         // יימצאו.
         if (session.hasReachedScoreGoal || session.isFullyCompleted) {
+          _dismissTutorial();
           Future.delayed(
             const Duration(milliseconds: 500),
             () => _finishLevel(earlyFinish: session.hasReachedScoreGoal),
@@ -704,12 +747,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
         firstClear: isFirstCompletion && earnedAnyStars,
       )
       ..earnVirtualCurrency(currency: 'coins', value: actualCoinsEarned, source: 'level', item: _config.kind.name)
-      ..earnVirtualCurrency(
-        currency: 'hints',
-        value: finaleBonusHints,
-        source: 'level',
-        item: 'world_finale_bonus',
-      )
+      ..earnVirtualCurrency(currency: 'hints', value: finaleBonusHints, source: 'level', item: 'world_finale_bonus')
       ..worldUnlockedIfCrossed(
         highestBefore: highestBefore,
         highestAfter: earnedAnyStars ? max(highestBefore, widget.levelNumber + 1) : highestBefore,
@@ -720,7 +758,10 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     LuckyBoxReward? luckyBoxReward;
     if (isFirstCompletion && earnedAnyStars && widget.levelNumber % RewardTables.luckyBoxLevelInterval == 0) {
       luckyBoxReward = await notifier.openLuckyDrop(worldIndex: worldIndex);
-    } else if (isFirstCompletion && stars == 3 && !isWorldFinale && _dropRandom.nextDouble() < RewardTables.starDropChance) {
+    } else if (isFirstCompletion &&
+        stars == 3 &&
+        !isWorldFinale &&
+        _dropRandom.nextDouble() < RewardTables.starDropChance) {
       // "כוכב מזל": הפתעה לא צפויה על שלב מושלם - חיזוק אקראי שגורם לרצות
       // לשחק עוד שלב ולהשיג שוב 3 כוכבים.
       luckyBoxReward = await notifier.openLuckyDrop(worldIndex: worldIndex, kind: DropKind.starDrop);
@@ -821,139 +862,161 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
         child: TopBarTint(
           color: AppColors.gradientForWorldIndex(CampaignLevels.byLevelNumber(widget.levelNumber).tier.index).first,
           child: Scaffold(
-            body: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: AppColors.gradientForWorldIndex(worldIndex),
-                ),
-              ),
-              child: SafeArea(
-                child: session == null
-                    ? const _LoadingBoard()
-                    : Column(
-                        children: [
-                          _GameHeader(
-                            levelNumber: widget.levelNumber,
-                            score: session.score,
-                            onPause: _pause,
-                            onHint: _useHint,
-                          ),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: TimerBar(
-                              progress: _remaining.inMilliseconds / _config.timeLimit.inMilliseconds,
-                              urgent: _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2),
-                              secondsLeft: _remaining.inSeconds,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: WordsGoalPanel(
-                              score: session.score,
-                              required: _config.scoreRequired,
-                              stars: session.currentStars,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: _PowerRow(
-                              onReveal: _revealLetter,
-                              onShuffle: _shuffleBoard,
-                              onSkip: _confirmSkip,
-                              skipCost: CoinCosts.skipLevel(widget.levelNumber),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          CurrentWordBadge(word: _draggingWord),
-                          const SizedBox(height: 4),
-                          Expanded(
-                            child: Stack(
-                              alignment: Alignment.topCenter,
+            body: Stack(
+              children: [
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: AppColors.gradientForWorldIndex(worldIndex),
+                      ),
+                    ),
+                    child: SafeArea(
+                      child: session == null
+                          ? const _LoadingBoard()
+                          : Column(
                               children: [
+                                _GameHeader(
+                                  levelNumber: widget.levelNumber,
+                                  score: session.score,
+                                  onPause: _pause,
+                                  onHint: _useHint,
+                                ),
+                                const SizedBox(height: 8),
                                 Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      // ריבוע גדול ככל האפשר שעדיין נכנס לגמרי
-                                      // בשטח הפנוי - כך כל השורות תמיד גלויות.
-                                      final side = constraints.maxWidth < constraints.maxHeight
-                                          ? constraints.maxWidth
-                                          : constraints.maxHeight;
-                                      return Center(
-                                        child: SizedBox(
-                                          width: side,
-                                          height: side,
-                                          child: PausableBoard(
-                                            paused: _paused,
-                                            child: GridBoard(
-                                              key: _boardKey,
-                                              enabled: !_paused,
-                                              letters: session.board.letters,
-                                              onPathSubmitted: _onPathSubmitted,
-                                              isPathAcceptable: session.wouldAccept,
-                                              onWordChanged: _onWordChanging,
-                                              boardSkin: boardSkin,
-                                              letterSkin: letterSkin,
-                                              markerSkin: markerSkin,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
+                                  key: _timerKey,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  child: TimerBar(
+                                    progress: _remaining.inMilliseconds / _config.timeLimit.inMilliseconds,
+                                    urgent: _remaining.inSeconds < (_config.timeLimit.inSeconds * 0.2),
+                                    secondsLeft: _remaining.inSeconds,
                                   ),
                                 ),
-                                if (_bannerText != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child:
-                                        Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                              decoration: BoxDecoration(
-                                                color: _bannerIsError ? AppColors.error : Colors.white,
-                                                borderRadius: BorderRadius.circular(20),
-                                                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
-                                              ),
-                                              child: Text(
-                                                _bannerText!,
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w800,
-                                                  fontSize: 18,
-                                                  color: _bannerIsError ? Colors.white : AppColors.success,
+                                const SizedBox(height: 10),
+                                Padding(
+                                  key: _goalKey,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  child: WordsGoalPanel(
+                                    score: session.score,
+                                    required: _config.scoreRequired,
+                                    stars: session.currentStars,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  key: _powersKey,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  child: _PowerRow(
+                                    onReveal: _revealLetter,
+                                    onShuffle: _shuffleBoard,
+                                    onSkip: _confirmSkip,
+                                    skipCost: CoinCosts.skipLevel(widget.levelNumber),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                CurrentWordBadge(word: _draggingWord),
+                                const SizedBox(height: 4),
+                                Expanded(
+                                  child: Stack(
+                                    alignment: Alignment.topCenter,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: LayoutBuilder(
+                                          builder: (context, constraints) {
+                                            // ריבוע גדול ככל האפשר שעדיין נכנס לגמרי
+                                            // בשטח הפנוי - כך כל השורות תמיד גלויות.
+                                            final side = constraints.maxWidth < constraints.maxHeight
+                                                ? constraints.maxWidth
+                                                : constraints.maxHeight;
+                                            return Center(
+                                              child: SizedBox(
+                                                key: _boardAreaKey,
+                                                width: side,
+                                                height: side,
+                                                child: PausableBoard(
+                                                  paused: _paused,
+                                                  child: GridBoard(
+                                                    key: _boardKey,
+                                                    enabled: !_paused,
+                                                    letters: session.board.letters,
+                                                    onPathSubmitted: _onPathSubmitted,
+                                                    isPathAcceptable: session.wouldAccept,
+                                                    onWordChanged: _onWordChanging,
+                                                    boardSkin: boardSkin,
+                                                    letterSkin: letterSkin,
+                                                    markerSkin: markerSkin,
+                                                  ),
                                                 ),
                                               ),
-                                            )
-                                            .animate(key: ValueKey(_bannerText))
-                                            .fadeIn()
-                                            .moveY(begin: 10, end: 0, duration: 200.ms),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                      if (_bannerText != null)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child:
+                                              Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                                    decoration: BoxDecoration(
+                                                      color: _bannerIsError ? AppColors.error : Colors.white,
+                                                      borderRadius: BorderRadius.circular(20),
+                                                      boxShadow: const [
+                                                        BoxShadow(color: Colors.black26, blurRadius: 10),
+                                                      ],
+                                                    ),
+                                                    child: Text(
+                                                      _bannerText!,
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.w800,
+                                                        fontSize: 18,
+                                                        color: _bannerIsError ? Colors.white : AppColors.success,
+                                                      ),
+                                                    ),
+                                                  )
+                                                  .animate(key: ValueKey(_bannerText))
+                                                  .fadeIn()
+                                                  .moveY(begin: 10, end: 0, duration: 200.ms),
+                                        ),
+                                    ],
                                   ),
-                                if (_showTutorialOverlay && _tutorialWord != null)
-                                  Positioned(
-                                    left: 12,
-                                    right: 12,
-                                    bottom: 8,
-                                    child: _TutorialCard(
-                                      word: HebrewTrie.toDisplayWord(_tutorialWord!),
-                                      onStart: _dismissTutorial,
-                                    ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  child: FoundWordsPanel(
+                                    words: session.foundNormalizedWords
+                                        .map((w) => HebrewTrie.toDisplayWord(w))
+                                        .toList(),
                                   ),
+                                ),
+                                const SizedBox(height: 12),
                               ],
                             ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: FoundWordsPanel(
-                              words: session.foundNormalizedWords.map((w) => HebrewTrie.toDisplayWord(w)).toList(),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                      ),
-              ),
+                    ),
+                  ),
+                ),
+                if (_tutorialStep != null && session != null)
+                  Positioned.fill(
+                    child: GameTutorialOverlay(
+                      step: _tutorialStep!,
+                      word: HebrewTrie.toDisplayWord(_tutorialWord ?? ''),
+                      path: _tutorialPath ?? const [],
+                      gridSize: session.board.letters.length,
+                      boardKey: _boardAreaKey,
+                      goalKey: _goalKey,
+                      timerKey: _timerKey,
+                      powersKey: _powersKey,
+                      userDragging: _draggingWord.isNotEmpty,
+                      nudge: _tutorialNudge,
+                      celebrating: _tutorialCelebrating,
+                      onNext: _nextTutorialStep,
+                      onSkip: _dismissTutorial,
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -1150,54 +1213,6 @@ class _GameHeader extends ConsumerWidget {
         ],
       ),
     );
-  }
-}
-
-/// בועת ההדרכה המוטבעת בתחילת שלב 1: מסבירה שיש להדגיש/לגרור בין
-/// האותיות המודגשות בזהב (ראו [GridBoardState.showHint]) ליצירת המילה
-/// המוצגת, וכפתור להתחלת הטיימר בפועל.
-class _TutorialCard extends StatelessWidget {
-  final String word;
-  final VoidCallback onStart;
-
-  const _TutorialCard({required this.word, required this.onStart});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 12)],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.lightbulb_rounded, color: AppColors.star),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'גררו אצבע בין האותיות המסומנות בזהב ליצירת המילה "$word"',
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          CandyButton(
-            label: 'הבנתי, בואו נתחיל!',
-            icon: Icons.play_arrow_rounded,
-            palette: CandyPalette.green,
-            height: 54,
-            fontSize: 18,
-            onPressed: onStart,
-          ),
-        ],
-      ),
-    ).animate().fadeIn().slideY(begin: 0.3, end: 0);
   }
 }
 
