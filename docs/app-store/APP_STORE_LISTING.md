@@ -132,9 +132,15 @@ Multiplayer with friends uses private rooms; there is no chat or free-form messa
 | Diagnostics → **Crash Data** | App Functionality | Yes (Crashlytics מקבל את מזהה המשתמש) | No |
 | Diagnostics → **Performance Data** | App Functionality | Yes | No |
 
-> בלי פרסומות בגרסה הזו (אין מזהי AdMob ב-`config/release.json`) - לא לסמן
-> Device ID ו-Advertising Data, ולענות **No** על Tracking. המשחק לא יבקש
-> אז אישור מעקב (ATT).
+> **מהגרסה עם הפרסומות (אחרי 1.0.1)** - לעדכן ב-App Privacy **לפני** ההגשה:
+> - לסמן **Device ID** ו-**Advertising Data** (Third-Party Advertising), שניהם
+>   **Used for Tracking: Yes** - הבילד מבקש ATT (`ATT_ENABLED=true` ב-`config/release.json`).
+> - להוסיף **Location → Coarse Location** (Third-Party Advertising, Not linked,
+>   Tracking: Yes) - AdMob מסיק מיקום כללי מכתובת ה-IP.
+> - ב-Age Rating לסמן **Advertising: Yes**.
+> - בהערות ל-App Review: ATT מוצג פעם אחת בהפעלה הראשונה, אחרי מסך הסבר של Google.
+>
+> גרסאות 1.0.0 ו-1.0.1 נבנו בלי מזהי AdMob ולכן בלי פרסומות ובלי ATT.
 
 ---
 

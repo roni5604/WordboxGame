@@ -46,6 +46,9 @@ abstract class AdsGateway extends ChangeNotifier {
 
   Future<void> recordDailyBonusAdGranted();
 
+  /// רכישה בכסף אמיתי הושלמה: מכאן והלאה בלי מודעות מסך מלא (Interstitial).
+  Future<void> recordPurchase() async {}
+
   Future<void> showPrivacyOptions();
 
   /// כרטיס Native, או תיבה ריקה כשאין מודעה. לא נטען ב-Web.

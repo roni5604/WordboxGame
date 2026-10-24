@@ -13,7 +13,6 @@ import '../../data/models/player_profile.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
-import '../ads/native_ad_card.dart';
 import '../ads/store_ad_gift_card.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/platform/top_bar_tint.dart';
@@ -272,7 +271,7 @@ class _HintsTab extends StatelessWidget {
 
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-      itemCount: _packs.length + (showPlacements ? 2 : 0) + 1,
+      itemCount: _packs.length + (showPlacements ? 1 : 0) + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 16),
       itemBuilder: (context, i) {
         if (i == 0) {
@@ -293,7 +292,6 @@ class _HintsTab extends StatelessWidget {
         }
         final index = i - 1;
         if (showPlacements && index == 0) return const StoreAdGiftCard();
-        if (showPlacements && index == _packs.length + 1) return const NativeAdCard();
         final packIndex = showPlacements ? index - 1 : index;
         final pack = _packs[packIndex];
         return _PackCard(pack: pack, onBuy: () => onBuyHints(pack));

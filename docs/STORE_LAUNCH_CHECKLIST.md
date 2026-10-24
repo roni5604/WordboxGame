@@ -60,6 +60,16 @@
 
 ## שלב 2: פרסומות (AdMob)
 
+> **סטטוס (24.10.2026):** החשבון אושר (pub-5952120609758883). ב-AdMob קיימות
+> שתי אפליקציות עם 3 יחידות לכל אחת; אפליקציית ה-iOS מקושרת ל-App Store,
+> הודעת GDPR והודעת IDFA (בעברית) פורסמו, Firebase מקושר, ו-`app-ads.txt` עלה
+> ל-`https://ronimichaeli.com/app-ads.txt` (ריפו roni-michaeli-website). המזהים
+> נמצאים ב-`config/release.json`, `ios/Flutter/AppSecrets.xcconfig` ו-
+> `android/key.properties` (לא ב-git). נשאר: אימות זהות ב-AdSense כדי לקבל
+> תשלומים, ועדכון App Privacy לפני הגרסה עם הפרסומות (ראו APP_STORE_LISTING.md).
+> בבדיקות על אייפון אמיתי: לא ללחוץ על מודעות, או להוסיף את מזהה המכשיר
+> ל-`ADMOB_TEST_DEVICE_IDS` (מופיע בלוג של Xcode בהפעלה הראשונה).
+
 1. AdMob → Apps → **Add app** פעמיים: Android ו-iOS (עדיין לא בחנות = "No").
 2. בכל אפליקציה ליצור 3 יחידות: **Rewarded**, **Interstitial**, **Native advanced**.
 3. למלא את המזהים:

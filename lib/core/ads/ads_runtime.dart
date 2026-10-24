@@ -18,9 +18,12 @@ class AdsRuntime {
 }
 
 /// עוטף את הסינגלטון כדי ש-Riverpod יוכל להאזין לו בלי ל-dispose אותו
-/// כש-ProviderScope של בדיקה נסגר.
-class _AdsGatewayBinding extends AdsGateway {
-  _AdsGatewayBinding(this._inner) {
+/// כש-ProviderScope של בדיקה נסגר. כל getter של [AdsGateway] חייב לעבור
+/// דרכו - אחרת המסכים רואים את ברירת המחדל (כך המוזיקה המשיכה לנגן מעל
+/// מודעות מסך מלא, כי isShowingFullScreen לא הועבר).
+@visibleForTesting
+class AdsGatewayBinding extends AdsGateway {
+  AdsGatewayBinding(this._inner) {
     _onInner = notifyListeners;
     _inner.addListener(_onInner);
   }
@@ -86,6 +89,12 @@ class _AdsGatewayBinding extends AdsGateway {
       _inner.recordDailyBonusAdGranted();
 
   @override
+  Future<void> recordPurchase() => _inner.recordPurchase();
+
+  @override
+  bool get isShowingFullScreen => _inner.isShowingFullScreen;
+
+  @override
   Future<void> showPrivacyOptions() => _inner.showPrivacyOptions();
 
   @override
@@ -93,5 +102,5 @@ class _AdsGatewayBinding extends AdsGateway {
 }
 
 final adsGatewayProvider = ChangeNotifierProvider<AdsGateway>((ref) {
-  return _AdsGatewayBinding(AdsRuntime.instance);
+  return AdsGatewayBinding(AdsRuntime.instance);
 });

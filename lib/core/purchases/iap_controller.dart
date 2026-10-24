@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
+import '../ads/ads_runtime.dart';
 import '../analytics/analytics_service.dart';
 import 'real_money_catalog.dart';
 
@@ -201,6 +202,9 @@ class IapController extends StateNotifier<IapState> {
         return;
       }
       await _recordGranted(key);
+      try {
+        await _ref.read(adsGatewayProvider).recordPurchase();
+      } catch (_) {}
       _analytics
         ..markPayer()
         ..earnVirtualCurrency(currency: 'coins', value: pack.coins, source: 'purchase', item: pack.productId)

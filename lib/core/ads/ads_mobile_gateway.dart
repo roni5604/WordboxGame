@@ -44,6 +44,10 @@ class AdsMobileGateway extends AdsGateway {
 
   RewardedAd? _rewarded;
   InterstitialAd? _interstitial;
+  DateTime? _rewardedLoadedAt;
+  DateTime? _interstitialLoadedAt;
+  int _rewardedFailures = 0;
+  int _interstitialFailures = 0;
 
   bool get _isIos => Platform.isIOS;
 
@@ -65,7 +69,32 @@ class AdsMobileGateway extends AdsGateway {
   bool get canRequestAds => _canRequestAds;
 
   @override
-  bool get isRewardedReady => _rewarded != null && !_showing;
+  bool get isRewardedReady => _freshRewarded != null && !_showing;
+
+  /// המודעה הטעונה, או null אם היא ישנה מדי (ואז מתחילה טעינה חדשה).
+  RewardedAd? get _freshRewarded {
+    final ad = _rewarded;
+    final loadedAt = _rewardedLoadedAt;
+    if (ad == null || loadedAt == null) return ad;
+    if (AdsPolicy.isAdFresh(loadedAt: loadedAt, now: DateTime.now())) return ad;
+    ad.dispose();
+    _rewarded = null;
+    _rewardedLoadedAt = null;
+    scheduleMicrotask(_loadRewarded);
+    return null;
+  }
+
+  InterstitialAd? get _freshInterstitial {
+    final ad = _interstitial;
+    final loadedAt = _interstitialLoadedAt;
+    if (ad == null || loadedAt == null) return ad;
+    if (AdsPolicy.isAdFresh(loadedAt: loadedAt, now: DateTime.now())) return ad;
+    ad.dispose();
+    _interstitial = null;
+    _interstitialLoadedAt = null;
+    scheduleMicrotask(_loadInterstitial);
+    return null;
+  }
 
   @override
   int get adHintsRemaining => _quota.adHintsRemaining;
@@ -116,6 +145,7 @@ class AdsMobileGateway extends AdsGateway {
           RequestConfiguration(
             maxAdContentRating: MaxAdContentRating.t,
             ageRestrictedTreatment: AgeRestrictedTreatment.unspecified,
+            testDeviceIds: AdsConfig.testDeviceIds,
           ),
         );
         await MobileAds.instance.initialize();
@@ -192,6 +222,8 @@ class AdsMobileGateway extends AdsGateway {
         rewardedAdLoadCallback: RewardedAdLoadCallback(
           onAdLoaded: (ad) {
             _rewarded = ad;
+            _rewardedLoadedAt = DateTime.now();
+            _rewardedFailures = 0;
             _rewardedLoading = false;
             notifyListeners();
           },
@@ -199,8 +231,9 @@ class AdsMobileGateway extends AdsGateway {
             debugPrint('Rewarded failed to load: ${error.message}');
             _rewarded = null;
             _rewardedLoading = false;
+            _rewardedFailures += 1;
             notifyListeners();
-            _retryLater(_loadRewarded);
+            _retryLater(_loadRewarded, _rewardedFailures);
           },
         ),
       );
@@ -212,6 +245,7 @@ class AdsMobileGateway extends AdsGateway {
 
   Future<void> _loadInterstitial() async {
     if (!canRequestAds || _interstitial != null || _interstitialLoading) return;
+    if (_quota.isPayer) return;
     _interstitialLoading = true;
     try {
       await InterstitialAd.load(
@@ -220,6 +254,8 @@ class AdsMobileGateway extends AdsGateway {
         adLoadCallback: InterstitialAdLoadCallback(
           onAdLoaded: (ad) {
             _interstitial = ad;
+            _interstitialLoadedAt = DateTime.now();
+            _interstitialFailures = 0;
             _interstitialLoading = false;
             notifyListeners();
           },
@@ -227,8 +263,9 @@ class AdsMobileGateway extends AdsGateway {
             debugPrint('Interstitial failed to load: ${error.message}');
             _interstitial = null;
             _interstitialLoading = false;
+            _interstitialFailures += 1;
             notifyListeners();
-            _retryLater(_loadInterstitial);
+            _retryLater(_loadInterstitial, _interstitialFailures);
           },
         ),
       );
@@ -238,8 +275,8 @@ class AdsMobileGateway extends AdsGateway {
     }
   }
 
-  void _retryLater(Future<void> Function() load) {
-    Future<void>.delayed(const Duration(seconds: 25), () {
+  void _retryLater(Future<void> Function() load, int failedAttempts) {
+    Future<void>.delayed(AdsPolicy.retryDelay(failedAttempts), () {
       if (!_initialized) return;
       load();
     });
@@ -252,7 +289,7 @@ class AdsMobileGateway extends AdsGateway {
       _lastShowFailureReason = !isSupported ? 'unsupported' : (!canRequestAds ? 'no_consent' : 'busy');
       return false;
     }
-    final ad = _rewarded;
+    final ad = _freshRewarded;
     if (ad == null) {
       _lastShowFailureReason = 'not_loaded';
       await _loadRewarded();
@@ -261,6 +298,7 @@ class AdsMobileGateway extends AdsGateway {
 
     _showing = true;
     _rewarded = null;
+    _rewardedLoadedAt = null;
     notifyListeners();
 
     final earned = Completer<bool>();
@@ -305,7 +343,7 @@ class AdsMobileGateway extends AdsGateway {
     _lastShowFailureReason = null;
     if (!isSupported || _showing) return false;
     await _quota.load();
-    final ad = _interstitial;
+    final ad = _freshInterstitial;
     final allowed = AdsPolicy.shouldShowInterstitial(
       levelNumber: levelNumber,
       levelsSinceLastInterstitial: _quota.levelsSinceInterstitial,
@@ -313,6 +351,7 @@ class AdsMobileGateway extends AdsGateway {
       now: DateTime.now(),
       canRequestAds: _canRequestAds,
       adLoaded: ad != null,
+      isPayer: _quota.isPayer,
     );
     if (!allowed || ad == null) {
       // Due by the frequency policy but no ad ready = a real show failure.
@@ -324,6 +363,7 @@ class AdsMobileGateway extends AdsGateway {
             now: DateTime.now(),
             canRequestAds: _canRequestAds,
             adLoaded: true,
+            isPayer: _quota.isPayer,
           )) {
         _lastShowFailureReason = 'not_loaded';
       }
@@ -332,6 +372,7 @@ class AdsMobileGateway extends AdsGateway {
 
     _showing = true;
     _interstitial = null;
+    _interstitialLoadedAt = null;
     notifyListeners();
 
     final shown = Completer<bool>();
@@ -393,6 +434,16 @@ class AdsMobileGateway extends AdsGateway {
     await _quota.load();
     await _quota.recordDailyBonusAd();
     notifyListeners();
+  }
+
+  @override
+  Future<void> recordPurchase() async {
+    await _quota.load();
+    await _quota.markPayer();
+    // מודעת מסך מלא שכבר נטענה לא תוצג יותר - משחררים אותה.
+    _interstitial?.dispose();
+    _interstitial = null;
+    _interstitialLoadedAt = null;
   }
 
   @override
