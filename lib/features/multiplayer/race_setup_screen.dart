@@ -11,6 +11,8 @@ import '../../core/ui/game_backdrop.dart';
 import '../../game_engine/bot_player.dart';
 import '../../providers/player_profile_provider.dart';
 import '../game/widgets/letter_tile.dart';
+import '../profile/avatars/avatar_catalog.dart';
+import '../profile/widgets/avatar_widget.dart';
 import 'models/race_config.dart';
 
 const _botNamePool = ['עומר', 'נועה', 'דנה', 'יובל', 'טל', 'מאיה', 'איתי', 'שירה'];
@@ -321,7 +323,7 @@ class _RobotSquad extends StatelessWidget {
     );
     Widget robot(int i) => Transform.translate(
       offset: Offset(0, math.sin(t + i * 1.7) * 5),
-      child: _Robot(key: ValueKey('bot-$i'), size: size, difficulty: difficulty, blink: (t + i) % (math.pi * 2) < 0.18)
+      child: _BotFace(key: ValueKey('bot-$i'), name: _botNamePool[i % _botNamePool.length], size: size, difficulty: difficulty)
           .animate(key: ValueKey('in-$i-$count'))
           .scale(begin: const Offset(0.3, 0.3), curve: Curves.elasticOut, duration: 600.ms),
     );
@@ -412,117 +414,63 @@ class _VsBadge extends StatelessWidget {
   }
 }
 
-/// רובוט עגלגל בתלת-ממד (ראש מבריק, אנטנה, עיניים), בצבע לפי הרמה:
-/// קליל ירוק ומחייך, בינוני כתום, מומחה אדום עם גבות כועסות.
-class _Robot extends StatelessWidget {
+/// יריב: הדמות הייחודית שלו (לפי שמו) בטבעת בצבע הרמה, ותג "רמה" קטן -
+/// קליל ירוק 🙂, בינוני כתום 😎, מומחה אדום 🔥.
+class _BotFace extends StatelessWidget {
+  final String name;
   final double size;
   final BotDifficulty difficulty;
-  final bool blink;
 
-  const _Robot({super.key, required this.size, required this.difficulty, required this.blink});
+  const _BotFace({super.key, required this.name, required this.size, required this.difficulty});
 
   @override
   Widget build(BuildContext context) {
+    final colors = difficulty.colors;
+    final badge = switch (difficulty) {
+      BotDifficulty.easy => '🙂',
+      BotDifficulty.normal => '😎',
+      BotDifficulty.hard => '🔥',
+    };
     return SizedBox(
       width: size,
       height: size * 1.15,
-      child: CustomPaint(painter: _RobotPainter(difficulty.colors, difficulty, blink)),
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.topCenter,
+        children: [
+          Container(
+            width: size,
+            height: size,
+            padding: EdgeInsets.all(size * 0.06),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors),
+              boxShadow: [
+                BoxShadow(color: colors.last.withValues(alpha: 0.55), blurRadius: 14, offset: const Offset(0, 6)),
+              ],
+            ),
+            child: AvatarWidget(avatarId: botAvatarId(name), size: size * 0.88, ring: false),
+          ),
+          Positioned(
+            bottom: 0,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: size * 0.1, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: colors.last, width: 1.5),
+              ),
+              child: Text(
+                '$badge $name',
+                maxLines: 1,
+                style: TextStyle(fontSize: math.max(10, size * 0.15), fontWeight: FontWeight.w900, color: colors.last),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
-}
-
-class _RobotPainter extends CustomPainter {
-  final List<Color> colors;
-  final BotDifficulty difficulty;
-  final bool blink;
-
-  _RobotPainter(this.colors, this.difficulty, this.blink);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final head = Rect.fromLTWH(w * 0.06, h * 0.2, w * 0.88, h * 0.72);
-    // צל על הרצפה.
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(w / 2, h * 0.97), width: w * 0.7, height: h * 0.08),
-      Paint()..color = Colors.black.withValues(alpha: 0.18),
-    );
-    // אנטנה.
-    canvas.drawLine(
-      Offset(w / 2, head.top),
-      Offset(w / 2, h * 0.06),
-      Paint()
-        ..color = const Color(0xFF9AA5B8)
-        ..strokeWidth = w * 0.05
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawCircle(Offset(w / 2, h * 0.06), w * 0.07, Paint()..color = colors.first);
-    // ראש מבריק.
-    final rr = RRect.fromRectAndRadius(head, Radius.circular(w * 0.28));
-    canvas.drawRRect(rr.shift(Offset(0, h * 0.03)), Paint()..color = Color.lerp(colors.last, Colors.black, 0.35)!);
-    canvas.drawRRect(
-      rr,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color.lerp(colors.first, Colors.white, 0.35)!, colors.first, colors.last],
-        ).createShader(head),
-    );
-    // מסך פנים כהה.
-    final face = Rect.fromLTWH(head.left + w * 0.12, head.top + h * 0.12, head.width - w * 0.24, head.height * 0.52);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(face, Radius.circular(w * 0.16)),
-      Paint()..color = const Color(0xFF1E2140),
-    );
-    // עיניים זוהרות.
-    final eyeY = face.center.dy - face.height * 0.06;
-    final eyePaint = Paint()..color = Color.lerp(colors.first, Colors.white, 0.5)!;
-    for (final dx in [-0.22, 0.22]) {
-      final c = Offset(face.center.dx + face.width * dx, eyeY);
-      if (blink) {
-        canvas.drawLine(c.translate(-w * 0.06, 0), c.translate(w * 0.06, 0), eyePaint..strokeWidth = w * 0.035);
-      } else {
-        canvas.drawCircle(c, w * 0.07, eyePaint);
-        canvas.drawCircle(c.translate(-w * 0.02, -w * 0.02), w * 0.025, Paint()..color = Colors.white);
-      }
-    }
-    // גבות כועסות למומחה, פה לפי רמה.
-    final mouth = Paint()
-      ..color = eyePaint.color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * 0.035
-      ..strokeCap = StrokeCap.round;
-    final my = face.bottom - face.height * 0.22;
-    if (difficulty == BotDifficulty.hard) {
-      for (final s in [-1.0, 1.0]) {
-        canvas.drawLine(
-          Offset(face.center.dx + s * face.width * 0.34, eyeY - w * 0.13),
-          Offset(face.center.dx + s * face.width * 0.1, eyeY - w * 0.08),
-          mouth,
-        );
-      }
-      canvas.drawLine(Offset(face.center.dx - w * 0.09, my), Offset(face.center.dx + w * 0.09, my), mouth);
-    } else {
-      final smile = difficulty == BotDifficulty.easy ? 0.09 : 0.05;
-      canvas.drawArc(
-        Rect.fromCenter(center: Offset(face.center.dx, my - w * smile), width: w * 0.24, height: w * smile * 2.4),
-        0.15,
-        math.pi - 0.3,
-        false,
-        mouth,
-      );
-    }
-    // הברקה על הראש.
-    canvas.drawOval(
-      Rect.fromLTWH(head.left + w * 0.12, head.top + h * 0.03, w * 0.32, h * 0.08),
-      Paint()..color = Colors.white.withValues(alpha: 0.55),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_RobotPainter old) => old.colors != colors || old.blink != blink || old.difficulty != difficulty;
 }
 
 // ---------------------------------------------------------------- הגדרות

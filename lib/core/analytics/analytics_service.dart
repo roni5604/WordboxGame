@@ -431,7 +431,7 @@ class AnalyticsService {
     });
   }
 
-  /// hint_type: word_hint | reveal_letter | shuffle. cost_currency: hints | coins.
+  /// hint_type: word_hint | reveal_word | shuffle. cost_currency: hints | coins.
   void hintUsed({required int levelId, required String hintType, required int cost, required String costCurrency}) =>
       _log('hint_used', {'level_id': levelId, 'hint_type': hintType, 'cost': cost, 'cost_currency': costCurrency});
 

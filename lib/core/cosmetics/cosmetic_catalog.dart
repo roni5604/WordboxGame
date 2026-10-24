@@ -267,7 +267,8 @@ class CosmeticCatalog {
 class CoinCosts {
   CoinCosts._();
 
-  static const int revealLetter = 35;
+  /// "גלה מילה": מראה מילה שנמצאת על הלוח (בלי המסלול) עד שמוצאים אותה.
+  static const int revealWord = 45;
   static const int shuffle = 50;
 
   static int skipLevel(int levelNumber) => 120 + levelNumber * 4;

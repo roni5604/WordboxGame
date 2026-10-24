@@ -12,6 +12,7 @@ import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
 import '../game/widgets/mascot_widget.dart';
 import '../share/share_achievement_sheet.dart';
+import '../profile/avatars/avatar_catalog.dart';
 import 'models/race_result.dart';
 import 'widgets/race_podium.dart';
 import '../../core/feedback/haptics.dart';
@@ -168,7 +169,7 @@ class _RaceResultScreenState extends ConsumerState<RaceResultScreen> {
                         score: p.score,
                         wordsFound: p.wordsFound,
                         isMe: p.isHuman,
-                        avatarId: p.isHuman ? (profile?.avatarId ?? 'detective') : null,
+                        avatarId: p.isHuman ? (profile?.avatarId ?? 'detective') : botAvatarId(p.name),
                         photoUrl: p.isHuman ? photo : null,
                       ),
                   ],

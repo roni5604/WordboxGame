@@ -34,6 +34,7 @@ import '../../providers/sound_provider.dart';
 import '../../core/audio/music_service.dart';
 import 'widgets/current_word_badge.dart';
 import 'widgets/found_words_panel.dart';
+import 'widgets/secret_word_card.dart';
 import 'widgets/game_tutorial.dart';
 import 'widgets/grid_board.dart';
 import 'widgets/mascot_widget.dart';
@@ -183,6 +184,11 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
   bool _levelClosed = false;
   int _hintsUsed = 0;
   int _shufflesUsed = 0;
+
+  /// "גלה מילה": המילה הסודית שמוצגת מעל הלוח עד שמוצאים אותה.
+  FoundWord? _secretWord;
+  bool _secretFound = false;
+  Timer? _secretTimer;
 
   bool _levelStartPlayed = false;
   late final MusicService _music;
@@ -445,10 +451,21 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
 
   void _showNeedCoins() {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    ref.read(soundServiceProvider).playError();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
       SnackBar(
-        content: const Text('אין מספיק מטבעות'),
+        // עם כפתור "לחנות" ה-SnackBar נשאר כברירת מחדל עד שלוחצים -
+        // persist: false מחזיר את ההיעלמות האוטומטית.
+        persist: false,
+        duration: const Duration(milliseconds: 1600),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: AppColors.error,
+        content: const Text('אין מספיק מטבעות', style: TextStyle(fontWeight: FontWeight.w800)),
         action: SnackBarAction(
+          textColor: Colors.white,
           label: 'לחנות',
           onPressed: () {
             if (mounted) context.push('/store?from=level_no_coins');
@@ -458,28 +475,50 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     );
   }
 
-  Future<void> _revealLetter() async {
+  /// "גלה מילה": מגלה מילה אקראית שנמצאת על הלוח (בלי המסלול) - היא
+  /// נשארת מעל הלוח עד שמוצאים אותה.
+  Future<void> _revealWord() async {
     final session = _session;
     if (session == null || _finished) return;
-    final pos = session.letterHintPosition();
-    if (pos == null) {
+    final current = _secretWord;
+    if (current != null && !_secretFound) {
+      _showBanner('קודם מצאו את "${current.displayWord}" 🔎');
+      Haptics.light();
+      return;
+    }
+    final word = session.revealWordCandidate();
+    if (word == null) {
       _showBanner('כבר מצאתם את כל המילים! 🎉');
       return;
     }
-    if (!await _ensureCoins(CoinCosts.revealLetter)) return;
+    if (!await _ensureCoins(CoinCosts.revealWord)) return;
     _hintsUsed++;
     _analytics
-      ..spendVirtualCurrency(currency: 'coins', value: CoinCosts.revealLetter, itemName: 'reveal_letter')
-      ..hintUsed(
-        levelId: widget.levelNumber,
-        hintType: 'reveal_letter',
-        cost: CoinCosts.revealLetter,
-        costCurrency: 'coins',
-      );
+      ..spendVirtualCurrency(currency: 'coins', value: CoinCosts.revealWord, itemName: 'reveal_word')
+      ..hintUsed(levelId: widget.levelNumber, hintType: 'reveal_word', cost: CoinCosts.revealWord, costCurrency: 'coins');
     if (!mounted) return;
     ref.read(soundServiceProvider).playHint();
-    _boardKey.currentState?.showHint([pos], duration: const Duration(seconds: 4));
-    _showBanner('אות נחשפה');
+    Haptics.medium();
+    _secretTimer?.cancel();
+    setState(() {
+      _secretWord = word;
+      _secretFound = false;
+    });
+  }
+
+  /// נקרא אחרי כל מילה שהתקבלה: אם זו המילה הסודית - חוגגים ומעלימים.
+  void _checkSecretFound() {
+    final session = _session;
+    final secret = _secretWord;
+    if (session == null || secret == null || _secretFound) return;
+    if (!session.isFound(secret.normalizedWord)) return;
+    setState(() => _secretFound = true);
+    Future.delayed(const Duration(milliseconds: 950), () {
+      if (mounted && !_finished) _showBanner('🎯 המילה הסודית נמצאה!');
+    });
+    _secretTimer = Timer(const Duration(milliseconds: 1900), () {
+      if (mounted) setState(() => _secretWord = null);
+    });
   }
 
   Future<void> _shuffleBoard() async {
@@ -493,6 +532,11 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     if (!mounted) return;
     session.reshuffleLetters(Random());
     _boardKey.currentState?.clearHint();
+    // אחרי ערבוב המילה הסודית אולי כבר לא קיימת - מחליפים במילה אחרת, בחינם.
+    final secret = _secretWord;
+    if (secret != null && !_secretFound && !session.isOnBoard(secret.normalizedWord)) {
+      _secretWord = session.revealWordCandidate();
+    }
     ref.read(soundServiceProvider).playShuffle();
     setState(() {});
     _showBanner('האותיות עורבבו');
@@ -636,6 +680,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
         Haptics.success();
         _showBanner(result.bannerText);
         setState(() {});
+        _checkSecretFound();
         final newStars = session.currentStars;
         if (newStars > _lastCelebratedStars) {
           _lastCelebratedStars = newStars;
@@ -837,6 +882,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _bannerTimer?.cancel();
+    _secretTimer?.cancel();
     _music.leaveGame();
     super.dispose();
   }
@@ -882,7 +928,6 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
                                   levelNumber: widget.levelNumber,
                                   score: session.score,
                                   onPause: _pause,
-                                  onHint: _useHint,
                                 ),
                                 const SizedBox(height: 8),
                                 Padding(
@@ -909,7 +954,8 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
                                   key: _powersKey,
                                   padding: const EdgeInsets.symmetric(horizontal: 16),
                                   child: _PowerRow(
-                                    onReveal: _revealLetter,
+                                    onHint: _useHint,
+                                    onReveal: _revealWord,
                                     onShuffle: _shuffleBoard,
                                     onSkip: _confirmSkip,
                                     skipCost: CoinCosts.skipLevel(widget.levelNumber),
@@ -917,6 +963,24 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
                                 ),
                                 const SizedBox(height: 8),
                                 CurrentWordBadge(word: _draggingWord),
+                                // המילה הסודית ("גלה מילה") - מעל הלוח, עד שמוצאים אותה.
+                                AnimatedSize(
+                                  duration: const Duration(milliseconds: 320),
+                                  curve: Curves.easeOutBack,
+                                  child: _secretWord == null
+                                      ? const SizedBox(width: double.infinity)
+                                      : Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: SecretWordCard(
+                                            key: ValueKey(_secretWord!.normalizedWord),
+                                            displayWord: _secretWord!.displayWord,
+                                            found: _secretFound,
+                                          )
+                                              .animate(key: ValueKey('secret-${_secretWord!.normalizedWord}'))
+                                              .scale(begin: const Offset(0.4, 0.4), curve: Curves.elasticOut, duration: 700.ms)
+                                              .fadeIn(duration: 200.ms),
+                                        ),
+                                ),
                                 const SizedBox(height: 4),
                                 Expanded(
                                   child: Stack(
@@ -1025,34 +1089,141 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
   }
 }
 
-class _PowerRow extends StatelessWidget {
+/// שורת העזרים מתחת ליעד: **רמז** גדול וזהוב (עם מונה) ראשון, ואחריו
+/// "גלה מילה", ערבוב ודילוג - כל אחד עם המחיר שלו במטבעות.
+class _PowerRow extends ConsumerWidget {
+  final VoidCallback onHint;
   final VoidCallback onReveal;
   final VoidCallback onShuffle;
   final VoidCallback onSkip;
   final int skipCost;
 
-  const _PowerRow({required this.onReveal, required this.onShuffle, required this.onSkip, required this.skipCost});
+  const _PowerRow({
+    required this.onHint,
+    required this.onReveal,
+    required this.onShuffle,
+    required this.onSkip,
+    required this.skipCost,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hints = ref.watch(playerProfileProvider).valueOrNull?.hints ?? 0;
+    final authUser = ref.watch(authStateProvider).valueOrNull;
+    final isGuest = authUser == null || authUser.isAnonymous;
+    return SizedBox(
+      height: 58,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 5,
+            child: _HintButton(
+              hints: hints,
+              isGuest: isGuest,
+              onTap: isGuest ? () => _GameHeader.showGuestHintPrompt(context) : onHint,
+            ),
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            flex: 4,
+            child: _PowerButton(icon: Icons.manage_search_rounded, label: 'גלה מילה', cost: CoinCosts.revealWord, onPressed: onReveal),
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            flex: 3,
+            child: _PowerButton(icon: Icons.shuffle_rounded, label: 'ערבוב', cost: CoinCosts.shuffle, onPressed: onShuffle),
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            flex: 3,
+            child: _PowerButton(icon: Icons.skip_next_rounded, label: 'דילוג', cost: skipCost, onPressed: onSkip),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// כפתור הרמז: זהוב, נורה שזוהרת בעדינות, ומונה הרמזים בתג. לאורחים -
+/// מנעול ו"הרשמה".
+class _HintButton extends StatelessWidget {
+  final int hints;
+  final bool isGuest;
+  final VoidCallback onTap;
+
+  const _HintButton({required this.hints, required this.isGuest, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _PowerButton(
-            icon: Icons.font_download_rounded,
-            label: 'אות · ${CoinCosts.revealLetter}',
-            onPressed: onReveal,
+    return Pressable(
+      onTap: onTap,
+      semanticLabel: isGuest ? 'רמז - הרשמה' : 'רמז, נשארו $hints',
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFFFF0A8), Color(0xFFFFC93C), Color(0xFFFFA000)],
+                ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.white, width: 2.5),
+                boxShadow: const [
+                  BoxShadow(color: Color(0xFFC77F00), offset: Offset(0, 4)),
+                  BoxShadow(color: Color(0x55FFC93C), blurRadius: 14),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(isGuest ? Icons.lock_outline_rounded : Icons.lightbulb_rounded, color: const Color(0xFF5A3300), size: 24)
+                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                      .scaleXY(begin: 1, end: 1.12, duration: 900.ms, curve: Curves.easeInOut),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        isGuest ? 'רמז · הרשמה' : 'רמז',
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF5A3300)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _PowerButton(icon: Icons.shuffle_rounded, label: 'ערבוב · ${CoinCosts.shuffle}', onPressed: onShuffle),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _PowerButton(icon: Icons.skip_next_rounded, label: 'דילוג · $skipCost', onPressed: onSkip),
-        ),
-      ],
+          if (!isGuest)
+            PositionedDirectional(
+              top: -7,
+              end: -5,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (c, a) => ScaleTransition(scale: CurvedAnimation(parent: a, curve: Curves.elasticOut), child: c),
+                child: Container(
+                  key: ValueKey(hints),
+                  constraints: const BoxConstraints(minWidth: 24),
+                  height: 24,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: hints > 0 ? const Color(0xFF7B3FF2) : AppColors.error,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: Text(
+                    hints > 0 ? '$hints' : '▶',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -1060,32 +1231,52 @@ class _PowerRow extends StatelessWidget {
 class _PowerButton extends StatelessWidget {
   final IconData icon;
   final String label;
+  final int cost;
   final VoidCallback onPressed;
 
-  const _PowerButton({required this.icon, required this.label, required this.onPressed});
+  const _PowerButton({required this.icon, required this.label, required this.cost, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
     return Pressable(
       onTap: onPressed,
-      semanticLabel: label,
+      semanticLabel: '$label, $cost מטבעות',
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [BoxShadow(color: Color(0x33000000), offset: Offset(0, 3))],
         ),
-        child: Row(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 17, color: AppColors.primaryDark),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5, color: AppColors.textDark),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 17, color: AppColors.primaryDark),
+                const SizedBox(width: 3),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: AppColors.textDark),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.paid_rounded, size: 13, color: Color(0xFFE6A100)),
+                  const SizedBox(width: 2),
+                  Text('$cost', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Color(0xFF8A6500))),
+                ],
               ),
             ),
           ],
@@ -1099,13 +1290,12 @@ class _GameHeader extends ConsumerWidget {
   final int levelNumber;
   final int score;
   final VoidCallback onPause;
-  final VoidCallback onHint;
 
-  const _GameHeader({required this.levelNumber, required this.score, required this.onPause, required this.onHint});
+  const _GameHeader({required this.levelNumber, required this.score, required this.onPause});
 
   /// רמזים שמורים לחשבונות אמיתיים - לאורח/ת מציגים הזמנה להירשם במקום
   /// לצרוך רמז, כדי לא לתת לאורח/ת גישה ל"אפשרות רמזים" בכלל.
-  void _showGuestHintPrompt(BuildContext context) {
+  static void showGuestHintPrompt(BuildContext context) {
     showGameDialog<void>(
       context: context,
       builder: (dialogContext) => GameDialog(
@@ -1138,10 +1328,6 @@ class _GameHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hints = ref.watch(playerProfileProvider).valueOrNull?.hints ?? 0;
-    final authUser = ref.watch(authStateProvider).valueOrNull;
-    final isGuest = authUser == null || authUser.isAnonymous;
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 6, 14, 4),
       child: Row(
@@ -1158,38 +1344,6 @@ class _GameHeader extends ConsumerWidget {
             ),
           ),
           const Spacer(),
-          Pressable(
-            onTap: isGuest ? () => _showGuestHintPrompt(context) : onHint,
-            semanticLabel: 'רמז',
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFFFFE27A), Color(0xFFFFB700)],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: const [BoxShadow(color: Color(0xFFC77F00), offset: Offset(0, 3))],
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    isGuest ? Icons.lock_outline_rounded : Icons.lightbulb_rounded,
-                    color: const Color(0xFF5A3300),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    isGuest ? 'הרשמה' : '$hints',
-                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF5A3300)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             decoration: BoxDecoration(

@@ -14,6 +14,7 @@ import '../../data/models/player_profile.dart';
 import '../../game_engine/models/level_config.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
+import 'widgets/avatar_picker.dart';
 import 'widgets/avatar_widget.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -370,35 +371,9 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
           const SizedBox(height: 20),
           const Text('עריכת פרופיל', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 20),
-          const Text('בחרו אוואטאר', style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              for (final option in kAvatarOptions)
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 16),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _selectedAvatarId = option.id),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _selectedAvatarId == option.id ? AppColors.primary : Colors.transparent,
-                              width: 3,
-                            ),
-                          ),
-                          child: AvatarWidget(avatarId: option.id, size: 72, ring: false),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(option.label, style: const TextStyle(fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
+          AvatarPicker(
+            selectedId: _selectedAvatarId,
+            onSelected: (id) => setState(() => _selectedAvatarId = id),
           ),
           const SizedBox(height: 24),
           const Text('כינוי', style: TextStyle(fontWeight: FontWeight.w700)),
