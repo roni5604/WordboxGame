@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_service.dart';
-import '../../core/cosmetics/cosmetic_catalog.dart';
+import '../../core/cosmetics/cosmetic_catalog.dart' hide CoinCosts;
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_dialog.dart';
@@ -24,7 +24,7 @@ import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
 import '../../core/audio/music_service.dart';
 import '../game/widgets/current_word_badge.dart';
-import '../game/widgets/found_words_panel.dart';
+import '../game/widgets/secret_word_card.dart';
 import '../game/widgets/grid_board.dart';
 import '../game/widgets/mascot_widget.dart';
 import '../game/widgets/timer_bar.dart';
@@ -32,6 +32,10 @@ import 'models/race_result.dart';
 import 'models/room_models.dart';
 import 'services/multiplayer_repository.dart';
 import 'widgets/live_scoreboard.dart';
+import 'widgets/race_words_panel.dart';
+import '../../core/cosmetics/cosmetic_catalog.dart' show CoinCosts;
+import '../../core/feedback/haptics.dart';
+import '../../game_engine/word_finder.dart';
 import '../../core/platform/top_bar_tint.dart';
 import '../../core/platform/browser_back_guard.dart';
 
@@ -81,6 +85,12 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
   /// לכל שחקן/ית: (מונה אירועי ניקוד, נקודות באירוע האחרון) - לאנימציית
   /// "+N" בלוח התוצאות החי.
   final Map<String, (int, int)> _gains = {};
+
+  /// "הצצה" למילים של החברים (נקנית פעם אחת לסבב) ו"גלה מילה".
+  bool _spyUnlocked = false;
+  FoundWord? _secretWord;
+  bool _secretFound = false;
+  Timer? _secretTimer;
 
   // Analytics: mp_match_start when the round starts locally, mp_match_end once.
   // Plain singleton (not ref): also used from dispose().
@@ -209,6 +219,97 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     });
   }
 
+  bool get _isGuest {
+    final user = ref.read(authStateProvider).valueOrNull;
+    return user == null || user.isAnonymous;
+  }
+
+  /// 💡 רמז: מדגיש על הלוח מילה שעוד לא מצאתי (עולה רמז אחד).
+  Future<void> _useHint() async {
+    final session = _session;
+    if (session == null || _finished) return;
+    if (_isGuest) {
+      _showBanner('רמזים שמורים לחשבונות רשומים', isError: true);
+      return;
+    }
+    final word = session.hintForUnfoundWord();
+    if (word == null) {
+      _showBanner('כבר מצאת את כל המילים! 🎉');
+      return;
+    }
+    final used = await ref.read(playerProfileProvider.notifier).useHint();
+    if (!mounted) return;
+    if (!used) {
+      ref.read(soundServiceProvider).playError();
+      _showBanner('נגמרו הרמזים - אפשר לקנות בחנות', isError: true);
+      return;
+    }
+    _analytics
+      ..spendVirtualCurrency(currency: 'hints', value: 1, itemName: 'word_hint')
+      ..hintUsed(levelId: 0, hintType: 'word_hint', cost: 1, costCurrency: 'hints');
+    ref.read(soundServiceProvider).playHint();
+    _boardKey.currentState?.showHint(word.path);
+    _showBanner('💡 נסו את המילה: ${word.displayWord}');
+  }
+
+  /// 🔎 גלה מילה: מילה סודית מעל הלוח עד שמוצאים אותה (במטבעות).
+  Future<void> _revealWord() async {
+    final session = _session;
+    if (session == null || _finished) return;
+    final current = _secretWord;
+    if (current != null && !_secretFound) {
+      _showBanner('קודם מצאו את "${current.displayWord}" 🔎');
+      return;
+    }
+    final word = session.revealWordCandidate();
+    if (word == null) {
+      _showBanner('כבר מצאת את כל המילים! 🎉');
+      return;
+    }
+    final ok = await ref.read(playerProfileProvider.notifier).spendCoins(CoinCosts.revealWord);
+    if (!mounted) return;
+    if (!ok) {
+      ref.read(soundServiceProvider).playError();
+      _showBanner('אין מספיק מטבעות (${CoinCosts.revealWord})', isError: true);
+      return;
+    }
+    _analytics
+      ..spendVirtualCurrency(currency: 'coins', value: CoinCosts.revealWord, itemName: 'reveal_word')
+      ..hintUsed(levelId: 0, hintType: 'reveal_word', cost: CoinCosts.revealWord, costCurrency: 'coins');
+    ref.read(soundServiceProvider).playHint();
+    Haptics.medium();
+    _secretTimer?.cancel();
+    setState(() {
+      _secretWord = word;
+      _secretFound = false;
+    });
+  }
+
+  void _checkSecretFound() {
+    final session = _session;
+    final secret = _secretWord;
+    if (session == null || secret == null || _secretFound || !session.isFound(secret.normalizedWord)) return;
+    setState(() => _secretFound = true);
+    _secretTimer = Timer(const Duration(milliseconds: 1900), () {
+      if (mounted) setState(() => _secretWord = null);
+    });
+  }
+
+  /// "הצצה" למילים של החברים - משחק חי, אז בלי דיאלוג (האישור בלשונית).
+  Future<void> _unlockSpy() async {
+    if (_spyUnlocked || _finished) return;
+    final ok = await ref.read(playerProfileProvider.notifier).spendCoins(kSpyCost);
+    if (!mounted) return;
+    if (!ok) {
+      ref.read(soundServiceProvider).playError();
+      _showBanner('אין מספיק מטבעות להצצה ($kSpyCost)', isError: true);
+      return;
+    }
+    ref.read(soundServiceProvider).playCoin();
+    _analytics.spendVirtualCurrency(currency: 'coins', value: kSpyCost, itemName: 'friends_spy');
+    setState(() => _spyUnlocked = true);
+  }
+
   void _onWordChanging(String word) {
     if (_draggingWord == word) return;
     setState(() => _draggingWord = word);
@@ -229,8 +330,14 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
           _gains[_myUid!] = ((prev?.$1 ?? 0) + 1, result.pointsAwarded);
         }
         setState(() {});
+        _checkSecretFound();
         _repo
-            .updateMyScore(widget.roomCode, score: session.score, wordsFound: session.foundWordsCount)
+            .updateMyScore(
+              widget.roomCode,
+              score: session.score,
+              wordsFound: session.foundWordsCount,
+              words: [for (final w in session.foundNormalizedWords) HebrewTrie.toDisplayWord(w)],
+            )
             .catchError((_) {});
         if (room.hasTargetScore && session.score >= room.targetScore) {
           _finish();
@@ -367,6 +474,7 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     _roomSub?.cancel();
     _ticker?.cancel();
     _bannerTimer?.cancel();
+    _secretTimer?.cancel();
     _music.leaveGame();
     super.dispose();
   }
@@ -485,8 +593,32 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
                               secondsLeft: _remaining.inSeconds,
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: _HelperRow(onHint: _useHint, onReveal: _revealWord),
+                          ),
                           const SizedBox(height: 4),
                           CurrentWordBadge(word: _draggingWord),
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 320),
+                            curve: Curves.easeOutBack,
+                            child: _secretWord == null
+                                ? const SizedBox(width: double.infinity)
+                                : Padding(
+                                    padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
+                                    child:
+                                        SecretWordCard(
+                                          key: ValueKey(_secretWord!.normalizedWord),
+                                          displayWord: _secretWord!.displayWord,
+                                          found: _secretFound,
+                                        ).animate().scale(
+                                          begin: const Offset(0.4, 0.4),
+                                          curve: Curves.elasticOut,
+                                          duration: 700.ms,
+                                        ),
+                                  ),
+                          ),
                           const SizedBox(height: 4),
                           Expanded(
                             child: Stack(
@@ -543,8 +675,25 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: FoundWordsPanel(
-                              words: session.foundNormalizedWords.map((w) => HebrewTrie.toDisplayWord(w)).toList(),
+                            child: RaceWordsPanel(
+                              mine: RaceWordList(
+                                name: 'שלי',
+                                avatarId: profile?.avatarId ?? 'detective',
+                                words: session.foundNormalizedWords.map((w) => HebrewTrie.toDisplayWord(w)).toList(),
+                                isMe: true,
+                              ),
+                              opponents: [
+                                for (final p in _room?.players ?? const <PlayerInRoom>[])
+                                  if (p.uid != _myUid)
+                                    RaceWordList(
+                                      name: p.displayName,
+                                      avatarId: p.avatarId ?? 'detective',
+                                      words: p.words,
+                                    ),
+                              ],
+                              unlocked: _spyUnlocked,
+                              onUnlock: _unlockSpy,
+                              confirmInline: true,
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -555,6 +704,89 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// עזרים במשחק מול חברים: 💡 רמז (עם מונה) ו-🔎 גלה מילה (במטבעות).
+class _HelperRow extends ConsumerWidget {
+  final VoidCallback onHint;
+  final VoidCallback onReveal;
+
+  const _HelperRow({required this.onHint, required this.onReveal});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hints = ref.watch(playerProfileProvider).valueOrNull?.hints ?? 0;
+    Widget button({
+      required String label,
+      required IconData icon,
+      required List<Color> colors,
+      required Color ink,
+      required String badge,
+      required VoidCallback onTap,
+    }) => Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 40,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [BoxShadow(color: colors.last.withValues(alpha: 0.6), offset: const Offset(0, 3))],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: ink, size: 19),
+              const SizedBox(width: 5),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    style: TextStyle(color: ink, fontWeight: FontWeight.w900, fontSize: 15),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.75),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(color: ink, fontWeight: FontWeight.w900, fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return Row(
+      children: [
+        button(
+          label: 'רמז',
+          icon: Icons.lightbulb_rounded,
+          colors: const [Color(0xFFFFF0A8), Color(0xFFFFB700)],
+          ink: const Color(0xFF5A3300),
+          badge: '$hints',
+          onTap: onHint,
+        ),
+        const SizedBox(width: 8),
+        button(
+          label: 'גלה מילה',
+          icon: Icons.manage_search_rounded,
+          colors: const [Color(0xFFB57BFF), Color(0xFF7B3FF2)],
+          ink: Colors.white,
+          badge: '${CoinCosts.revealWord}🪙',
+          onTap: onReveal,
+        ),
+      ],
     );
   }
 }

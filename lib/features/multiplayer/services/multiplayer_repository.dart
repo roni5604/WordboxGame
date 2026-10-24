@@ -39,7 +39,8 @@ abstract class MultiplayerRepository {
 
   /// מעדכן את הניקוד/מספר המילים העצמי של השחקן/ית הנוכחי/ת בחדר -
   /// נקרא בכל מציאת מילה מקומית (ראו lib/game_engine/game_session.dart).
-  Future<void> updateMyScore(String roomCode, {required int score, required int wordsFound});
+  /// [words] - המילים שמצאתי בסבב (לתצוגת "הצצה" אצל החברים). עד 300.
+  Future<void> updateMyScore(String roomCode, {required int score, required int wordsFound, List<String>? words});
 
   /// מסמן שהסבב הסתיים (זמן נגמר / מישהו הגיע לניקוד היעד) - "מי שראשון
   /// קובע", בטוח לקריאה כפולה מכמה לקוחות בו-זמנית. אם מועבר [winnerUid]
@@ -64,8 +65,7 @@ abstract class MultiplayerRepository {
 
 /// Stub זמני - זורק חריגה ברורה, לשימוש כשה-backend כבוי (AppConfig.useFirebaseBackend == false).
 class UnimplementedMultiplayerRepository implements MultiplayerRepository {
-  Never _unavailable() =>
-      throw UnimplementedError('משחק מול חברים דורש חיבור לאינטרנט ול-Firebase.');
+  Never _unavailable() => throw UnimplementedError('משחק מול חברים דורש חיבור לאינטרנט ול-Firebase.');
 
   @override
   Future<String> ensureSignedIn() => _unavailable();
@@ -82,8 +82,7 @@ class UnimplementedMultiplayerRepository implements MultiplayerRepository {
     int entryFee = 5,
     String? avatarId,
     String? photoUrl,
-  }) =>
-      _unavailable();
+  }) => _unavailable();
 
   @override
   Future<GameRoom> fetchRoom(String roomCode) => _unavailable();
@@ -94,8 +93,7 @@ class UnimplementedMultiplayerRepository implements MultiplayerRepository {
     required String displayName,
     String? avatarId,
     String? photoUrl,
-  }) =>
-      _unavailable();
+  }) => _unavailable();
 
   @override
   Stream<GameRoom> watchRoom(String roomCode) => _unavailable();
@@ -104,7 +102,7 @@ class UnimplementedMultiplayerRepository implements MultiplayerRepository {
   Future<void> startGame(String roomCode) => _unavailable();
 
   @override
-  Future<void> updateMyScore(String roomCode, {required int score, required int wordsFound}) =>
+  Future<void> updateMyScore(String roomCode, {required int score, required int wordsFound, List<String>? words}) =>
       _unavailable();
 
   @override

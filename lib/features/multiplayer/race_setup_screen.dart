@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/feedback/haptics.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
+import '../../core/ui/segmented_setting.dart';
 import '../../game_engine/bot_player.dart';
 import '../../providers/player_profile_provider.dart';
 import '../game/widgets/letter_tile.dart';
@@ -81,9 +82,9 @@ class _RaceSetupScreenState extends ConsumerState<RaceSetupScreen> {
               child: _Arena(opponents: _totalPlayers - 1, difficulty: _difficulty),
             ),
             const SizedBox(height: 10),
-            _SettingsCard(
+            SettingsPanel(
               children: [
-                _SettingRow<int>(
+                SegmentedSetting<int>(
                   icon: Icons.groups_rounded,
                   label: 'יריבים',
                   values: const [1, 2, 3],
@@ -91,7 +92,7 @@ class _RaceSetupScreenState extends ConsumerState<RaceSetupScreen> {
                   labelOf: (v) => '$v',
                   onSelect: (v) => _pick(() => _totalPlayers = v + 1),
                 ),
-                _SettingRow<BotDifficulty>(
+                SegmentedSetting<BotDifficulty>(
                   icon: Icons.psychology_rounded,
                   label: 'רמה',
                   values: BotDifficulty.values,
@@ -99,7 +100,7 @@ class _RaceSetupScreenState extends ConsumerState<RaceSetupScreen> {
                   labelOf: (d) => d.labelHe,
                   onSelect: (d) => _pick(() => _difficulty = d),
                 ),
-                _SettingRow<int>(
+                SegmentedSetting<int>(
                   icon: Icons.grid_view_rounded,
                   label: 'לוח',
                   values: const [3, 4, 5, 6],
@@ -107,7 +108,7 @@ class _RaceSetupScreenState extends ConsumerState<RaceSetupScreen> {
                   labelOf: (v) => '$v×$v',
                   onSelect: (v) => _pick(() => _gridSize = v),
                 ),
-                _SettingRow<int>(
+                SegmentedSetting<int>(
                   icon: Icons.timer_rounded,
                   label: 'זמן',
                   values: const [60, 90, 120],
@@ -323,9 +324,15 @@ class _RobotSquad extends StatelessWidget {
     );
     Widget robot(int i) => Transform.translate(
       offset: Offset(0, math.sin(t + i * 1.7) * 5),
-      child: _BotFace(key: ValueKey('bot-$i'), name: _botNamePool[i % _botNamePool.length], size: size, difficulty: difficulty)
-          .animate(key: ValueKey('in-$i-$count'))
-          .scale(begin: const Offset(0.3, 0.3), curve: Curves.elasticOut, duration: 600.ms),
+      child:
+          _BotFace(
+                key: ValueKey('bot-$i'),
+                name: _botNamePool[i % _botNamePool.length],
+                size: size,
+                difficulty: difficulty,
+              )
+              .animate(key: ValueKey('in-$i-$count'))
+              .scale(begin: const Offset(0.3, 0.3), curve: Curves.elasticOut, duration: 600.ms),
     );
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -469,150 +476,6 @@ class _BotFace extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------- הגדרות
-
-class _SettingsCard extends StatelessWidget {
-  final List<Widget> children;
-
-  const _SettingsCard({required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.white, Color(0xFFEFF5FF)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E3A8A).withValues(alpha: 0.35),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < children.length; i++) ...[if (i > 0) const SizedBox(height: 8), children[i]],
-        ],
-      ),
-    );
-  }
-}
-
-/// שורת הגדרה: אייקון + שם, ובורר מחליק עם "גלולה" שזזה לבחירה.
-class _SettingRow<T> extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final List<T> values;
-  final T selected;
-  final String Function(T) labelOf;
-  final ValueChanged<T> onSelect;
-
-  const _SettingRow({
-    required this.icon,
-    required this.label,
-    required this.values,
-    required this.selected,
-    required this.labelOf,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final index = values.indexOf(selected);
-    final rtl = Directionality.of(context) == TextDirection.rtl;
-    final x = values.length == 1 ? 0.0 : -1 + index * 2 / (values.length - 1);
-    return Row(
-      children: [
-        SizedBox(
-          width: 78,
-          child: Row(
-            children: [
-              Icon(icon, size: 20, color: const Color(0xFF3B82F6)),
-              const SizedBox(width: 5),
-              // גדלי טקסט גדולים (נגישות) מקטינים את התווית במקום לגלוש.
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    label,
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF1E3A8A)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Container(
-            height: 42,
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(color: const Color(0xFFE3EDFF), borderRadius: BorderRadius.circular(14)),
-            child: Stack(
-              children: [
-                AnimatedAlign(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutBack,
-                  alignment: Alignment(rtl ? -x : x, 0),
-                  child: FractionallySizedBox(
-                    widthFactor: 1 / values.length,
-                    heightFactor: 1,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(11),
-                        gradient: const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0xFF6FD3FF), Color(0xFF2E8BFF)],
-                        ),
-                        boxShadow: const [BoxShadow(color: Color(0xFF1A5BC4), offset: Offset(0, 3))],
-                      ),
-                    ),
-                  ),
-                ),
-                Row(
-                  children: [
-                    for (final v in values)
-                      Expanded(
-                        child: Semantics(
-                          button: true,
-                          selected: v == selected,
-                          label: '$label ${labelOf(v)}',
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => onSelect(v),
-                            child: Center(
-                              child: AnimatedDefaultTextStyle(
-                                duration: const Duration(milliseconds: 200),
-                                style: TextStyle(
-                                  fontFamily: DefaultTextStyle.of(context).style.fontFamily,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 15,
-                                  color: v == selected ? Colors.white : const Color(0xFF3B5BA9),
-                                ),
-                                child: FittedBox(fit: BoxFit.scaleDown, child: Text(labelOf(v), maxLines: 1)),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

@@ -330,6 +330,20 @@ describe('חדרי משחק', () => {
     await assertSucceeds(setDoc(doc(host, 'rooms/54321/players/host'), roomPlayer('מנהל', true)));
   });
 
+  test('הימורים חדשים (50/100/200/500) וגם הישנים (5/10/20) מותרים', async () => {
+    const host = db('host');
+    for (const [i, fee] of [5, 10, 20, 50, 100, 200, 500].entries()) {
+      await assertSucceeds(setDoc(doc(host, `rooms/6000${i}`), room('host', { entryFee: fee, pot: fee })));
+    }
+  });
+
+  test('הימור שלא ברשימה, או קופה שלא תואמת, נחסמים', async () => {
+    const host = db('host');
+    await assertFails(setDoc(doc(host, 'rooms/70001'), room('host', { entryFee: 1000, pot: 1000 })));
+    await assertFails(setDoc(doc(host, 'rooms/70002'), room('host', { entryFee: 300, pot: 300 })));
+    await assertFails(setDoc(doc(host, 'rooms/70003'), room('host', { entryFee: 100, pot: 50 })));
+  });
+
   test('יצירת חדר לא חוקי נחסמת', async () => {
     const host = db('host');
     await assertFails(setDoc(doc(host, 'rooms/54321'), room('someone-else')));
@@ -346,6 +360,24 @@ describe('חדרי משחק', () => {
     batch.set(doc(guest, 'rooms/12345/players/guest'), roomPlayer('אורח', false));
     batch.update(doc(guest, 'rooms/12345'), { paidUids: { host: true, guest: true }, pot: 10 });
     await assertSucceeds(batch.commit());
+  });
+
+  test('מילים שמצאתי: שומרים לעצמי (עד 300), לא לאחר, ומנהל/ת מאפס/ת', async () => {
+    await seed(async (f) => {
+      await setDoc(doc(f, 'rooms/12345'), room('host', { status: 'inProgress' }));
+      await setDoc(doc(f, 'rooms/12345/players/host'), roomPlayer('מנהל', true));
+      await setDoc(doc(f, 'rooms/12345/players/guest'), roomPlayer('אורח', false));
+    });
+    const guest = db('guest');
+    await assertSucceeds(updateDoc(doc(guest, 'rooms/12345/players/guest'), { score: 3, wordsFound: 1, words: ['בית'] }));
+    // גרסה ישנה: בלי words.
+    await assertSucceeds(updateDoc(doc(guest, 'rooms/12345/players/guest'), { score: 6, wordsFound: 2 }));
+    await assertFails(updateDoc(doc(guest, 'rooms/12345/players/guest'), { words: 'לא רשימה' }));
+    await assertFails(updateDoc(doc(guest, 'rooms/12345/players/guest'), { words: Array(301).fill('א') }));
+    await assertFails(updateDoc(doc(guest, 'rooms/12345/players/host'), { score: 1, wordsFound: 1, words: ['שקר'] }));
+    const host = db('host');
+    await assertSucceeds(updateDoc(doc(host, 'rooms/12345/players/guest'), { score: 0, wordsFound: 0, words: [] }));
+    await assertFails(updateDoc(doc(host, 'rooms/12345/players/guest'), { score: 0, wordsFound: 0, words: ['x'] }));
   });
 
   test('הצטרפות במרמה נחסמת', async () => {

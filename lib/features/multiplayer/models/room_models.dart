@@ -25,6 +25,10 @@ class PlayerInRoom extends Equatable {
   final String? avatarId;
   final String? photoUrl;
 
+  /// המילים שהשחקן/ית מצא/ה בסבב הנוכחי (בצורת תצוגה) - ל"הצצה" בתשלום.
+  /// ריק אצל שחקנים בגרסה ישנה שלא שולחת אותן.
+  final List<String> words;
+
   const PlayerInRoom({
     required this.uid,
     required this.displayName,
@@ -33,18 +37,23 @@ class PlayerInRoom extends Equatable {
     this.isHost = false,
     this.avatarId,
     this.photoUrl,
+    this.words = const [],
   });
 
   @override
-  List<Object?> get props => [uid, displayName, score, wordsFound, isHost, avatarId, photoUrl];
+  List<Object?> get props => [uid, displayName, score, wordsFound, isHost, avatarId, photoUrl, words];
 }
 
 class GameRoom extends Equatable {
   /// תקרת שחקנים פנימית - לא מוצגת בטופס היצירה, מי שרוצה נכנס עד שהחדר מלא.
   static const int defaultMaxPlayers = 8;
 
-  /// דמי הכניסה המותרים במטבעות - היוצר בוחר אחד מהם.
-  static const List<int> allowedEntryFees = [5, 10, 20, 50];
+  /// סכומי ההימור במטבעות שמוצעים ביצירת חדר (מנהל/ת החדר בוחר/ת אחד).
+  static const List<int> allowedEntryFees = [50, 100, 200, 500];
+
+  /// כל הסכומים שהשרת מקבל - כולל הישנים (5/10/20), כדי שחדרים שנוצרו
+  /// מגרסאות קודמות של האפליקציה ימשיכו לעבוד. חייב להתאים ל-firestore.rules.
+  static const List<int> acceptedEntryFees = [5, 10, 20, 50, 100, 200, 500];
 
   final String roomCode;
   final RoomStatus status;
@@ -162,23 +171,23 @@ class GameRoom extends Equatable {
 
   @override
   List<Object?> get props => [
-        roomCode,
-        status,
-        players,
-        hostUid,
-        gridSize,
-        boardSeed,
-        roundSeconds,
-        targetScore,
-        maxPlayers,
-        totalRounds,
-        currentRound,
-        entryFee,
-        pot,
-        paidUids,
-        potAwarded,
-        joinDeadline,
-        startedAt,
-        wins,
-      ];
+    roomCode,
+    status,
+    players,
+    hostUid,
+    gridSize,
+    boardSeed,
+    roundSeconds,
+    targetScore,
+    maxPlayers,
+    totalRounds,
+    currentRound,
+    entryFee,
+    pot,
+    paidUids,
+    potAwarded,
+    joinDeadline,
+    startedAt,
+    wins,
+  ];
 }

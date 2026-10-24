@@ -76,16 +76,18 @@ class FakeMultiplayerRepository implements MultiplayerRepository {
     String? avatarId,
     String? photoUrl,
   }) async {
-    createRoomCalls.add(CreateRoomCall(
-      hostDisplayName: hostDisplayName,
-      gridSize: gridSize,
-      roundSeconds: roundSeconds,
-      targetScore: targetScore,
-      maxPlayers: maxPlayers,
-      joinWindow: joinWindow,
-      totalRounds: totalRounds,
-      entryFee: entryFee,
-    ));
+    createRoomCalls.add(
+      CreateRoomCall(
+        hostDisplayName: hostDisplayName,
+        gridSize: gridSize,
+        roundSeconds: roundSeconds,
+        targetScore: targetScore,
+        maxPlayers: maxPlayers,
+        joinWindow: joinWindow,
+        totalRounds: totalRounds,
+        entryFee: entryFee,
+      ),
+    );
     if (createRoomError != null) throw createRoomError!;
 
     final room = GameRoom(
@@ -171,9 +173,18 @@ class FakeMultiplayerRepository implements MultiplayerRepository {
   }
 
   @override
-  Future<void> updateMyScore(String roomCode, {required int score, required int wordsFound}) async {
+  Future<void> updateMyScore(
+    String roomCode, {
+    required int score,
+    required int wordsFound,
+    List<String>? words,
+  }) async {
     updateScoreCalls.add((roomCode: roomCode, score: score, wordsFound: wordsFound));
+    lastWords = words;
   }
+
+  /// המילים שנשלחו בעדכון הניקוד האחרון.
+  List<String>? lastWords;
 
   @override
   Future<void> finishRoom(String roomCode, {String? winnerUid}) async {

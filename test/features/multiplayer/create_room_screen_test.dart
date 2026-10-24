@@ -2,164 +2,162 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:wordbox_hebrew/data/models/player_profile.dart';
 import 'package:wordbox_hebrew/data/repositories/progress_repository.dart';
 import 'package:wordbox_hebrew/features/multiplayer/create_room_screen.dart';
+import 'package:wordbox_hebrew/features/multiplayer/models/room_models.dart';
+import 'package:wordbox_hebrew/features/multiplayer/services/multiplayer_repository.dart';
+import 'package:wordbox_hebrew/providers/auth_provider.dart';
 import 'package:wordbox_hebrew/providers/multiplayer_repository_provider.dart';
-import 'package:wordbox_hebrew/providers/player_profile_provider.dart';
 import 'package:wordbox_hebrew/providers/repository_providers.dart';
 
-import 'fake_multiplayer_repository.dart';
-
-class _FakeProgressRepository implements ProgressRepository {
-  @override
-  Future<PlayerProfile> loadProfile() async =>
-      const PlayerProfile(displayName: 'דנה', coins: 100);
+class _Profile implements ProgressRepository {
+  _Profile(this.stored);
+  PlayerProfile stored;
 
   @override
-  Future<void> saveProfile(PlayerProfile profile) async {}
+  Future<PlayerProfile> loadProfile() async => stored;
+
+  @override
+  Future<void> saveProfile(PlayerProfile profile) async => stored = profile;
 }
 
-/// מזרים ל-CreateRoomScreen פרופיל *כבר טעון* מהרגע הראשון - במשחק בפועל זה
-/// המצב האמיתי (splash_screen מריץ ensureLoaded() לפני שמנווטים לכל מסך
-/// אחר), אבל בבדיקת widget ממוקדת אנחנו מדלגים על מסך הפתיחה ובונים ישר
-/// את CreateRoomScreen, אז חייבים למלא את ה-state הזה מראש.
-class _ImmediateProfileNotifier extends PlayerProfileNotifier {
-  _ImmediateProfileNotifier(super.repository, PlayerProfile profile) {
-    state = AsyncValue.data(profile);
+/// מאגר מזויף שזוכר את ההגדרות שנשלחו ליצירת החדר.
+class _FakeRooms implements MultiplayerRepository {
+  Map<String, Object?>? created;
+
+  @override
+  Future<GameRoom> createRoom({
+    required String hostDisplayName,
+    required int gridSize,
+    required int roundSeconds,
+    required int targetScore,
+    required int maxPlayers,
+    required Duration joinWindow,
+    int totalRounds = 1,
+    int entryFee = 5,
+    String? avatarId,
+    String? photoUrl,
+  }) async {
+    created = {
+      'name': hostDisplayName,
+      'grid': gridSize,
+      'seconds': roundSeconds,
+      'target': targetScore,
+      'rounds': totalRounds,
+      'fee': entryFee,
+      'join': joinWindow,
+    };
+    return GameRoom(
+      roomCode: '12345',
+      status: RoomStatus.waiting,
+      players: const [],
+      hostUid: 'me',
+      entryFee: entryFee,
+    );
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
-  testWidgets('CreateRoomScreen renders all settings and creates a room on submit', (tester) async {
-    tester.view.physicalSize = const Size(400, 1600);
-    tester.view.devicePixelRatio = 1.0;
+  late _FakeRooms rooms;
+  late _Profile profile;
+  String? navigatedTo;
+
+  Future<void> pump(WidgetTester tester, {required Size size, int coins = 1000, double textScale = 1}) async {
+    rooms = _FakeRooms();
+    profile = _Profile(PlayerProfile(coins: coins, displayName: 'רוני', avatarId: 'ch_king'));
+    navigatedTo = null;
+    tester.view.physicalSize = size * 3;
+    tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-
-    final fakeRepo = FakeMultiplayerRepository();
-    String? navigatedRoomCode;
-
     final router = GoRouter(
-      initialLocation: '/multiplayer/online/create',
+      initialLocation: '/create',
       routes: [
+        GoRoute(path: '/create', builder: (_, _) => const CreateRoomScreen()),
         GoRoute(
-          path: '/multiplayer/online/create',
-          builder: (context, state) => const CreateRoomScreen(),
-        ),
-        GoRoute(
-          path: '/multiplayer/online/room/:roomCode',
-          builder: (context, state) {
-            navigatedRoomCode = state.pathParameters['roomCode'];
+          path: '/:rest(.*)',
+          builder: (_, state) {
+            navigatedTo = state.uri.toString();
             return const SizedBox();
           },
         ),
       ],
     );
-
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          progressRepositoryProvider.overrideWithValue(_FakeProgressRepository()),
-          playerProfileProvider.overrideWith(
-            (ref) => _ImmediateProfileNotifier(
-              _FakeProgressRepository(),
-              const PlayerProfile(displayName: 'דנה', coins: 100),
-            ),
-          ),
-          multiplayerRepositoryProvider.overrideWithValue(fakeRepo),
+          progressRepositoryProvider.overrideWithValue(profile),
+          authStateProvider.overrideWith((ref) => Stream.value(null)),
+          multiplayerRepositoryProvider.overrideWithValue(rooms),
         ],
         child: MaterialApp.router(
           routerConfig: router,
-          builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: Directionality(textDirection: TextDirection.rtl, child: child!),
+          ),
         ),
       ),
     );
-    await tester.pump();
-    // מאפשר לאנימציות הכניסה (flutter_animate, כולל delay) להסתיים -
-    // אחרת טיימר ה-delay הפנימי שלהן עדיין "תלוי" בסוף הבדיקה.
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+  }
 
-    expect(find.text('גודל לוח'), findsOneWidget);
-    expect(find.text('כמה זמן לכל תור (סבב)?'), findsOneWidget);
-    expect(find.text('עד כמה נקודות המשחק? (ניקוד יעד לניצחון מוקדם)'), findsOneWidget);
-    expect(find.text('כמה משחקונים בסדרה?'), findsOneWidget);
-    expect(find.text('דמי כניסה (נגבים מכל מי שנכנס, כולל אותך)'), findsOneWidget);
-    expect(find.text('כמה שחקנים מקסימום?'), findsNothing);
+  for (final size in const [Size(402, 874), Size(375, 667)]) {
+    testWidgets('מסך אחד בלי גלילה, בלי שדה כינוי (${size.width.toInt()}×${size.height.toInt()})', (tester) async {
+      await pump(tester, size: size);
+      expect(tester.takeException(), isNull);
+      expect(find.byType(Scrollable), findsNothing);
+      expect(find.byType(TextField), findsNothing, reason: 'אין שינוי כינוי במסך הזה');
+      for (final fee in [50, 100, 200, 500]) {
+        expect(find.text('$fee'), findsOneWidget);
+      }
+      expect(find.text('רוני'), findsOneWidget, reason: 'השם מהפרופיל');
+      expect(find.text('יצירת חדר'), findsOneWidget);
+    });
+  }
 
-    // בחירת גודל לוח 6×6, ואז יצירת החדר (גוללים כדי לחשוף את הכפתור,
-    // כי ה-ListView לא בונה תוכן מעבר לגובה המסך הנראה).
-    await tester.tap(find.text('6×6'));
-    await tester.pump();
-
-    // מזהים את ה-Scrollable האנכי (של ה-ListView הראשי) ולא את זה האופקי
-    // הפנימי של שדה הטקסט, כדי ש-scrollUntilVisible יגלול את הרשימה הנכונה
-    // גם לפני שהכפתור (מתחת לקצה הנראה) נבנה בפועל.
-    final verticalScrollable = find.byWidgetPredicate(
-      (widget) => widget is Scrollable && widget.axisDirection == AxisDirection.down,
-    );
-    final createButton = find.text('יצירת חדר 🔑');
-    await tester.scrollUntilVisible(createButton, 300, scrollable: verticalScrollable);
-    await tester.tap(createButton);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(fakeRepo.createRoomCalls, hasLength(1));
-    expect(fakeRepo.createRoomCalls.single.gridSize, 6);
-    expect(fakeRepo.createRoomCalls.single.hostDisplayName, 'דנה');
-    expect(fakeRepo.createRoomCalls.single.maxPlayers, 8);
-    expect(fakeRepo.createRoomCalls.single.totalRounds, 1);
-    expect(fakeRepo.createRoomCalls.single.entryFee, 5);
-    expect(navigatedRoomCode, fakeRepo.lastCreatedRoom?.roomCode);
+  testWidgets('טקסט מוגדל במסך קטן - בלי גלישה', (tester) async {
+    await pump(tester, size: const Size(375, 667), textScale: 1.25);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('CreateRoomScreen shows an error when the name is empty', (tester) async {
-    tester.view.physicalSize = const Size(400, 900);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
+  testWidgets('בחירות עוברות לחדר, והכסף יורד', (tester) async {
+    await pump(tester, size: const Size(402, 874));
+    await tester.tap(find.text('200'));
+    await tester.tap(find.text('6×6'));
+    await tester.tap(find.text('2 דק׳'));
+    await tester.tap(find.text('3'));
+    await tester.tap(find.text('300'));
+    await tester.tap(find.text('20 דק׳'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('יצירת חדר'));
+    await tester.pumpAndSettle();
+    expect(rooms.created, {
+      'name': 'רוני',
+      'grid': 6,
+      'seconds': 120,
+      'target': 300,
+      'rounds': 3,
+      'fee': 200,
+      'join': const Duration(minutes: 20),
+    });
+    expect(profile.stored.coins, 800);
+    expect(navigatedTo, '/multiplayer/online/room/12345');
+  });
 
-    final fakeRepo = FakeMultiplayerRepository();
-
-    final router = GoRouter(
-      initialLocation: '/create',
-      routes: [
-        GoRoute(path: '/create', builder: (context, state) => const CreateRoomScreen()),
-      ],
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          progressRepositoryProvider.overrideWithValue(_FakeProgressRepository()),
-          playerProfileProvider.overrideWith(
-            (ref) => _ImmediateProfileNotifier(
-              _FakeProgressRepository(),
-              const PlayerProfile(displayName: 'דנה', coins: 100),
-            ),
-          ),
-          multiplayerRepositoryProvider.overrideWithValue(fakeRepo),
-        ],
-        child: MaterialApp.router(
-          routerConfig: router,
-          builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    await tester.enterText(find.byType(TextField).first, '');
-    final verticalScrollable = find.byWidgetPredicate(
-      (widget) => widget is Scrollable && widget.axisDirection == AxisDirection.down,
-    );
-    final createButton = find.text('יצירת חדר 🔑');
-    await tester.scrollUntilVisible(createButton, 300, scrollable: verticalScrollable);
-    await tester.tap(createButton);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
-    expect(find.text('אנא הזינו שם/כינוי.'), findsOneWidget);
-    expect(fakeRepo.createRoomCalls, isEmpty);
+  testWidgets('בלי מספיק מטבעות: הכפתור מוביל לחנות ולא יוצר חדר', (tester) async {
+    await pump(tester, size: const Size(402, 874), coins: 120);
+    await tester.tap(find.text('200'));
+    await tester.pumpAndSettle();
+    expect(find.text('חסרים 80 מטבעות'), findsOneWidget);
+    expect(find.text('יצירת חדר'), findsNothing);
+    await tester.tap(find.text('חסרים 80 מטבעות'));
+    await tester.pumpAndSettle();
+    expect(rooms.created, isNull);
+    expect(navigatedTo, startsWith('/store'));
   });
 }

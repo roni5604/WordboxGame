@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -27,12 +29,17 @@ class RaceWordsPanel extends StatefulWidget {
   final bool unlocked;
   final VoidCallback onUnlock;
 
+  /// במשחק חי (בלי השהיה) - במקום דיאלוג: נגיעה ראשונה בלשונית נעולה
+  /// הופכת אותה ל"לאשר?" לכמה שניות, ונגיעה שנייה קונה.
+  final bool confirmInline;
+
   const RaceWordsPanel({
     super.key,
     required this.mine,
     required this.opponents,
     required this.unlocked,
     required this.onUnlock,
+    this.confirmInline = false,
   });
 
   @override
@@ -41,6 +48,14 @@ class RaceWordsPanel extends StatefulWidget {
 
 class _RaceWordsPanelState extends State<RaceWordsPanel> {
   int _tab = 0; // 0 = שלי
+  int? _confirming;
+  Timer? _confirmTimer;
+
+  @override
+  void dispose() {
+    _confirmTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(RaceWordsPanel old) {
@@ -53,6 +68,16 @@ class _RaceWordsPanelState extends State<RaceWordsPanel> {
   void _select(int i) {
     Haptics.selection();
     if (i > 0 && !widget.unlocked) {
+      if (widget.confirmInline && _confirming != i) {
+        _confirmTimer?.cancel();
+        setState(() => _confirming = i);
+        _confirmTimer = Timer(const Duration(seconds: 3), () {
+          if (mounted) setState(() => _confirming = null);
+        });
+        return;
+      }
+      _confirmTimer?.cancel();
+      setState(() => _confirming = null);
       widget.onUnlock();
       return;
     }
@@ -79,8 +104,13 @@ class _RaceWordsPanelState extends State<RaceWordsPanel> {
               scrollDirection: Axis.horizontal,
               itemCount: lists.length,
               separatorBuilder: (_, _) => const SizedBox(width: 6),
-              itemBuilder: (context, i) =>
-                  _Tab(list: lists[i], selected: i == _tab, locked: i > 0 && !widget.unlocked, onTap: () => _select(i)),
+              itemBuilder: (context, i) => _Tab(
+                list: lists[i],
+                selected: i == _tab,
+                locked: i > 0 && !widget.unlocked,
+                confirming: i == _confirming,
+                onTap: () => _select(i),
+              ),
             ),
           ),
           const SizedBox(height: 6),
@@ -127,9 +157,16 @@ class _Tab extends StatelessWidget {
   final RaceWordList list;
   final bool selected;
   final bool locked;
+  final bool confirming;
   final VoidCallback onTap;
 
-  const _Tab({required this.list, required this.selected, required this.locked, required this.onTap});
+  const _Tab({
+    required this.list,
+    required this.selected,
+    required this.locked,
+    required this.onTap,
+    this.confirming = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -161,7 +198,16 @@ class _Tab extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 5),
-              if (locked)
+              if (locked && confirming)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                  decoration: BoxDecoration(color: const Color(0xFF1FB86A), borderRadius: BorderRadius.circular(10)),
+                  child: const Text(
+                    'לאשר? $kSpyCost',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
+                  ),
+                ).animate(onPlay: (c) => c.repeat(reverse: true)).scaleXY(begin: 1, end: 1.08, duration: 420.ms)
+              else if (locked)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                   decoration: BoxDecoration(

@@ -27,8 +27,8 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   final FirebaseAuth _auth;
 
   FirestoreMultiplayerRepository({FirebaseFirestore? firestore, FirebaseAuth? auth})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _auth = auth ?? FirebaseAuth.instance;
 
   CollectionReference<Map<String, dynamic>> get _rooms => _firestore.collection('rooms');
 
@@ -36,8 +36,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   /// ואין בו בלבול בין אותיות/ספרות דומות (0/O, 1/I) כמו בקוד אלפאנומרי.
   /// מסמך החדר - רק אחרי בדיקה שהקוד הוא בדיוק 5 ספרות (קוד מקישור לא
   /// יכול "לברוח" לנתיב אחר ב-Firestore).
-  DocumentReference<Map<String, dynamic>> _room(String roomCode) =>
-      _rooms.doc(InputRules.requireRoomCode(roomCode));
+  DocumentReference<Map<String, dynamic>> _room(String roomCode) => _rooms.doc(InputRules.requireRoomCode(roomCode));
 
   String _generateRoomCode() {
     final rand = Random.secure();
@@ -48,7 +47,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
     if (totalRounds < 1 || totalRounds > 10) {
       throw StateError('מספר משחקונים חייב להיות בין 1 ל-10.');
     }
-    if (!GameRoom.allowedEntryFees.contains(entryFee)) {
+    if (!GameRoom.acceptedEntryFees.contains(entryFee)) {
       throw StateError('דמי כניסה לא חוקיים.');
     }
   }
@@ -131,13 +130,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
         paidUids: {uid: true},
         joinDeadline: joinDeadline,
         players: [
-          PlayerInRoom(
-            uid: uid,
-            displayName: hostDisplayName,
-            isHost: true,
-            avatarId: avatarId,
-            photoUrl: photoUrl,
-          ),
+          PlayerInRoom(uid: uid, displayName: hostDisplayName, isHost: true, avatarId: avatarId, photoUrl: photoUrl),
         ],
       );
     }
@@ -206,10 +199,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
           if (paid[uid] != true) {
             paid[uid] = true;
             final entryFee = (data['entryFee'] as num?)?.toInt() ?? room.entryFee;
-            tx.update(roomRef, {
-              'paidUids': paid,
-              'pot': ((data['pot'] as num?)?.toInt() ?? 0) + entryFee,
-            });
+            tx.update(roomRef, {'paidUids': paid, 'pot': ((data['pot'] as num?)?.toInt() ?? 0) + entryFee});
           }
         }
       });
@@ -231,10 +221,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
   ) {
     return GameRoom(
       roomCode: roomCode,
-      status: RoomStatus.values.firstWhere(
-        (s) => s.name == data['status'],
-        orElse: () => RoomStatus.waiting,
-      ),
+      status: RoomStatus.values.firstWhere((s) => s.name == data['status'], orElse: () => RoomStatus.waiting),
       hostUid: data['hostUid'] as String? ?? '',
       gridSize: (data['gridSize'] as num?)?.toInt() ?? 5,
       boardSeed: (data['boardSeed'] as num?)?.toInt() ?? 0,
@@ -245,14 +232,13 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
       currentRound: (data['currentRound'] as num?)?.toInt() ?? 1,
       entryFee: (data['entryFee'] as num?)?.toInt() ?? 5,
       pot: (data['pot'] as num?)?.toInt() ?? 0,
-      paidUids: (data['paidUids'] as Map<String, dynamic>?)?.map(
-            (uid, paid) => MapEntry(uid, paid == true),
-          ) ??
-          const {},
+      paidUids:
+          (data['paidUids'] as Map<String, dynamic>?)?.map((uid, paid) => MapEntry(uid, paid == true)) ?? const {},
       potAwarded: data['potAwarded'] as bool? ?? false,
       joinDeadline: (data['joinDeadline'] as Timestamp?)?.toDate(),
       startedAt: (data['startedAt'] as Timestamp?)?.toDate(),
-      wins: (data['wins'] as Map<String, dynamic>?)?.map(
+      wins:
+          (data['wins'] as Map<String, dynamic>?)?.map(
             (uid, winCount) => MapEntry(uid, (winCount as num?)?.toInt() ?? 0),
           ) ??
           const {},
@@ -266,6 +252,10 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
             isHost: doc.data()['isHost'] as bool? ?? false,
             avatarId: doc.data()['avatarId'] as String?,
             photoUrl: doc.data()['photoUrl'] as String?,
+            words: [
+              for (final w in (doc.data()['words'] as List<dynamic>? ?? const []))
+                if (w is String) w,
+            ],
           ),
       ],
     );
@@ -301,22 +291,16 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
 
     controller = StreamController<GameRoom>.broadcast(
       onListen: () {
-        roomSub = _room(roomCode).snapshots().listen(
-              (snap) {
-                latestRoom = snap;
-                roomReady = true;
-                emit();
-              },
-              onError: controller.addError,
-            );
-        playersSub = _room(roomCode).collection('players').snapshots().listen(
-              (snap) {
-                latestPlayers = snap.docs;
-                playersReady = true;
-                emit();
-              },
-              onError: controller.addError,
-            );
+        roomSub = _room(roomCode).snapshots().listen((snap) {
+          latestRoom = snap;
+          roomReady = true;
+          emit();
+        }, onError: controller.addError);
+        playersSub = _room(roomCode).collection('players').snapshots().listen((snap) {
+          latestPlayers = snap.docs;
+          playersReady = true;
+          emit();
+        }, onError: controller.addError);
       },
       onCancel: () {
         roomSub?.cancel();
@@ -337,18 +321,21 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
     if (data['hostUid'] != uid) {
       throw StateError('רק מנהל/ת החדר יכול/ה להתחיל את המשחק.');
     }
-    await roomRef.update({
-      'status': RoomStatus.inProgress.name,
-      'startedAt': FieldValue.serverTimestamp(),
-    });
+    await roomRef.update({'status': RoomStatus.inProgress.name, 'startedAt': FieldValue.serverTimestamp()});
   }
 
   @override
-  Future<void> updateMyScore(String roomCode, {required int score, required int wordsFound}) async {
+  Future<void> updateMyScore(
+    String roomCode, {
+    required int score,
+    required int wordsFound,
+    List<String>? words,
+  }) async {
     final uid = await _ensureUid();
     await _room(roomCode).collection('players').doc(uid).update({
       'score': score,
       'wordsFound': wordsFound,
+      if (words != null) 'words': words.length > 300 ? words.sublist(words.length - 300) : words,
     });
   }
 
@@ -405,7 +392,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
       'startedAt': null,
     });
     for (final doc in playersSnap.docs) {
-      batch.update(doc.reference, {'score': 0, 'wordsFound': 0});
+      batch.update(doc.reference, {'score': 0, 'wordsFound': 0, 'words': <String>[]});
     }
     await batch.commit();
   }
@@ -438,7 +425,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
       'currentRound': currentRound + 1,
     });
     for (final doc in playersSnap.docs) {
-      batch.update(doc.reference, {'score': 0, 'wordsFound': 0});
+      batch.update(doc.reference, {'score': 0, 'wordsFound': 0, 'words': <String>[]});
     }
     await batch.commit();
   }
@@ -456,10 +443,7 @@ class FirestoreMultiplayerRepository implements MultiplayerRepository {
       if (paid[uid] == true) {
         final entryFee = (data['entryFee'] as num?)?.toInt() ?? 0;
         final nextPot = ((data['pot'] as num?)?.toInt() ?? 0) - entryFee;
-        batch.update(roomRef, {
-          'paidUids.$uid': FieldValue.delete(),
-          'pot': nextPot < 0 ? 0 : nextPot,
-        });
+        batch.update(roomRef, {'paidUids.$uid': FieldValue.delete(), 'pot': nextPot < 0 ? 0 : nextPot});
       }
     }
     await batch.commit();
