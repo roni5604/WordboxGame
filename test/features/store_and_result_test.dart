@@ -63,9 +63,14 @@ Future<void> _openMoneyTab(WidgetTester tester, IapController Function(Ref ref) 
     ),
   );
   await tester.pumpAndSettle();
-  await tester.tap(find.text('כסף'));
+  await tester.tap(find.text('רמזים ומטבעות'));
   await tester.pumpAndSettle();
 }
+
+/// הגלילה האנכית של החנות (יש גם PageView אופקי בבאנר ההצעות).
+final _storeScroll = find.byWidgetPredicate(
+  (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+);
 
 void main() {
   testWidgets('באפליקציה מוצגות רק חבילות שהחנות החזירה, עם המחיר שלה', (tester) async {
@@ -105,7 +110,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('כסף'));
+    await tester.tap(find.text('רמזים ומטבעות'));
     await tester.pumpAndSettle();
 
     expect(
@@ -119,9 +124,9 @@ void main() {
     await tester.tap(find.text('עיצובים'));
     await tester.pumpAndSettle();
     expect(find.text('אוקיינוס'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('לבן על כחול'), 300);
+    await tester.scrollUntilVisible(find.text('לבן על כחול'), 300, scrollable: _storeScroll);
     expect(find.text('לבן על כחול'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('מקווקו'), 300);
+    await tester.scrollUntilVisible(find.text('מקווקו'), 300, scrollable: _storeScroll);
     expect(find.text('מקווקו'), findsOneWidget);
   });
 

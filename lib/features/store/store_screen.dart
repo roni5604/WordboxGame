@@ -1,40 +1,33 @@
+import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/ads/ads_runtime.dart';
 import '../../core/analytics/analytics_service.dart';
-import '../../core/cosmetics/cosmetic_catalog.dart';
+import '../../core/feedback/haptics.dart';
 import '../../core/purchases/iap_controller.dart';
-import '../../core/purchases/real_money_catalog.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/models/player_profile.dart';
+import '../../core/ui/candy_button.dart';
+import '../../core/ui/celebration_layer.dart';
+import '../../core/ui/game_backdrop.dart';
+import '../../core/platform/top_bar_tint.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
-import '../ads/store_ad_gift_card.dart';
-import '../../core/ui/candy_button.dart';
-import '../../core/platform/top_bar_tint.dart';
-import '../auth/sign_in_methods.dart';
+import 'widgets/cosmetic_shop.dart';
+import 'widgets/hint_offers.dart';
+import 'widgets/premium_offers.dart';
+import 'widgets/store_hero.dart';
+import 'widgets/store_kit.dart';
 
-class _HintPack {
-  final int hints;
-  final int cost;
-  final String label;
-  final bool bestValue;
-
-  const _HintPack({required this.hints, required this.cost, required this.label, this.bestValue = false});
-}
-
-/// רמז עולה בערך 2-3 שלבים של מטבעות (היה 40 / 150 / 300).
-const _packs = [
-  _HintPack(hints: 1, cost: 60, label: 'רמז בודד'),
-  _HintPack(hints: 5, cost: 270, label: 'חבילת 5', bestValue: true),
-  _HintPack(hints: 12, cost: 600, label: 'חבילת ענק'),
-];
-
-/// חנות: רמזים במטבעות, סקינים, ורכישת מטבעות/רמזים בכסף אמיתי באפליקציה.
+/// חנות: רמזים במטבעות, עיצובים, ורכישה בכסף אמיתי באפליקציה.
+///
+/// עיצוב "כספת אוצר": רקע סגול מלכותי, באנר הצעות מתחלף בראש המסך, תמונות
+/// תלת-ממד (Blender) שמרחפות, כרטיסים שנוטים לכיוון האצבע, וחגיגת מטבעות
+/// וניצוצות בכל רכישה.
 class StoreScreen extends ConsumerStatefulWidget {
   /// Analytics store_open source (e.g. home, home_coins, profile,
   /// level_no_coins) - passed as `/store?from=...`.
@@ -46,29 +39,53 @@ class StoreScreen extends ConsumerStatefulWidget {
   ConsumerState<StoreScreen> createState() => _StoreScreenState();
 }
 
+enum StoreTab { shop, cosmetics }
+
 class _StoreScreenState extends ConsumerState<StoreScreen> {
+  final _fx = GlobalKey<CelebrationLayerState>();
+  StoreTab _tab = StoreTab.shop;
+
+  /// חבילות הכסף האמיתי - באותו עמוד כמו הרמזים, מתחתיהם.
+  final _premiumKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
     ref.read(analyticsProvider).storeOpen(source: widget.source);
   }
 
-  Future<void> _buy(BuildContext context, WidgetRef ref, _HintPack pack) async {
-    final ok = await ref.read(playerProfileProvider.notifier).buyHints(amount: pack.hints, cost: pack.cost);
-    if (ok) {
-      AnalyticsService.instance
-        ..spendVirtualCurrency(currency: 'coins', value: pack.cost, itemName: 'hint_pack_${pack.hints}')
-        ..earnVirtualCurrency(currency: 'hints', value: pack.hints, source: 'other', item: 'hint_pack_${pack.hints}');
-    }
-    if (!context.mounted) return;
-    ok ? ref.read(soundServiceProvider).playCoin() : ref.read(soundServiceProvider).playError();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: ok ? AppColors.success : AppColors.error,
-        content: Text(ok ? 'קניתם ${pack.hints} רמזים חדשים! 💡' : 'אין מספיק מטבעות לחבילה הזו 😕'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+  /// חגיגת רכישה במקום [at] (קואורדינטות גלובליות).
+  void celebrate(Offset at, {bool coinRain = false}) {
+    final fx = _fx.currentState;
+    final box = context.findRenderObject() as RenderBox?;
+    if (fx == null || box == null) return;
+    final local = box.globalToLocal(at);
+    fx
+      ..flash(local, StorePalette.gold, radius: 160)
+      ..shockwave(local, StorePalette.gold, radius: 170)
+      ..sparks(local, const [StorePalette.gold, Colors.white, StorePalette.pink, Color(0xFF8E7CFF)], count: 26);
+    if (coinRain) fx.coinShower(count: 36);
+    Haptics.success();
+  }
+
+  void _openTab(StoreTab tab) => setState(() => _tab = tab);
+
+  /// "צריכים עוד מטבעות?": עוברים לעמוד הרמזים והמטבעות וגוללים לחבילות.
+  void _showPremium() {
+    _openTab(StoreTab.shop);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // ממתינים לסיום מעבר הלשונית לפני הגלילה.
+      Future<void>.delayed(const Duration(milliseconds: 300), () {
+        final target = _premiumKey.currentContext;
+        if (target == null || !target.mounted) return;
+        Scrollable.ensureVisible(
+          target,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOutCubic,
+          alignment: 0.15,
+        );
+      });
+    });
   }
 
   @override
@@ -76,532 +93,466 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
     final profileAsync = ref.watch(playerProfileProvider);
     final authUser = ref.watch(authStateProvider).valueOrNull;
     final isGuest = authUser == null || authUser.isAnonymous;
-    final showPlacements = ref.watch(adsGatewayProvider).isSupported;
 
-    return TopBarTint(
-      color: AppColors.primaryDark,
-      child: Scaffold(
-        backgroundColor: AppColors.primaryDark,
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.primaryDark, AppColors.primary],
-            ),
-          ),
-          child: SafeArea(
-            child: profileAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
-              error: (e, st) => const Center(
-                child: Text('לא הצלחנו לטעון את הנתונים. נסו שוב.', style: TextStyle(color: Colors.white)),
-              ),
-              data: (profile) {
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Row(
-                        children: [
-                          CandyIconButton(
-                            icon: Icons.arrow_back_rounded,
-                            tooltip: 'חזרה',
-                            onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'חנות',
-                            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
-                          ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.paid_rounded, color: Colors.amberAccent, size: 18),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '${profile.coins}',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: _StoreSections(
-                        profile: profile,
-                        isGuest: isGuest,
-                        showPlacements: showPlacements,
-                        onBuyHints: (pack) => _buy(context, ref, pack),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StoreSections extends ConsumerStatefulWidget {
-  final PlayerProfile profile;
-  final bool isGuest;
-  final bool showPlacements;
-  final ValueChanged<_HintPack> onBuyHints;
-
-  const _StoreSections({
-    required this.profile,
-    required this.isGuest,
-    required this.showPlacements,
-    required this.onBuyHints,
-  });
-
-  @override
-  ConsumerState<_StoreSections> createState() => _StoreSectionsState();
-}
-
-class _StoreSectionsState extends ConsumerState<_StoreSections> {
-  int _tab = 0;
-
-  @override
-  Widget build(BuildContext context) {
     ref.listen<IapState>(iapProvider, (previous, next) {
       final message = next.message;
       if (message == null || message == previous?.message) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      final granted = message.startsWith('נוספו');
+      if (granted) {
+        final size = MediaQuery.sizeOf(context);
+        celebrate(Offset(size.width / 2, size.height * 0.45), coinRain: true);
+        ref.read(soundServiceProvider).playCoin();
+      }
+      showStoreToast(context, message, success: granted);
     });
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              _TabChip(label: 'רמזים', selected: _tab == 0, onTap: () => setState(() => _tab = 0)),
-              const SizedBox(width: 8),
-              _TabChip(label: 'עיצובים', selected: _tab == 1, onTap: () => setState(() => _tab = 1)),
-              const SizedBox(width: 8),
-              _TabChip(label: 'כסף', selected: _tab == 2, onTap: () => setState(() => _tab = 2)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: switch (_tab) {
-            1 => _CosmeticsTab(profile: widget.profile),
-            2 => const _RealMoneyTab(),
-            _ => _HintsTab(
-              profile: widget.profile,
-              isGuest: widget.isGuest,
-              showPlacements: widget.showPlacements,
-              onBuyHints: widget.onBuyHints,
+    return TopBarTint(
+      color: StorePalette.vaultTop,
+      child: Scaffold(
+        backgroundColor: StorePalette.vaultTop,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: GameBackdrop(
+                colors: const [StorePalette.vaultTop, StorePalette.vaultMid, StorePalette.vaultBottom],
+                child: const SizedBox.expand(),
+              ),
             ),
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _TabChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _TabChip({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Material(
-        color: selected ? Colors.white : Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w800, color: selected ? AppColors.primaryDark : Colors.white),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HintsTab extends StatelessWidget {
-  final PlayerProfile profile;
-  final bool isGuest;
-  final bool showPlacements;
-  final ValueChanged<_HintPack> onBuyHints;
-
-  const _HintsTab({
-    required this.profile,
-    required this.isGuest,
-    required this.showPlacements,
-    required this.onBuyHints,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (isGuest) {
-      return const Column(
-        children: [
-          Padding(padding: EdgeInsets.symmetric(horizontal: 20), child: StoreAdGiftCard()),
-          SizedBox(height: 12),
-          Expanded(child: _GuestHintsCta()),
-        ],
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-      itemCount: _packs.length + (showPlacements ? 1 : 0) + 1,
-      separatorBuilder: (_, _) => const SizedBox(height: 16),
-      itemBuilder: (context, i) {
-        if (i == 0) {
-          return Column(
-            children: [
-              Text(
-                '💡 יש לך כרגע ${profile.hints} רמזים',
-                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'רמז מציג מילה שלמה. בחנות הזו קונים רמזים במטבעות.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-            ],
-          );
-        }
-        final index = i - 1;
-        if (showPlacements && index == 0) return const StoreAdGiftCard();
-        final packIndex = showPlacements ? index - 1 : index;
-        final pack = _packs[packIndex];
-        return _PackCard(pack: pack, onBuy: () => onBuyHints(pack));
-      },
-    );
-  }
-}
-
-class _CosmeticsTab extends ConsumerWidget {
-  final PlayerProfile profile;
-
-  const _CosmeticsTab({required this.profile});
-
-  Future<void> _buy(BuildContext context, WidgetRef ref, CosmeticSlot slot, String id, int cost) async {
-    final alreadyOwned = profile.ownedFor(slot.name).contains(id);
-    final ok = await ref.read(playerProfileProvider.notifier).buyOrEquipCosmetic(slot: slot, id: id, cost: cost);
-    if (ok && !alreadyOwned) {
-      AnalyticsService.instance.spendVirtualCurrency(currency: 'coins', value: cost, itemName: 'skin_${slot.name}_$id');
-    }
-    if (!context.mounted) return;
-    ok ? ref.read(soundServiceProvider).playCoin() : ref.read(soundServiceProvider).playError();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: ok ? AppColors.success : AppColors.error,
-        content: Text(ok ? 'העיצוב מצויד' : 'אין מספיק מטבעות'),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-      children: [
-        const _SectionTitle('לוח'),
-        for (final skin in CosmeticCatalog.boards)
-          _CosmeticCard(
-            name: skin.nameHe,
-            cost: skin.cost,
-            owned: profile.ownedBoardSkins.contains(skin.id),
-            equipped: profile.boardSkinId == skin.id,
-            swatch: skin.tileColor,
-            onBuy: () => _buy(context, ref, CosmeticSlot.board, skin.id, skin.cost),
-          ),
-        const _SectionTitle('אותיות'),
-        for (final skin in CosmeticCatalog.letters)
-          _CosmeticCard(
-            name: skin.nameHe,
-            cost: skin.cost,
-            owned: profile.ownedLetterSkins.contains(skin.id),
-            equipped: profile.letterSkinId == skin.id,
-            swatch: skin.tileOverride ?? skin.letterColor,
-            onBuy: () => _buy(context, ref, CosmeticSlot.letter, skin.id, skin.cost),
-          ),
-        const _SectionTitle('סימון'),
-        for (final skin in CosmeticCatalog.markers)
-          _CosmeticCard(
-            name: skin.nameHe,
-            cost: skin.cost,
-            owned: profile.ownedMarkerSkins.contains(skin.id),
-            equipped: profile.markerSkinId == skin.id,
-            swatch: skin.color,
-            onBuy: () => _buy(context, ref, CosmeticSlot.marker, skin.id, skin.cost),
-          ),
-      ],
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String text;
-  const _SectionTitle(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 8),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
-      ),
-    );
-  }
-}
-
-class _CosmeticCard extends StatelessWidget {
-  final String name;
-  final int cost;
-  final bool owned;
-  final bool equipped;
-  final Color swatch;
-  final VoidCallback onBuy;
-
-  const _CosmeticCard({
-    required this.name,
-    required this.cost,
-    required this.owned,
-    required this.equipped,
-    required this.swatch,
-    required this.onBuy,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final label = equipped ? 'מצויד' : (owned || cost == 0 ? 'הפעילו' : '$cost');
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(color: swatch, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-              ),
-              FilledButton(onPressed: equipped ? null : onBuy, child: Text(label)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RealMoneyTab extends ConsumerWidget {
-  const _RealMoneyTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final iap = ref.watch(iapProvider);
-    // באפליקציה מציגים רק חבילות שהחנות החזירה (עם מחיר), כדי שלא יופיע
-    // כפתור קנייה שנכשל - למשל לפני שמוצר אושר ב-App Store Connect.
-    final packs = iap.isWeb
-        ? RealMoneyCatalog.packs
-        : RealMoneyCatalog.packs.where((p) => iap.prices.containsKey(p.productId)).toList();
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-      children: [
-        Text(
-          iap.isWeb
-              ? 'רכישה בכסף אמיתי זמינה באפליקציה ל-iPhone ולאנדרואיד.'
-              : !iap.ready
-                  ? 'טוען את החנות...'
-                  : packs.isEmpty
-                      ? 'החבילות לא זמינות כרגע. נסו שוב מאוחר יותר.'
-                      : 'קנו מטבעות או רמזים. המחיר הסופי מופיע בחלון החנות.',
-          style: const TextStyle(color: Colors.white70, fontSize: 13),
-        ),
-        const SizedBox(height: 12),
-        for (final pack in packs)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    Icon(pack.hints > 0 ? Icons.lightbulb_rounded : Icons.paid_rounded, color: AppColors.primary),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(pack.titleHe, style: const TextStyle(fontWeight: FontWeight.w800)),
-                          Text(pack.subtitleHe, style: const TextStyle(color: Colors.black54, fontSize: 12)),
-                        ],
+            SafeArea(
+              bottom: false,
+              child: profileAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
+                error: (e, st) => const Center(
+                  child: Text('לא הצלחנו לטעון את הנתונים. נסו שוב.', style: TextStyle(color: Colors.white)),
+                ),
+                data: (profile) => CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: _StoreHeader(coins: profile.coins, hints: profile.hints, isGuest: isGuest),
+                    ),
+                    SliverToBoxAdapter(
+                      child: StoreHero(isGuest: isGuest, onOpenTab: _openTab),
+                    ),
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _TabBarDelegate(
+                        selected: _tab,
+                        onSelect: (tab) {
+                          Haptics.selection();
+                          ref.read(soundServiceProvider).playButtonTap();
+                          _openTab(tab);
+                        },
                       ),
                     ),
-                    FilledButton(
-                      onPressed: iap.isWeb
-                          ? null
-                          : () async {
-                              // purchase_start / purchase_failed are logged in IapController.
-                              final error = await ref.read(iapProvider.notifier).buy(pack.productId);
-                              if (error != null && context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
-                              }
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(16, 8, 16, context.safeBottom(min: 24, extra: 16)),
+                      sliver: SliverToBoxAdapter(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 260),
+                          switchInCurve: Curves.easeOutCubic,
+                          transitionBuilder: (child, animation) => FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween(begin: const Offset(0, 0.04), end: Offset.zero).animate(animation),
+                              child: child,
+                            ),
+                          ),
+                          child: KeyedSubtree(
+                            key: ValueKey(_tab),
+                            child: switch (_tab) {
+                              StoreTab.shop => Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  HintOffers(
+                                    profile: profile,
+                                    isGuest: isGuest,
+                                    onCelebrate: celebrate,
+                                    onNeedCoins: _showPremium,
+                                  ),
+                                  const SizedBox(height: 22),
+                                  KeyedSubtree(key: _premiumKey, child: const PremiumOffers()),
+                                ],
+                              ),
+                              StoreTab.cosmetics => CosmeticShop(
+                                profile: profile,
+                                onCelebrate: celebrate,
+                                onNeedCoins: _showPremium,
+                              ),
                             },
-                      child: Text(iap.isWeb ? 'באפליקציה' : iap.priceLabel(pack)),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
-          ),
-      ],
+            Positioned.fill(
+              child: IgnorePointer(child: CelebrationLayer(key: _fx)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-/// מוצג במקום חנות הרמזים כשמשחקים כאורח/ת - רמזים (כולל מתנת הפתיחה
-/// והבונוס היומי) שמורים לחשבונות אמיתיים, כדי לתת סיבה טובה להירשם.
-class _GuestHintsCta extends StatelessWidget {
-  const _GuestHintsCta();
+/// הודעה קצרה בתחתית, בסגנון החנות.
+void showStoreToast(BuildContext context, String text, {bool success = true}) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: success ? const Color(0xFF1FB86A) : AppColors.error,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Text(text, style: const TextStyle(fontWeight: FontWeight.w800)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+}
+
+class _StoreHeader extends StatelessWidget {
+  final int coins;
+  final int hints;
+  final bool isGuest;
+
+  const _StoreHeader({required this.coins, required this.hints, required this.isGuest});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: [
+          CandyIconButton(
+            icon: Icons.arrow_back_rounded,
+            tooltip: 'חזרה',
+            onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+          ),
+          const SizedBox(width: 10),
+          const _ShinyTitle('החנות'),
+          const Spacer(),
+          if (!isGuest) ...[
+            _BalancePill(
+              value: hints,
+              icon: const Icon(Icons.lightbulb_rounded, color: StorePalette.gold, size: 18),
+            ),
+            const SizedBox(width: 6),
+          ],
+          _BalancePill(value: coins, icon: const CoinGlyph(size: 18)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShinyTitle extends StatelessWidget {
+  final String text;
+
+  const _ShinyTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMask(
+      shaderCallback: (rect) =>
+          const LinearGradient(colors: [Colors.white, Color(0xFFFFE9A8), Colors.white]).createShader(rect),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 24,
+          fontWeight: FontWeight.w900,
+          shadows: [Shadow(color: Color(0x66000000), offset: Offset(0, 2), blurRadius: 4)],
+        ),
+      ),
+    );
+  }
+}
+
+/// יתרה עם "קפיצה" כשהערך משתנה.
+class _BalancePill extends StatelessWidget {
+  final int value;
+  final Widget icon;
+
+  const _BalancePill({required this.value, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          icon,
+          const SizedBox(width: 6),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 350),
+            transitionBuilder: (child, anim) => ScaleTransition(
+              scale: Tween(begin: 1.6, end: 1.0).animate(CurvedAnimation(parent: anim, curve: Curves.elasticOut)),
+              child: FadeTransition(opacity: anim, child: child),
+            ),
+            child: Text(
+              '$value',
+              key: ValueKey(value),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TabBarDelegate extends SliverPersistentHeaderDelegate {
+  final StoreTab selected;
+  final ValueChanged<StoreTab> onSelect;
+
+  _TabBarDelegate({required this.selected, required this.onSelect});
+
+  @override
+  double get minExtent => 64;
+
+  @override
+  double get maxExtent => 64;
+
+  @override
+  bool shouldRebuild(_TabBarDelegate old) => old.selected != selected;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final pinned = overlapsContent || shrinkOffset > 0;
+    final bar = Container(
+      color: pinned ? StorePalette.vaultTop.withValues(alpha: 0.72) : Colors.transparent,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: _SegmentedTabs(selected: selected, onSelect: onSelect),
+    );
+    if (!pinned) return bar;
+    // זכוכית חלבית: התוכן שנגלל מתחת לא מתערבב עם הלשוניות.
+    return ClipRect(
+      child: BackdropFilter(filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14), child: bar),
+    );
+  }
+}
+
+class _SegmentedTabs extends StatelessWidget {
+  final StoreTab selected;
+  final ValueChanged<StoreTab> onSelect;
+
+  const _SegmentedTabs({required this.selected, required this.onSelect});
+
+  static const _tabs = [
+    (StoreTab.shop, 'רמזים ומטבעות', Icons.lightbulb_rounded),
+    (StoreTab.cosmetics, 'עיצובים', Icons.palette_rounded),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final index = _tabs.indexWhere((t) => t.$1 == selected);
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final step = 2 / (_tabs.length - 1);
+    final x = -1 + index * step;
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Stack(
+        children: [
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutBack,
+            alignment: Alignment(rtl ? -x : x, 0),
+            child: FractionallySizedBox(
+              widthFactor: 1 / _tabs.length,
+              child: Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFFFE27A), StorePalette.gold, StorePalette.goldDeep],
+                  ),
+                  boxShadow: [BoxShadow(color: StorePalette.gold.withValues(alpha: 0.5), blurRadius: 12)],
+                ),
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              for (final tab in _tabs)
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onSelect(tab.$1),
+                    child: SizedBox(
+                      height: 40,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(tab.$3, size: 17, color: tab.$1 == selected ? const Color(0xFF5A2A00) : Colors.white70),
+                          const SizedBox(width: 5),
+                          Text(
+                            tab.$2,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                              color: tab.$1 == selected ? const Color(0xFF5A2A00) : Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// קרני אור מסתובבות לאט מאחורי תמונת ההצעה.
+class LightRays extends StatefulWidget {
+  final Color color;
+  final double size;
+
+  const LightRays({super.key, this.color = StorePalette.gold, this.size = 200});
+
+  @override
+  State<LightRays> createState() => _LightRaysState();
+}
+
+class _LightRaysState extends State<LightRays> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 18));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AmbientMotion.enabledFor(context)) {
+      if (!_c.isAnimating) _c.repeat();
+    } else {
+      _c.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: widget.size,
+      height: widget.size,
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) => CustomPaint(painter: _RaysPainter(_c.value * math.pi * 2, widget.color)),
+      ),
+    );
+  }
+}
+
+class _RaysPainter extends CustomPainter {
+  final double angle;
+  final Color color;
+
+  _RaysPainter(this.angle, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.shortestSide / 2;
+    final paint = Paint()
+      ..shader = RadialGradient(
+        colors: [color.withValues(alpha: 0.5), color.withValues(alpha: 0)],
+      ).createShader(Rect.fromCircle(center: c, radius: r));
+    const rays = 12;
+    for (var i = 0; i < rays; i++) {
+      final a = angle + i * math.pi * 2 / rays;
+      final path = Path()
+        ..moveTo(c.dx, c.dy)
+        ..lineTo(c.dx + math.cos(a - 0.11) * r, c.dy + math.sin(a - 0.11) * r)
+        ..lineTo(c.dx + math.cos(a + 0.11) * r, c.dy + math.sin(a + 0.11) * r)
+        ..close();
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RaysPainter old) => old.angle != angle || old.color != color;
+}
+
+/// כפתור "עוד מטבעות" שמופיע כשאין מספיק לקנייה.
+class NeedCoinsHint extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const NeedCoinsHint({super.key, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '🎁',
-              style: TextStyle(fontSize: 56),
-            ).animate().scale(curve: Curves.elasticOut, duration: 600.ms),
-            const SizedBox(height: 16),
-            const Text(
-              'רמזים שמורים למי שנרשם/ת',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'הרשמו בחינם עם ${signInMethodsText()} - ותקבלו רמזי '
-              'מתנה מיד, בונוס יומי עם רמזים ומטבעות, ואפשרות לקנות עוד עם '
-              'המטבעות שלכם.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppColors.primaryDark,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                onPressed: () => context.push('/auth'),
-                child: const Text('הרשמה / התחברות', style: TextStyle(fontWeight: FontWeight.w800)),
-              ),
-            ),
-          ],
-        ),
+      child: TextButton.icon(
+        onPressed: onTap,
+        style: TextButton.styleFrom(foregroundColor: StorePalette.gold),
+        icon: const Icon(Icons.add_circle_rounded),
+        label: const Text('צריכים עוד מטבעות?', style: TextStyle(fontWeight: FontWeight.w900)),
       ),
     );
   }
 }
 
-class _PackCard extends StatelessWidget {
-  final _HintPack pack;
-  final VoidCallback onBuy;
-
-  const _PackCard({required this.pack, required this.onBuy});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(24),
-      elevation: pack.bestValue ? 8 : 3,
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: pack.bestValue
-            ? BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.star, width: 2.5),
-              )
-            : null,
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), shape: BoxShape.circle),
-              child: const Icon(Icons.lightbulb_rounded, color: AppColors.primary, size: 30),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(pack.label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                      if (pack.bestValue) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: AppColors.star, borderRadius: BorderRadius.circular(10)),
-                          child: const Text('הכי משתלם', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text('${pack.hints} רמזים', style: const TextStyle(color: Colors.black54)),
-                ],
-              ),
-            ),
-            FilledButton.icon(
-              onPressed: onBuy,
-              icon: const Icon(Icons.paid_rounded, size: 16),
-              label: Text('${pack.cost}'),
-            ),
-          ],
+/// קנייה במטבעות עם משוב מלא: רכישה מוצלחת = חגיגה, חוסר = רעידה והודעה.
+Future<bool> buyWithCoins({
+  required BuildContext context,
+  required WidgetRef ref,
+  required Future<bool> Function() purchase,
+  required GlobalKey<ShakeBoxState> shakeKey,
+  required void Function(Offset at, {bool coinRain}) onCelebrate,
+  required String successText,
+  required VoidCallback onNeedCoins,
+}) async {
+  final ok = await purchase();
+  if (!context.mounted) return ok;
+  final sound = ref.read(soundServiceProvider);
+  if (ok) {
+    sound.playCoin();
+    final box = shakeKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box != null) onCelebrate(box.localToGlobal(box.size.center(Offset.zero)));
+    showStoreToast(context, successText);
+  } else {
+    sound.playError();
+    Haptics.error();
+    shakeKey.currentState?.shake();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.error,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          content: const Text('אין מספיק מטבעות', style: TextStyle(fontWeight: FontWeight.w800)),
+          action: SnackBarAction(label: 'להשיג עוד', textColor: Colors.white, onPressed: onNeedCoins),
+          duration: const Duration(seconds: 3),
         ),
-      ),
-    );
+      );
   }
+  return ok;
+}
+
+/// טיימר להחלפה אוטומטית - לא בבדיקות ולא כשביקשו פחות תנועה.
+Timer? periodicIfMotion(BuildContext context, Duration every, VoidCallback tick) {
+  if (!AmbientMotion.enabledFor(context)) return null;
+  return Timer.periodic(every, (_) => tick());
 }

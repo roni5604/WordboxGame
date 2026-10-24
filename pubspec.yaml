@@ -84,6 +84,7 @@ flutter:
     - assets/boards/
     - assets/icon/
     - assets/mascot/
+    - assets/store/
     - assets/avatar/
     - assets/audio/
 
