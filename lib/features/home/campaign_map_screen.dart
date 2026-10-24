@@ -19,6 +19,7 @@ import '../profile/widgets/avatar_widget.dart';
 import 'map/explorer_critters.dart';
 import 'map/map_billboards.dart';
 import 'map/map_layout.dart';
+import 'map/sky_ladder.dart';
 import 'map/world_scene_painter.dart';
 import 'map/world_theme.dart';
 import 'widgets/chapter_gate.dart';
@@ -66,7 +67,8 @@ class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> with Tick
   double _topInset = 0;
 
   double get _minCamera => _layout.firstU - 80;
-  double get _maxCamera => _layout.lastU + 120;
+  // אפשר לגלול עד הסולם לשמיים שבסוף הדרך.
+  double get _maxCamera => _layout.skyLadderU - 300;
 
   @override
   void initState() {
@@ -349,9 +351,10 @@ class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> with Tick
       required double anchorY,
       required Widget child,
       bool keepOnScreen = false,
+      double maxAhead = MapProjection.visibleAhead,
     }) {
       final rel = u - p.camera;
-      if (rel < -MapProjection.visibleBehind || rel > MapProjection.visibleAhead) return;
+      if (rel < -MapProjection.visibleBehind || rel > maxAhead) return;
       var point = p.point(u, lateral);
       if (point.dx < -width || point.dx > size.width + width) return;
       final s = p.billboardScale(u);
@@ -360,7 +363,7 @@ class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> with Tick
         point = Offset(point.dx.clamp(half, math.max(half, size.width - half)), point.dy);
       }
       // נמוג בעדינות לכיוון האופק.
-      final fade = ((MapProjection.visibleAhead - rel) / 420).clamp(0.0, 1.0);
+      final fade = ((maxAhead - rel) / 420).clamp(0.0, 1.0);
       Widget body = Transform.scale(
         scale: s,
         alignment: Alignment(0, anchorY / height * 2 - 1),
@@ -480,6 +483,29 @@ class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> with Tick
       );
     }
 
+    // סוף הדרך: סולם לשמיים, ושלט "שלבים חדשים בדרך!" לצידו.
+    place(
+      id: 'sky-ladder',
+      u: _layout.skyLadderU,
+      lateral: 0,
+      width: SkyLadder.width,
+      height: SkyLadder.height,
+      anchorY: SkyLadder.height - 8,
+      // ציון דרך: הסולם לשמיים נראה מרחוק, כמו השמיים עצמם.
+      maxAhead: 5200,
+      child: SkyLadder(ambient: _ambient, onTap: _onLadderTap),
+    );
+    place(
+      id: 'sky-ladder-sign',
+      u: _layout.skyLadderU - 150,
+      lateral: _layout.nodes.last.lateral >= 0 ? -0.6 : 0.6,
+      keepOnScreen: true,
+      width: LadderSign.width,
+      height: LadderSign.height,
+      anchorY: LadderSign.height,
+      child: LadderSign(ambient: _ambient),
+    );
+
     // זואי ליד השלב הבא, ומעליו הסיכה עם האוואטאר של השחקן/ית (אם בחרו אחר).
     place(
       id: 'zoey',
@@ -517,6 +543,16 @@ class _CampaignMapScreenState extends ConsumerState<CampaignMapScreen> with Tick
 
   double _outsideLateral(double nodeLateral, double gap) =>
       (nodeLateral >= 0 ? nodeLateral + gap : nodeLateral - gap).clamp(-0.95, 0.95);
+
+  void _onLadderTap() {
+    Haptics.medium();
+    GameToast.show(
+      context,
+      message: 'עולם חדש בבנייה בשמיים! כשייפתח - מטפסים בסולם ✨',
+      icon: Icons.cloud_rounded,
+      color: const Color(0xFF7B3FF2),
+    );
+  }
 
   void _onLockedTap(PlayerProfile profile, int levelNumber) {
     Haptics.medium();

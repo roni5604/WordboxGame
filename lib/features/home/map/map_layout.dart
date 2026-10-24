@@ -64,6 +64,10 @@ class CampaignMapLayout {
   static const double worldGap = 640;
   static const double riverHalfWidth = 105;
 
+  /// המרחק מהשלב האחרון עד הסולם לשמיים - "סוף הדרך" של העולמות הקיימים,
+  /// והמקום שממנו יטפסו לעולם הבא כשיתווסף.
+  static const double ladderGap = 520;
+
   /// חצי רוחב השביל (ביחידות lateral).
   static const double roadHalfWidth = 0.30;
   static const double _amplitude = 0.40;
@@ -117,12 +121,19 @@ class CampaignMapLayout {
     }
     zones.add(MapWorldZone(tier: tier, worldIndex: tier.index, startU: start, endU: 100000));
 
+    // אחרי השלב האחרון השביל מתעקל למרכז, אל בסיס הסולם.
+    curveU.add(u - levelGap + ladderGap);
+    curveLat.add(0);
+
     final layout = CampaignMapLayout._(nodes, zones, rivers, const [], curveU, curveLat);
     return CampaignMapLayout._(nodes, zones, rivers, layout._buildProps(), curveU, curveLat);
   }
 
   double get firstU => nodes.first.u;
   double get lastU => nodes.last.u;
+
+  /// בסיס הסולם לשמיים (על מרכז השביל).
+  double get skyLadderU => lastU + ladderGap;
 
   MapWorldZone zoneAt(double u) {
     for (final zone in zones) {
@@ -203,6 +214,8 @@ class CampaignMapLayout {
       if (_nearRiver(pu, 30)) continue;
       final lateral = (rng.nextDouble() * 2 - 1) * 1.1;
       if ((lateral - roadLateral(pu)).abs() < roadHalfWidth + 0.14) continue;
+      // רחבת הסולם נשארת נקייה.
+      if ((pu - skyLadderU).abs() < 220 && lateral.abs() < 0.7) continue;
       final zone = zoneAt(pu);
       final small = zone.theme.props.where((k) => _isSmall(k)).toList();
       if (small.isEmpty) continue;
