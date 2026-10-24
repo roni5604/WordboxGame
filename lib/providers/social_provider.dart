@@ -19,9 +19,14 @@ bool _firebaseReady() => isFirebaseBackendReady();
 /// ואיתו נפתחים מחדש כל הזרמים (חברים, בקשות, הזמנות) וקוד החבר. בלי זה
 /// הם נשארו על החשבון הקודם - והחבר/ה שנוסף/ה לחשבון החדש לא הופיע/ה.
 final socialRepositoryProvider = Provider<SocialRepository>((ref) {
-  ref.watch(authStateProvider.select((s) => s.valueOrNull?.uid));
-  if (_firebaseReady()) return FirestoreSocialRepository();
-  return OfflineSocialRepository();
+  final uid = ref.watch(authStateProvider.select((s) => s.valueOrNull?.uid));
+  return ref.watch(socialRepositoryFactoryProvider)(uid);
+});
+
+/// בונה repository חברתי לחשבון [uid]. בבדיקות מוחלף ב-Firestore ו-Auth
+/// מדומים, כדי לבדוק את socialRepositoryProvider האמיתי (החלפת חשבון וכו').
+final socialRepositoryFactoryProvider = Provider<SocialRepository Function(String? uid)>((ref) {
+  return (uid) => _firebaseReady() ? FirestoreSocialRepository() : OfflineSocialRepository();
 });
 
 /// אין חשבון בכלל (למשל רגע אחרי התנתקות או מחיקה): לא פותחים זרמים -
