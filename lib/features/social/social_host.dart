@@ -46,7 +46,10 @@ class SocialHost extends ConsumerStatefulWidget {
 class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObserver {
   static const _heartbeatInterval = Duration(seconds: 60);
 
-  late final SocialRepository _repo;
+  /// נקרא מחדש בכל שימוש: ה-repository מתחלף עם החשבון (ראו
+  /// socialRepositoryProvider), ונוכחות/כרטיס ציבורי צריכים להיכתב לחשבון הנוכחי.
+  SocialRepository get _repo => ref.read(socialRepositoryProvider);
+  late final bool _available;
   Timer? _heartbeat;
   Timer? _publishDebounce;
   bool _foreground = true;
@@ -62,8 +65,8 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
   @override
   void initState() {
     super.initState();
-    _repo = ref.read(socialRepositoryProvider);
-    if (!_repo.isAvailable) return;
+    _available = _repo.isAvailable;
+    if (!_available) return;
     WidgetsBinding.instance.addObserver(this);
     widget.router.routerDelegate.addListener(_onRouteChanged);
     _onRouteChanged();
@@ -76,7 +79,7 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
 
   @override
   void dispose() {
-    if (_repo.isAvailable) {
+    if (_available) {
       WidgetsBinding.instance.removeObserver(this);
       widget.router.routerDelegate.removeListener(_onRouteChanged);
     }
@@ -105,8 +108,7 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
     if (!isGameplayLocation(_location)) _drainInvites();
   }
 
-  PresenceStatus get _currentStatus =>
-      isGameplayLocation(_location) ? PresenceStatus.playing : PresenceStatus.online;
+  PresenceStatus get _currentStatus => isGameplayLocation(_location) ? PresenceStatus.playing : PresenceStatus.online;
 
   void _beat({bool force = false}) {
     if (!_foreground) return;
@@ -123,16 +125,18 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
       if (profile == null) return;
       final auth = ref.read(authStateProvider).valueOrNull;
       _repo
-          .publishMyProfile(MyPublicInfo(
-            displayName: profile.displayName,
-            avatarId: profile.avatarId,
-            photoUrl: auth?.photoUrl,
-            totalStars: profile.totalStars,
-            highestLevel: profile.highestUnlockedLevel,
-            dailyDate: profile.dailyChallengeDate,
-            dailyScore: profile.dailyChallengeScore,
-            dailyStreak: profile.dailyChallengeStreak,
-          ))
+          .publishMyProfile(
+            MyPublicInfo(
+              displayName: profile.displayName,
+              avatarId: profile.avatarId,
+              photoUrl: auth?.photoUrl,
+              totalStars: profile.totalStars,
+              highestLevel: profile.highestUnlockedLevel,
+              dailyDate: profile.dailyChallengeDate,
+              dailyScore: profile.dailyChallengeScore,
+              dailyStreak: profile.dailyChallengeStreak,
+            ),
+          )
           .catchError((_) {});
     });
   }
@@ -200,7 +204,9 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
         NotificationService.instance.showSocial(
           id: 3000,
           title: '💌 בקשת חברות חדשה',
-          body: fresh.length == 1 ? '${fresh.first.fromName} רוצה להיות חבר/ה שלכם' : 'יש ${fresh.length} בקשות חברות חדשות',
+          body: fresh.length == 1
+              ? '${fresh.first.fromName} רוצה להיות חבר/ה שלכם'
+              : 'יש ${fresh.length} בקשות חברות חדשות',
           route: '/friends?tab=1',
         );
       }
@@ -227,9 +233,14 @@ class _SocialHostState extends ConsumerState<SocialHost> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
-    if (_repo.isAvailable) {
+    if (_available) {
       ref.listen(playerProfileProvider, (_, _) => _schedulePublish());
-      ref.listen(authStateProvider, (_, _) => _schedulePublish());
+      // חשבון חדש: מיד מסמנים אותו מחובר/ת ומפרסמים את הכרטיס שלו.
+      // (אחרי התנתקות אין חשבון - לא יוצרים אורח רק בשביל הנוכחות.)
+      ref.listen(authStateProvider, (_, next) {
+        _schedulePublish();
+        if (next.valueOrNull != null) _beat(force: true);
+      });
       ref.listen<AsyncValue<List<GameInvite>>>(incomingInvitesProvider, (_, next) {
         final invites = next.valueOrNull;
         if (invites != null) _onInvites(invites);

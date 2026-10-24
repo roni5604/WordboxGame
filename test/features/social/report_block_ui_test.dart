@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wordbox_hebrew/core/audio/sound_service.dart';
+import 'package:wordbox_hebrew/data/models/auth_user.dart';
 import 'package:wordbox_hebrew/data/models/player_profile.dart';
 import 'package:wordbox_hebrew/data/repositories/progress_repository.dart';
 import 'package:wordbox_hebrew/features/social/friends_screen.dart';
@@ -25,21 +26,28 @@ class _Progress implements ProgressRepository {
 }
 
 FakeSocialRepository _repo() => FakeSocialRepository(
-      myUid: 'me',
-      friends: [
-        FriendEntry(
-          profile: PublicProfile(uid: 'eve', displayName: 'איב', status: PresenceStatus.online, lastActive: DateTime.now()),
-          record: const FriendRecord(uid: 'eve'),
-        ),
-      ],
-      incoming: const [FriendRequest(id: 'x_me', fromUid: 'x', toUid: 'me', fromName: 'זר/ה')],
-    );
+  myUid: 'me',
+  friends: [
+    FriendEntry(
+      profile: PublicProfile(uid: 'eve', displayName: 'איב', status: PresenceStatus.online, lastActive: DateTime.now()),
+      record: const FriendRecord(uid: 'eve'),
+    ),
+  ],
+  incoming: const [FriendRequest(id: 'x_me', fromUid: 'x', toUid: 'me', fromName: 'זר/ה')],
+);
 
 Future<void> _pump(WidgetTester tester, FakeSocialRepository repo, {int tab = 0}) async {
   tester.view.physicalSize = const Size(2100, 2556);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
-  final router = GoRouter(routes: [GoRoute(path: '/', builder: (_, _) => FriendsScreen(initialTab: tab))]);
+  final router = GoRouter(
+    routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, _) => FriendsScreen(initialTab: tab),
+      ),
+    ],
+  );
   addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
@@ -47,7 +55,9 @@ Future<void> _pump(WidgetTester tester, FakeSocialRepository repo, {int tab = 0}
         progressRepositoryProvider.overrideWithValue(_Progress()),
         socialRepositoryProvider.overrideWithValue(repo),
         soundServiceProvider.overrideWithValue(SoundService.silent()),
-        authStateProvider.overrideWith((ref) => Stream.value(null)),
+        authStateProvider.overrideWith(
+          (ref) => Stream.value(const AuthUser(uid: 'me', isAnonymous: true, provider: AuthProviderType.guest)),
+        ),
       ],
       child: MaterialApp.router(
         routerConfig: router,

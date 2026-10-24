@@ -7,30 +7,45 @@ import '../features/social/models/social_models.dart';
 import '../features/social/services/firestore_social_repository.dart';
 import '../features/social/services/social_repository.dart';
 import '../data/services/firebase_bootstrap.dart';
+import 'auth_provider.dart';
 
 bool _firebaseReady() => isFirebaseBackendReady();
 
 /// ה-repository החברתי הפעיל - Firestore אמיתי כש-Firebase אותחל בהצלחה,
 /// אחרת מימוש אופליין (בלי קריסות, עם הודעה ידידותית).
+///
+/// קשור ל-uid המחובר, כמו progressRepositoryProvider: כל החלפת חשבון
+/// (התחברות עם Apple אחרי אורח, התנתקות, מחיקת חשבון) יוצרת repository חדש,
+/// ואיתו נפתחים מחדש כל הזרמים (חברים, בקשות, הזמנות) וקוד החבר. בלי זה
+/// הם נשארו על החשבון הקודם - והחבר/ה שנוסף/ה לחשבון החדש לא הופיע/ה.
 final socialRepositoryProvider = Provider<SocialRepository>((ref) {
+  ref.watch(authStateProvider.select((s) => s.valueOrNull?.uid));
   if (_firebaseReady()) return FirestoreSocialRepository();
   return OfflineSocialRepository();
 });
 
+/// אין חשבון בכלל (למשל רגע אחרי התנתקות או מחיקה): לא פותחים זרמים -
+/// פתיחה הייתה יוצרת חשבון אורח חדש עוד לפני שבחרו איך להיכנס.
+bool _signedOut(Ref ref) => ref.watch(authStateProvider.select((s) => s.hasValue && s.value == null));
+
 /// רשימת החברים שלי בזמן אמת (כולל נוכחות ומאזן ראש בראש).
 final friendsProvider = StreamProvider<List<FriendEntry>>((ref) {
+  if (_signedOut(ref)) return Stream.value(const []);
   return ref.watch(socialRepositoryProvider).watchFriends();
 });
 
 final incomingFriendRequestsProvider = StreamProvider<List<FriendRequest>>((ref) {
+  if (_signedOut(ref)) return Stream.value(const []);
   return ref.watch(socialRepositoryProvider).watchIncomingRequests();
 });
 
 final outgoingFriendRequestsProvider = StreamProvider<List<FriendRequest>>((ref) {
+  if (_signedOut(ref)) return Stream.value(const []);
   return ref.watch(socialRepositoryProvider).watchOutgoingRequests();
 });
 
 final incomingInvitesProvider = StreamProvider<List<GameInvite>>((ref) {
+  if (_signedOut(ref)) return Stream.value(const []);
   return ref.watch(socialRepositoryProvider).watchIncomingInvites();
 });
 
