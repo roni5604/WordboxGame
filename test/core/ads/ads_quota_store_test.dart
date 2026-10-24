@@ -78,4 +78,17 @@ void main() {
     }
     expect(quota.adHintsRemaining, 0);
   });
+
+  test('סימון רוכש/ת נשמר גם אחרי טעינה מחדש', () async {
+    final quota = store();
+    await quota.load();
+    expect(quota.isPayer, isFalse);
+    await quota.markPayer();
+    expect(quota.isPayer, isTrue);
+
+    await Hive.box(AdsQuotaStore.boxName).close();
+    final reloaded = store();
+    await reloaded.load();
+    expect(reloaded.isPayer, isTrue);
+  });
 }

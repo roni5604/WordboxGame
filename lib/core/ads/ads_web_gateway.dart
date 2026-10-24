@@ -216,6 +216,7 @@ class AdsWebGateway extends AdsGateway {
       now: DateTime.now(),
       canRequestAds: _canRequestAds,
       adLoaded: _canRequestAds,
+      isPayer: _quota.isPayer,
     );
     if (!allowed) return false;
 
@@ -330,6 +331,12 @@ class AdsWebGateway extends AdsGateway {
     await _quota.load();
     await _quota.recordDailyBonusAd();
     notifyListeners();
+  }
+
+  @override
+  Future<void> recordPurchase() async {
+    await _quota.load();
+    await _quota.markPayer();
   }
 
   @override

@@ -26,6 +26,8 @@ class FakeAdsGateway extends AdsGateway {
   final Widget native;
 
   int showRewardedCount = 0;
+  int purchasesRecorded = 0;
+  bool showingFullScreen = false;
   final List<int> interstitialLevels = [];
   final List<int> recordedLevels = [];
 
@@ -89,6 +91,14 @@ class FakeAdsGateway extends AdsGateway {
   Future<void> recordDailyBonusAdGranted() async {
     dailyBonusAvailable = false;
     notifyListeners();
+  }
+
+  @override
+  bool get isShowingFullScreen => showingFullScreen;
+
+  @override
+  Future<void> recordPurchase() async {
+    purchasesRecorded++;
   }
 
   @override

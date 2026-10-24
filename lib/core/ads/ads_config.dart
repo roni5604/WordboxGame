@@ -27,10 +27,28 @@ class AdsConfig {
   );
   static const String nativeIos = String.fromEnvironment('ADMOB_NATIVE_IOS');
 
-  /// בקשת אישור מעקב (ATT) ב-iOS. כבויה כברירת מחדל: בלי NSUserTrackingUsageDescription
-  /// ב-Info.plist ובלי הצהרת Tracking ב-App Privacy, Apple דוחה כל בקשה כזו. כדי להפעיל:
-  /// להחזיר את המפתח ל-Info.plist, לעדכן את App Privacy ולבנות עם ATT_ENABLED=true.
+  /// בקשת אישור מעקב (ATT) ב-iOS, מופעלת בבילד החנות (ATT_ENABLED=true ב-
+  /// config/release.json). NSUserTrackingUsageDescription נמצא ב-Info.plist, והודעת
+  /// ההסבר (IDFA explainer) של AdMob מוצגת לפני הדיאלוג של Apple. לפני העלאת
+  /// בילד כזה חובה לסמן ב-App Privacy ש-Device ID ונתוני פרסום משמשים ל-Tracking.
   static const bool trackingPrompt = bool.fromEnvironment('ATT_ENABLED');
+
+  /// מכשירי בדיקה (מופרדים בפסיק): מקבלים מודעות בדיקה גם עם המזהים
+  /// האמיתיים, כדי שבדיקות על האייפון של המפתח לא ייחשבו כתנועה לא תקינה.
+  /// את המזהה של מכשיר מוצאים בלוג של Xcode בהפעלה הראשונה:
+  /// "To get test ads on this device, set: ... testDeviceIdentifiers = @[ @"..." ]".
+  /// סימולטורים הם תמיד מכשירי בדיקה.
+  static const String _testDeviceIdsRaw = String.fromEnvironment(
+    'ADMOB_TEST_DEVICE_IDS',
+  );
+
+  static List<String> get testDeviceIds => parseDeviceIds(_testDeviceIdsRaw);
+
+  static List<String> parseDeviceIds(String raw) => raw
+      .split(',')
+      .map((id) => id.trim())
+      .where((id) => id.isNotEmpty)
+      .toList(growable: false);
 
   /// מזהה מפרסם AdSense לאתר (`ca-pub-...`). בלי המזהה האתר מציג
   /// את מודעת הדוגמה של Google. עם המזהה, בבילד release, רצות פרסומות אמיתיות.

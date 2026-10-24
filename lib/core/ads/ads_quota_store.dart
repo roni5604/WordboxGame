@@ -23,6 +23,10 @@ class AdsQuotaStore {
   String? _dailyBonusAdDate;
   int _levelsSinceInterstitial = 0;
   int? _lastFullScreenAtMs;
+  bool _isPayer = false;
+
+  /// רכש/ה פעם בכסף אמיתי במכשיר הזה (ראו AdsPolicy.shouldShowInterstitial).
+  bool get isPayer => _isPayer;
 
   String get todayKey {
     final now = _clock();
@@ -58,6 +62,7 @@ class AdsQuotaStore {
       _levelsSinceInterstitial =
           box.get('levels_since_interstitial', defaultValue: 0) as int;
       _lastFullScreenAtMs = box.get('last_fullscreen_at_ms') as int?;
+      _isPayer = box.get('is_payer', defaultValue: false) as bool;
     } catch (e) {
       debugPrint('Ads quota load skipped: $e');
     }
@@ -113,6 +118,12 @@ class AdsQuotaStore {
   Future<void> markFullScreenShown(DateTime when) async {
     _lastFullScreenAtMs = when.millisecondsSinceEpoch;
     await _persist({'last_fullscreen_at_ms': _lastFullScreenAtMs});
+  }
+
+  Future<void> markPayer() async {
+    if (_isPayer) return;
+    _isPayer = true;
+    await _persist({'is_payer': true});
   }
 
   int _remaining(String? storedDate, int used, int max) {
