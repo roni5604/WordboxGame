@@ -62,6 +62,7 @@ class WorldScenePainter extends CustomPainter {
     final uFar = _p.camera + farDepth;
     _paintGround(canvas, uNear, uFar, night, sky.last);
     _paintRoad(canvas, uNear);
+    _paintLadderPad(canvas, uNear);
     _paintPawTrail(canvas, uNear);
     _paintNodeShadows(canvas, uNear);
     for (final river in layout.rivers) {
@@ -280,7 +281,7 @@ class WorldScenePainter extends CustomPainter {
 
   void _paintRoad(Canvas canvas, double uNear) {
     final start = math.max(uNear, layout.firstU - 520);
-    final end = math.min(_p.camera + farDepth, layout.lastU + 420);
+    final end = math.min(_p.camera + farDepth, layout.skyLadderU);
     if (end <= start) return;
     const hw = CampaignMapLayout.roadHalfWidth;
 
@@ -311,6 +312,46 @@ class WorldScenePainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round;
       canvas.drawPath(Path()..addPolygon(left, false), edge);
       canvas.drawPath(Path()..addPolygon(right, false), edge);
+    }
+  }
+
+  /// רחבה זוהרת בסוף השביל, בבסיס הסולם לשמיים: עיגולי אור שפועמים
+  /// כמו פורטל, כדי שהעין תימשך לשם.
+  void _paintLadderPad(Canvas canvas, double uNear) {
+    final u = layout.skyLadderU;
+    if (u < uNear || u > _p.camera + farDepth) return;
+    final center = _p.point(u, 0);
+    final rx = (_p.x(u, 0.46) - center.dx).abs();
+    if (rx < 2) return;
+    final ry = rx * 0.32;
+    final pulse = 0.5 + 0.5 * math.sin(_t * 2.2);
+    final rect = Rect.fromCenter(center: center, width: rx * 2, height: ry * 2);
+    canvas.drawOval(
+      rect.inflate(rx * 0.5),
+      Paint()
+        ..shader = RadialGradient(colors: [
+          const Color(0xFFFFE27A).withValues(alpha: 0.55 + pulse * 0.2),
+          const Color(0xFFFFE27A).withValues(alpha: 0),
+        ]).createShader(rect.inflate(rx * 0.5)),
+    );
+    canvas.drawOval(rect, Paint()..color = const Color(0xFFFFF4C9));
+    canvas.drawOval(
+      rect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(1.5, rx * 0.05)
+        ..color = const Color(0xFFFFC93C),
+    );
+    // טבעות אור שמתרחבות מהמרכז.
+    for (var i = 0; i < 3; i++) {
+      final k = ((_t * 0.45 + i / 3) % 1.0);
+      canvas.drawOval(
+        Rect.fromCenter(center: center, width: rx * 2 * k, height: ry * 2 * k),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(1, rx * 0.03)
+          ..color = const Color(0xFFFFB300).withValues(alpha: (1 - k) * 0.8),
+      );
     }
   }
 
