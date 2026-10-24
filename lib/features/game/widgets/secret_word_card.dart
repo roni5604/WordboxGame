@@ -77,6 +77,8 @@ class _SecretWordCardState extends State<SecretWordCard> with SingleTickerProvid
         ],
       ),
     );
+    // מילה ארוכה (עד 9+ אותיות בלוח 6×6) מתכווצת כדי להיכנס לרוחב המסך.
+    final fitted = FittedBox(fit: BoxFit.scaleDown, child: card);
     return IgnorePointer(
       child: AnimatedBuilder(
         animation: _float,
@@ -93,7 +95,7 @@ class _SecretWordCardState extends State<SecretWordCard> with SingleTickerProvid
             ),
           );
         },
-        child: card,
+        child: fitted,
       ),
     );
   }

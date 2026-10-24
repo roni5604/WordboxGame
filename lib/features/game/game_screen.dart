@@ -970,7 +970,7 @@ class _GameScreenState extends ConsumerState<GameScreen> with WidgetsBindingObse
                                   child: _secretWord == null
                                       ? const SizedBox(width: double.infinity)
                                       : Padding(
-                                          padding: const EdgeInsets.only(top: 4),
+                                          padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
                                           child: SecretWordCard(
                                             key: ValueKey(_secretWord!.normalizedWord),
                                             displayWord: _secretWord!.displayWord,
