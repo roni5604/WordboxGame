@@ -19,8 +19,7 @@ import 'fake_multiplayer_repository.dart';
 
 class _FakeProgressRepository implements ProgressRepository {
   @override
-  Future<PlayerProfile> loadProfile() async =>
-      const PlayerProfile(displayName: 'דנה', coins: 40);
+  Future<PlayerProfile> loadProfile() async => const PlayerProfile(displayName: 'דנה', coins: 40);
 
   @override
   Future<void> saveProfile(PlayerProfile profile) async {}
@@ -86,14 +85,8 @@ void main() {
           builder: (context, state) =>
               OnlineRaceResultScreen(roomCode: state.pathParameters['roomCode']!, result: result),
         ),
-        GoRoute(
-          path: '/multiplayer/online/room/:roomCode',
-          builder: (context, state) => const SizedBox(),
-        ),
-        GoRoute(
-          path: '/multiplayer/online/race/:roomCode',
-          builder: (context, state) => const SizedBox(),
-        ),
+        GoRoute(path: '/multiplayer/online/room/:roomCode', builder: (context, state) => const SizedBox()),
+        GoRoute(path: '/multiplayer/online/race/:roomCode', builder: (context, state) => const SizedBox()),
         GoRoute(path: '/home', builder: (context, state) => const SizedBox()),
       ],
     );
@@ -132,10 +125,14 @@ void main() {
     final fakeRepo = FakeMultiplayerRepository();
     await pumpResultScreen(tester, fakeRepo: fakeRepo, myUid: 'host-uid');
 
-    fakeRepo.pushRoomUpdate(_finishedRoom(players: [
-      const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
-      const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
-    ]));
+    fakeRepo.pushRoomUpdate(
+      _finishedRoom(
+        players: [
+          const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
+          const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
+        ],
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -153,14 +150,16 @@ void main() {
     final fakeRepo = FakeMultiplayerRepository();
     await pumpResultScreen(tester, fakeRepo: fakeRepo, myUid: 'host-uid');
 
-    fakeRepo.pushRoomUpdate(_finishedRoom(
-      totalRounds: 3,
-      currentRound: 1,
-      players: [
-        const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
-        const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
-      ],
-    ));
+    fakeRepo.pushRoomUpdate(
+      _finishedRoom(
+        totalRounds: 3,
+        currentRound: 1,
+        players: [
+          const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
+          const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
+        ],
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -183,14 +182,16 @@ void main() {
     final fakeRepo = FakeMultiplayerRepository();
     await pumpResultScreen(tester, fakeRepo: fakeRepo, myUid: 'guest-uid');
 
-    fakeRepo.pushRoomUpdate(_finishedRoom(
-      totalRounds: 3,
-      currentRound: 1,
-      players: [
-        const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
-        const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
-      ],
-    ));
+    fakeRepo.pushRoomUpdate(
+      _finishedRoom(
+        totalRounds: 3,
+        currentRound: 1,
+        players: [
+          const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
+          const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
+        ],
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -207,13 +208,15 @@ void main() {
     final fakeRepo = FakeMultiplayerRepository();
     await pumpResultScreen(tester, fakeRepo: fakeRepo, myUid: 'host-uid');
 
-    fakeRepo.pushRoomUpdate(_finishedRoom(
-      players: [
-        const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
-        const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
-      ],
-      wins: {'host-uid': 1, 'guest-uid': 2},
-    ));
+    fakeRepo.pushRoomUpdate(
+      _finishedRoom(
+        players: [
+          const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
+          const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
+        ],
+        wins: {'host-uid': 1, 'guest-uid': 2},
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -229,15 +232,17 @@ void main() {
     final fakeRepo = FakeMultiplayerRepository();
     await pumpResultScreen(tester, fakeRepo: fakeRepo, myUid: 'host-uid');
 
-    fakeRepo.pushRoomUpdate(_finishedRoom(
-      totalRounds: 3,
-      currentRound: 3,
-      wins: {'host-uid': 2, 'guest-uid': 1},
-      players: [
-        const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
-        const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
-      ],
-    ));
+    fakeRepo.pushRoomUpdate(
+      _finishedRoom(
+        totalRounds: 3,
+        currentRound: 3,
+        wins: {'host-uid': 2, 'guest-uid': 1},
+        players: [
+          const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
+          const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
+        ],
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -255,32 +260,105 @@ void main() {
     final fakeRepo = FakeMultiplayerRepository();
     final router = await pumpResultScreen(tester, fakeRepo: fakeRepo, myUid: 'guest-uid');
 
-    final finishedRoom = _finishedRoom(players: [
-      const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
-      const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
-    ]);
+    final finishedRoom = _finishedRoom(
+      players: [
+        const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
+        const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
+      ],
+    );
     fakeRepo.pushRoomUpdate(finishedRoom);
     await tester.pump();
 
-    fakeRepo.pushRoomUpdate(GameRoom(
-      roomCode: '12345',
-      status: RoomStatus.waiting,
-      hostUid: 'host-uid',
-      gridSize: 5,
-      boardSeed: 99,
-      roundSeconds: 90,
-      targetScore: 0,
-      maxPlayers: 8,
-      players: finishedRoom.players,
-    ));
+    fakeRepo.pushRoomUpdate(
+      GameRoom(
+        roomCode: '12345',
+        status: RoomStatus.waiting,
+        hostUid: 'host-uid',
+        gridSize: 5,
+        boardSeed: 99,
+        roundSeconds: 90,
+        targetScore: 0,
+        maxPlayers: 8,
+        players: finishedRoom.players,
+      ),
+    );
     await tester.pump();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(
-      router.routerDelegate.currentConfiguration.uri.toString(),
-      '/multiplayer/online/room/12345',
+    expect(router.routerDelegate.currentConfiguration.uri.toString(), '/multiplayer/online/room/12345');
+  });
+
+  testWidgets('עדכון ישן של הסבב שנגמר (עוד inProgress) לא מחזיר למשחק ולא מחלק קופה', (tester) async {
+    // באג אמיתי מבדיקה חיה: finishRoom רץ בטרנזקציה, אז העדכון הראשון במסך
+    // התוצאות הראה את הסבב שזה עתה נגמר כ-inProgress - והמסך "חזר" למשחק
+    // חדש וריק (ניקוד 0) והציג תוצאה שגויה.
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    addTearDown(() => tester.pumpWidget(const SizedBox()));
+
+    final fakeRepo = FakeMultiplayerRepository();
+    const result = RaceResult(
+      rankedParticipants: [
+        RaceParticipantResult(name: 'מנהל', score: 40, wordsFound: 6, isHuman: true),
+        RaceParticipantResult(name: 'עומר', score: 30, wordsFound: 5, isHuman: false),
+      ],
+      round: 1,
     );
+    final router = await pumpResultScreen(tester, fakeRepo: fakeRepo, myUid: 'host-uid', result: result);
+    final players = [
+      const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
+      const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
+    ];
+    final stale = GameRoom(
+      roomCode: '12345',
+      status: RoomStatus.inProgress,
+      hostUid: 'host-uid',
+      gridSize: 5,
+      boardSeed: 42,
+      roundSeconds: 90,
+      targetScore: 0,
+      maxPlayers: 8,
+      entryFee: 50,
+      pot: 100,
+      players: players,
+    );
+    fakeRepo.pushRoomUpdate(stale);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(router.routerDelegate.currentConfiguration.uri.toString(), '/multiplayer/online/room/12345/result');
+    expect(find.textContaining('מקבל/ת 100'), findsNothing, reason: 'הקופה מחולקת רק אחרי סיום מאושר');
+
+    // השרת מאשר את הסיום -> הקופה לזוכה (אני), עדיין במסך התוצאות.
+    fakeRepo.pushRoomUpdate(_finishedRoom(players: players, pot: 100, entryFee: 50));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('הזוכה מקבל/ת 100 מטבעות!'), findsOneWidget);
+    expect(find.text('40 נק׳'), findsWidgets);
+
+    // סבב חדש באמת (currentRound עלה) -> כן עוברים למשחק.
+    fakeRepo.pushRoomUpdate(
+      GameRoom(
+        roomCode: '12345',
+        status: RoomStatus.inProgress,
+        hostUid: 'host-uid',
+        gridSize: 5,
+        boardSeed: 43,
+        roundSeconds: 90,
+        targetScore: 0,
+        maxPlayers: 8,
+        totalRounds: 3,
+        currentRound: 2,
+        players: players,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(router.routerDelegate.currentConfiguration.uri.toString(), '/multiplayer/online/race/12345');
   });
 
   testWidgets('תוצאת הסבב נרשמת פעם אחת למאזן מול חברים', (tester) async {
@@ -293,10 +371,12 @@ void main() {
     final social = FakeSocialRepository(myUid: 'host-uid');
     await pumpResultScreen(tester, fakeRepo: fakeRepo, myUid: 'host-uid', social: social);
 
-    final room = _finishedRoom(players: [
-      const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
-      const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
-    ]);
+    final room = _finishedRoom(
+      players: [
+        const PlayerInRoom(uid: 'host-uid', displayName: 'מנהל', isHost: true, score: 40, wordsFound: 6),
+        const PlayerInRoom(uid: 'guest-uid', displayName: 'עומר', score: 30, wordsFound: 5),
+      ],
+    );
     fakeRepo.pushRoomUpdate(room);
     await tester.pump();
     fakeRepo.pushRoomUpdate(room);

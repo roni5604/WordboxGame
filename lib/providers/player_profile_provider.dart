@@ -36,11 +36,13 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   Future<void> _load() async {
     try {
       final profile = await _repository.loadProfile();
+      // החלפת משתמש (אורח -> חשבון) בונה notifier חדש; הישן לא נוגע ב-state.
+      if (!mounted) return;
       state = AsyncValue.data(profile);
     } catch (e, st) {
       // נרשם ללוג (גם בבילד release) כדי שאפשר יהיה לאבחן תקלות טעינה.
       debugPrint('Player profile load failed: $e');
-      state = AsyncValue.error(e, st);
+      if (mounted) state = AsyncValue.error(e, st);
     }
   }
 
@@ -53,6 +55,7 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
 
   Future<void> _mutate(PlayerProfile Function(PlayerProfile current) mutator) async {
     await _initialLoad;
+    if (!mounted) return;
     final current = state.valueOrNull;
     if (current == null) return;
     final updated = mutator(current);
@@ -89,19 +92,17 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
         bestScore: score > existing.bestScore ? score : existing.bestScore,
         completed: existing.completed || passed,
       );
-      final newLevelMap = Map<int, LevelProgress>.from(current.levelProgress)
-        ..[levelNumber] = updatedProgress;
+      final newLevelMap = Map<int, LevelProgress>.from(current.levelProgress)..[levelNumber] = updatedProgress;
 
       final newHighestUnlocked = passed && levelNumber + 1 > current.highestUnlockedLevel
           ? levelNumber + 1
           : current.highestUnlockedLevel;
 
       final hasDoubleCoinsBuff = passed && current.doubleCoinsLevelsRemaining > 0;
-      actualCoinsEarned = passed
-          ? (hasDoubleCoinsBuff ? coinsEarned * 2 : coinsEarned)
-          : 0;
-      final newBuffRemaining =
-          hasDoubleCoinsBuff ? current.doubleCoinsLevelsRemaining - 1 : current.doubleCoinsLevelsRemaining;
+      actualCoinsEarned = passed ? (hasDoubleCoinsBuff ? coinsEarned * 2 : coinsEarned) : 0;
+      final newBuffRemaining = hasDoubleCoinsBuff
+          ? current.doubleCoinsLevelsRemaining - 1
+          : current.doubleCoinsLevelsRemaining;
 
       return current.copyWith(
         levelProgress: newLevelMap,
@@ -120,17 +121,12 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
     if (current == null || cost < 0 || current.coins < cost) return false;
     await _mutate((c) {
       final existing = c.progressFor(levelNumber);
-      final updated = existing.copyWith(
-        stars: existing.stars < 1 ? 1 : existing.stars,
-        completed: true,
-      );
-      final newLevelMap = Map<int, LevelProgress>.from(c.levelProgress)
-        ..[levelNumber] = updated;
+      final updated = existing.copyWith(stars: existing.stars < 1 ? 1 : existing.stars, completed: true);
+      final newLevelMap = Map<int, LevelProgress>.from(c.levelProgress)..[levelNumber] = updated;
       final next = levelNumber + 1;
       return c.copyWith(
         levelProgress: newLevelMap,
-        highestUnlockedLevel:
-            next > c.highestUnlockedLevel ? next : c.highestUnlockedLevel,
+        highestUnlockedLevel: next > c.highestUnlockedLevel ? next : c.highestUnlockedLevel,
         coins: c.coins - cost,
       );
     });
@@ -140,16 +136,16 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   /// מזכה פרס מ"תיבת מזל" (ראו lib/game_engine/rewards/reward_tables.dart) -
   /// מטבעות, ולעיתים גם רמז/ים.
   Future<void> grantLuckyBoxReward(LuckyBoxReward reward) => _mutate(
-        (c) => c.copyWith(
-          coins: c.coins + reward.coins,
-          hints: c.hints + reward.hints,
-          doubleCoinsLevelsRemaining: c.doubleCoinsLevelsRemaining + reward.doubleCoinsLevels,
-          // רשת הביטחון סופרת רק תיבות מזל (לא כוכבי מזל).
-          dropsSinceEpic: reward.kind != DropKind.luckyBox
-              ? c.dropsSinceEpic
-              : (reward.rarity.index >= Rarity.epic.index ? 0 : c.dropsSinceEpic + 1),
-        ),
-      );
+    (c) => c.copyWith(
+      coins: c.coins + reward.coins,
+      hints: c.hints + reward.hints,
+      doubleCoinsLevelsRemaining: c.doubleCoinsLevelsRemaining + reward.doubleCoinsLevels,
+      // רשת הביטחון סופרת רק תיבות מזל (לא כוכבי מזל).
+      dropsSinceEpic: reward.kind != DropKind.luckyBox
+          ? c.dropsSinceEpic
+          : (reward.rarity.index >= Rarity.epic.index ? 0 : c.dropsSinceEpic + 1),
+    ),
+  );
 
   /// מגריל תיבת מזל / כוכב מזל (כולל "רשת הביטחון" של הפרופיל) ומזכה אותה.
   Future<LuckyBoxReward> openLuckyDrop({
@@ -171,34 +167,28 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   /// מזכה פרס מגלגל המזל - מטבעות ו/או רמזים ו/או בונוס "מטבעות כפולות"
   /// לכמה שלבים הבאים (מצטבר עם בונוס קיים, אם יש).
   Future<void> grantWheelPrize(FortuneWheelPrize prize) => _mutate(
-        (c) => c.copyWith(
-          coins: c.coins + prize.coins,
-          hints: c.hints + prize.hints,
-          doubleCoinsLevelsRemaining:
-              c.doubleCoinsLevelsRemaining + prize.doubleCoinsLevels,
-        ),
-      );
+    (c) => c.copyWith(
+      coins: c.coins + prize.coins,
+      hints: c.hints + prize.hints,
+      doubleCoinsLevelsRemaining: c.doubleCoinsLevelsRemaining + prize.doubleCoinsLevels,
+    ),
+  );
 
   Future<void> setSoundOn(bool value) => _mutate((c) => c.copyWith(soundOn: value));
   Future<void> setHapticsOn(bool value) => _mutate((c) => c.copyWith(hapticsOn: value));
   Future<void> setMusicOn(bool value) => _mutate((c) => c.copyWith(musicOn: value));
-  Future<void> setOnboardingCompleted() =>
-      _mutate((c) => c.copyWith(onboardingCompleted: true));
+  Future<void> setOnboardingCompleted() => _mutate((c) => c.copyWith(onboardingCompleted: true));
   Future<void> setDisplayName(String name) =>
       _mutate((c) => c.copyWith(displayName: InputRules.sanitizeDisplayName(name)));
-  Future<void> setAvatarId(String avatarId) =>
-      _mutate((c) => c.copyWith(avatarId: avatarId));
-  Future<void> setAuthIntroShown() =>
-      _mutate((c) => c.copyWith(authIntroShown: true));
+  Future<void> setAvatarId(String avatarId) => _mutate((c) => c.copyWith(avatarId: avatarId));
+  Future<void> setAuthIntroShown() => _mutate((c) => c.copyWith(authIntroShown: true));
 
   /// מסמן שההדרכה המוטבעת של שלב 1 הוצגה, כדי שלא תוצג שוב במשחקים חוזרים.
-  Future<void> setLevel1TutorialSeen() =>
-      _mutate((c) => c.copyWith(level1TutorialSeen: true));
+  Future<void> setLevel1TutorialSeen() => _mutate((c) => c.copyWith(level1TutorialSeen: true));
 
   /// מזכה מספר רמזי מתנה (למשל בונוס אבן-דרך) - בלי לגרוע ממטבעות, בשונה
   /// מ-[buyHints] שנועד לקנייה בחנות.
-  Future<void> grantHints(int amount) =>
-      _mutate((c) => c.copyWith(hints: c.hints + amount));
+  Future<void> grantHints(int amount) => _mutate((c) => c.copyWith(hints: c.hints + amount));
 
   /// מסנכרן את שם התצוגה מספק ההתחברות (Google/Apple/מייל) לתוך
   /// הפרופיל המקומי - נקרא אוטומטית מיד אחרי כל התחברות מוצלחת לחשבון
@@ -279,12 +269,14 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
       today: today,
     );
     final reward = DailyBonusTable.rewardFor(nextDay);
-    await _mutate((c) => c.copyWith(
-          hints: c.hints + reward.hints,
-          coins: c.coins + reward.coins,
-          hintStreakDay: nextDay,
-          lastHintClaimDate: todayKey,
-        ));
+    await _mutate(
+      (c) => c.copyWith(
+        hints: c.hints + reward.hints,
+        coins: c.coins + reward.coins,
+        hintStreakDay: nextDay,
+        lastHintClaimDate: todayKey,
+      ),
+    );
 
     return DailyHintReward(day: nextDay, hintsAwarded: reward.hints, coinsAwarded: reward.coins);
   }
@@ -299,10 +291,7 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
     if (current.isChapterOpen(chapter)) return 0;
     final cost = CampaignChapters.unlockCost(chapter: chapter, missingStars: current.missingStarsFor(chapter));
     if (current.coins < cost) return null;
-    await _mutate((c) => c.copyWith(
-          coins: c.coins - cost,
-          unlockedChapters: [...c.unlockedChapters, chapter],
-        ));
+    await _mutate((c) => c.copyWith(coins: c.coins - cost, unlockedChapters: [...c.unlockedChapters, chapter]));
     return cost;
   }
 
@@ -317,11 +306,7 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
 
   /// קונה סקין במטבעות ומצייד אותו. אם כבר בבעלות, רק מצייד בלי לחייב.
   /// מחזיר false אם אין מספיק מטבעות.
-  Future<bool> buyOrEquipCosmetic({
-    required CosmeticSlot slot,
-    required String id,
-    required int cost,
-  }) async {
+  Future<bool> buyOrEquipCosmetic({required CosmeticSlot slot, required String id, required int cost}) async {
     final current = state.valueOrNull;
     if (current == null) return false;
     final alreadyOwned = current.ownedFor(slot.name).contains(id);
@@ -373,8 +358,7 @@ class PlayerProfileNotifier extends StateNotifier<AsyncValue<PlayerProfile>> {
   }
 }
 
-final playerProfileProvider =
-    StateNotifierProvider<PlayerProfileNotifier, AsyncValue<PlayerProfile>>((ref) {
+final playerProfileProvider = StateNotifierProvider<PlayerProfileNotifier, AsyncValue<PlayerProfile>>((ref) {
   final repo = ref.watch(progressRepositoryProvider);
   return PlayerProfileNotifier(repo);
 });

@@ -414,7 +414,7 @@ class _OnlineRaceScreenState extends ConsumerState<OnlineRaceScreen> {
     final participants = [for (final entry in ranked) entry.result];
     context.pushReplacement(
       '/multiplayer/online/room/${widget.roomCode}/result',
-      extra: RaceResult(rankedParticipants: participants),
+      extra: RaceResult(rankedParticipants: participants, round: room.currentRound),
     );
   }
 
