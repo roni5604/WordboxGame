@@ -119,13 +119,35 @@ class GameSession {
 
   bool get hasReachedScoreGoal => _score >= config.scoreRequired;
 
-  /// מדגיש אות אחת ממילה שטרם נמצאה, בלי לחשוף את המילה כולה.
-  GridPosition? letterHintPosition({Random? random}) {
-    final word = hintForUnfoundWord(random: random);
-    if (word == null || word.path.isEmpty) return null;
+  /// "גלה מילה": מילה אקראית שעוד לא נמצאה - לפעמים קצרה וקלה, לפעמים
+  /// ארוכה ושווה (הגרלה שמעדיפה מעט מילים של 3-5 אותיות). [except] - מילה
+  /// שכבר מוצגת, כדי לא לחזור עליה.
+  FoundWord? revealWordCandidate({Random? random, String? except}) {
+    final remaining = board.possibleWords
+        .where((w) => !_foundNormalizedWords.contains(w.normalizedWord) && w.normalizedWord != except)
+        .toList();
+    if (remaining.isEmpty) return null;
     final rnd = random ?? Random();
-    return word.path[rnd.nextInt(word.path.length)];
+    double weight(FoundWord w) => switch (w.normalizedWord.length) {
+          2 => 0.6,
+          3 || 4 => 1.4,
+          5 => 1.1,
+          _ => 0.8,
+        };
+    final total = remaining.fold<double>(0, (sum, w) => sum + weight(w));
+    var pick = rnd.nextDouble() * total;
+    for (final w in remaining) {
+      pick -= weight(w);
+      if (pick <= 0) return w;
+    }
+    return remaining.last;
   }
+
+  /// האם [normalizedWord] עדיין אפשרית בלוח הנוכחי (למשל אחרי ערבוב).
+  bool isOnBoard(String normalizedWord) => board.possibleWords.any((w) => w.normalizedWord == normalizedWord);
+
+  /// האם המילה כבר נמצאה.
+  bool isFound(String normalizedWord) => _foundNormalizedWords.contains(normalizedWord);
 
   /// מערבב את מיקום האותיות ומחשב מחדש את המילים האפשריות.
   /// הניקוד והמילים שכבר נמצאו נשמרים.

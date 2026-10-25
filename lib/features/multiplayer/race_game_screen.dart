@@ -10,19 +10,25 @@ import '../../core/cosmetics/cosmetic_catalog.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/ui/candy_button.dart';
 import '../../game_engine/board_generator.dart';
+import '../../game_engine/bot_commentary.dart';
 import '../../game_engine/bot_player.dart';
+import '../../game_engine/dictionary/common_word_pool.dart';
 import '../../game_engine/dictionary/hebrew_trie.dart';
 import '../../game_engine/game_session.dart';
 import '../../game_engine/models/grid_position.dart';
 import '../../game_engine/models/level_config.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/common_word_pool_provider.dart';
+import '../../core/ui/game_dialog.dart';
+import '../profile/avatars/avatar_catalog.dart';
+import 'widgets/bot_speech_bubble.dart';
+import 'widgets/race_words_panel.dart';
 import '../../providers/dictionary_provider.dart';
 import '../../providers/letter_frequency_provider.dart';
 import '../../providers/player_profile_provider.dart';
 import '../../providers/sound_provider.dart';
 import '../../core/audio/music_service.dart';
 import '../game/widgets/current_word_badge.dart';
-import '../game/widgets/found_words_panel.dart';
 import '../game/widgets/grid_board.dart';
 import '../game/widgets/mascot_widget.dart';
 import '../game/widgets/pause_menu.dart';
@@ -71,6 +77,19 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
   final AnalyticsService _analytics = AnalyticsService.instance;
   bool _matchStarted = false;
   bool _matchEnded = false;
+
+  /// הערות הבוטים - מעט, בזמן הנכון (ראו BotCommentary).
+  final BotCommentary _commentary = BotCommentary();
+  BotComment? _comment;
+  int _commentSerial = 0;
+  Timer? _commentTimer;
+  Duration _humanIdle = Duration.zero;
+  int _tickCount = 0;
+
+  /// "הצצה" למילים של היריבים - נקנית פעם אחת לתחרות.
+  bool _spyUnlocked = false;
+
+  Duration get _elapsed => widget.config.timeLimit - _remaining;
 
   int get _playedSeconds =>
       (widget.config.timeLimit - _remaining).inSeconds.clamp(0, widget.config.timeLimit.inSeconds);
@@ -151,8 +170,18 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
     );
 
     final session = GameSession(config: pseudoLevelConfig, board: board, trie: dictionary.trie);
+    // מילים "מוכרות" נמצאות קודם - כמו אצל שחקן/ית אמיתי/ת.
+    CommonWordPool? pool;
+    try {
+      pool = await ref.read(commonWordPoolProvider.future);
+    } catch (_) {}
     final bots = widget.config.bots
-        .map((b) => BotPlayer(name: b.name, difficulty: b.difficulty, board: board))
+        .map((b) => BotPlayer(
+              name: b.name,
+              difficulty: b.difficulty,
+              board: board,
+              isFamiliar: pool?.isCommon,
+            ))
         .toList();
 
     if (!mounted) return;
@@ -179,16 +208,32 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
       if (!mounted) return;
       setState(() {
         _remaining -= tickDuration;
+        _humanIdle += tickDuration;
+        final humanScore = _session?.score ?? 0;
 
         for (final bot in _bots) {
-          final found = bot.tick(tickDuration);
+          final found = bot.tick(tickDuration, humanScore: humanScore);
           if (found != null) {
-            // לא חושפים איזו מילה הבוט מצא (זה היה "רמז" חינם) - רק הכרטיס
-            // שלו בלוח התוצאות פועם עם +N.
+            // בלי "הצצה" לא חושפים איזו מילה הבוט מצא - רק הכרטיס שלו פועם
+            // עם +N. עם הצצה המילה נוחתת בלשונית שלו בלוח המילים.
             final gain = scoreForWord(found.normalizedWord);
             final prev = _gains[bot.name];
             _gains[bot.name] = ((prev?.$1 ?? 0) + 1, gain);
+            _speak(_commentary.onBotWord(_elapsed, bot: bot.name, letters: found.normalizedWord.length));
           }
+        }
+
+        // פעם בשנייה: עקיפות, שקט, 20 שניות אחרונות.
+        if (++_tickCount % 10 == 0) {
+          final stuck = _bots.where((b) => b.isThinkingHard).map((b) => b.name).firstOrNull;
+          _speak(_commentary.onTick(
+            _elapsed,
+            remaining: _remaining,
+            humanScore: humanScore,
+            botScores: {for (final b in _bots) b.name: b.score},
+            humanIdle: _humanIdle,
+            stuckBot: stuck,
+          ));
         }
 
         if (_remaining <= Duration.zero) {
@@ -198,6 +243,51 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
         }
       });
     });
+  }
+
+  void _speak(BotComment? comment) {
+    if (comment == null || !mounted) return;
+    _commentTimer?.cancel();
+    setState(() {
+      _comment = comment;
+      _commentSerial++;
+    });
+    _commentTimer = Timer(BotSpeechBubble.visibleFor, () {
+      if (mounted) setState(() => _comment = null);
+    });
+  }
+
+  /// קניית "הצצה": השעון והבוטים נעצרים בזמן ההחלטה.
+  Future<void> _unlockSpy() async {
+    if (_spyUnlocked || _finished || _countingDown) return;
+    final wasRunning = _ticker != null;
+    _ticker?.cancel();
+    _ticker = null;
+    final coins = ref.read(playerProfileProvider).valueOrNull?.coins ?? 0;
+    final yes = await showConfirmDialog(
+      context,
+      title: 'הצצה ליריבים 👀',
+      message: 'לראות את כל המילים שהיריבים מוצאים בתחרות הזו - בזמן אמת.\nיש לך $coins מטבעות.',
+      confirmLabel: '$kSpyCost מטבעות',
+      cancelLabel: 'לא עכשיו',
+      confirmPalette: CandyPalette.gold,
+      hero: const Icon(Icons.visibility_rounded, size: 56, color: Color(0xFF7B3FF2)),
+    );
+    if (!mounted) return;
+    if (yes) {
+      final ok = await ref.read(playerProfileProvider.notifier).spendCoins(kSpyCost);
+      if (!mounted) return;
+      if (ok) {
+        ref.read(soundServiceProvider).playCoin();
+        _analytics.spendVirtualCurrency(currency: 'coins', value: kSpyCost, itemName: 'race_spy');
+        setState(() => _spyUnlocked = true);
+      } else {
+        ref.read(soundServiceProvider).playError();
+        GameToast.show(context,
+            message: 'אין מספיק מטבעות להצצה', icon: Icons.paid_rounded, color: AppColors.error, duration: const Duration(milliseconds: 1600));
+      }
+    }
+    if (wasRunning && !_finished && !_paused && _remaining > Duration.zero) _startTimer();
   }
 
   void _showBanner(String text, {bool isError = false}) {
@@ -225,6 +315,13 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
       case WordSubmitStatus.accepted:
         ref.read(soundServiceProvider).playSuccess(letters: path.length);
         _showBanner(result.bannerText);
+        _humanIdle = Duration.zero;
+        _speak(_commentary.onHumanWord(
+          _elapsed,
+          letters: path.length,
+          displayWord: result.displayWord ?? '',
+          bots: [for (final b in _bots) b.name],
+        ));
         final prev = _gains['\u0000me'];
         _gains['\u0000me'] = ((prev?.$1 ?? 0) + 1, result.pointsAwarded);
         setState(() {});
@@ -317,6 +414,7 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
           name: bot.name,
           score: bot.score,
           isHuman: false,
+          avatarId: botAvatarId(bot.name),
           gainToken: _gains[bot.name]?.$1 ?? 0,
           lastGain: _gains[bot.name]?.$2 ?? 0,
         ),
@@ -330,6 +428,7 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _bannerTimer?.cancel();
+    _commentTimer?.cancel();
     _music.leaveGame();
     super.dispose();
   }
@@ -418,6 +517,28 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
                               urgent: _remaining.inSeconds < (widget.config.timeLimit.inSeconds * 0.2),
                             ),
                           ),
+                          // הערות היריבים "צפות" מתחת לשעון, מעל הלוח - בלי לדחוף את הפריסה
+                          // ובלי לכסות אותיות (גובה 0, ציור מחוץ לגבולות).
+                          SizedBox(
+                            height: 0,
+                            child: OverflowBox(
+                              alignment: Alignment.topCenter,
+                              maxHeight: 90,
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+                                child: Align(
+                                  alignment: AlignmentDirectional.topStart,
+                                  child: _comment == null
+                                      ? const SizedBox.shrink()
+                                      : BotSpeechBubble(
+                                          key: ValueKey('comment-$_commentSerial'),
+                                          comment: _comment!,
+                                          avatarId: botAvatarId(_comment!.botName),
+                                        ),
+                                ),
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 4),
                           CurrentWordBadge(word: _draggingWord),
                           const SizedBox(height: 4),
@@ -481,8 +602,23 @@ class _RaceGameScreenState extends ConsumerState<RaceGameScreen> with WidgetsBin
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: FoundWordsPanel(
-                              words: session.foundNormalizedWords.map((w) => HebrewTrie.toDisplayWord(w)).toList(),
+                            child: RaceWordsPanel(
+                              mine: RaceWordList(
+                                name: widget.config.humanName,
+                                avatarId: profile?.avatarId ?? 'detective',
+                                words: session.foundNormalizedWords.map((w) => HebrewTrie.toDisplayWord(w)).toList(),
+                                isMe: true,
+                              ),
+                              opponents: [
+                                for (final bot in _bots)
+                                  RaceWordList(
+                                    name: bot.name,
+                                    avatarId: botAvatarId(bot.name),
+                                    words: [for (final w in bot.foundWords) w.displayWord],
+                                  ),
+                              ],
+                              unlocked: _spyUnlocked,
+                              onUnlock: _unlockSpy,
                             ),
                           ),
                           const SizedBox(height: 12),

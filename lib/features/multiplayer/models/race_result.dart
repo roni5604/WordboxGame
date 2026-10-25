@@ -26,11 +26,15 @@ class RaceResult extends Equatable {
   /// יריבים בדיוק. null במשחק מול חברים.
   final RaceConfig? config;
 
-  const RaceResult({required this.rankedParticipants, this.config});
+  /// משחק מול חברים: מספר הסבב שהסתיים (GameRoom.currentRound) - כדי שמסך
+  /// התוצאות יעבור למשחק רק כשמתחיל סבב *חדש*, ולא בגלל עדכון חדר ישן.
+  final int? round;
+
+  const RaceResult({required this.rankedParticipants, this.config, this.round});
 
   int get humanRank => rankedParticipants.indexWhere((p) => p.isHuman) + 1;
   bool get humanWon => humanRank == 1;
 
   @override
-  List<Object?> get props => [rankedParticipants];
+  List<Object?> get props => [rankedParticipants, round];
 }

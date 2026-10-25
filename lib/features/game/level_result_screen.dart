@@ -281,6 +281,8 @@ class _LevelResultScreenState extends ConsumerState<LevelResultScreen> {
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          persist: false,
+          duration: const Duration(milliseconds: 1600),
           content: const Text('אין מספיק מטבעות'),
           action: SnackBarAction(
             label: 'לחנות',

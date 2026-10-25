@@ -181,4 +181,18 @@ void main() {
     expect(find.text('השלב הבא'), findsNothing);
     expect(CampaignLevels.byLevelNumber(1).scoreRequired, 10);
   });
+
+  testWidgets('"אין מספיק מטבעות" נעלם לבד אחרי רגע', (tester) async {
+    await _openMoneyTab(tester, (ref) => _PartialIap(ref, const {}));
+    await tester.tap(find.text('עיצובים'));
+    await tester.pumpAndSettle();
+    // "אוקיינוס" עולה 400 ויש רק 200.
+    await tester.tap(find.text('אוקיינוס'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('אין מספיק מטבעות'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(find.text('אין מספיק מטבעות'), findsNothing);
+  });
 }

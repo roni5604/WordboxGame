@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/security/input_rules.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../game/widgets/mascot_widget.dart';
+import '../avatars/avatar_catalog.dart';
 
 /// כל האוואטארים הזמינים לבחירה בפרופיל, עם תמונת תצוגה מקדימה (thumbnail)
 /// ותווית בעברית. הוספת אוואטאר חדש = הוספת ערך אחד לרשימה הזו.
@@ -30,6 +31,18 @@ const List<AvatarOption> kAvatarOptions = [
 AvatarOption avatarOptionFor(String id) =>
     kAvatarOptions.firstWhere((o) => o.id == id, orElse: () => kAvatarOptions.first);
 
+/// כל מזהי הדמויות לבחירה: שתי הקלאסיות (תמונות) + הדמויות המצוירות.
+bool isKnownAvatarId(String id) => kAvatarOptions.any((o) => o.id == id) || paintedAvatarFor(id) != null;
+
+/// התמונה של דמות (מצוירת או מקובץ), ממלאת את המקום שניתן לה.
+Widget avatarArt(String avatarId, {BoxFit fit = BoxFit.cover}) {
+  final painted = paintedAvatarFor(avatarId);
+  if (painted != null) {
+    return CustomPaint(painter: painted.painter, child: const SizedBox.expand());
+  }
+  return Image.asset(avatarOptionFor(avatarId).assetPath, fit: fit);
+}
+
 /// מציג את האוואטאר הנבחר של השחקן כעיגול עם מסגרת וצל - משמש בפרופיל,
 /// בתפריט הראשי, ובכל מקום אחר שרוצים "לחתום" עם זהות השחקן.
 class AvatarWidget extends StatelessWidget {
@@ -52,7 +65,6 @@ class AvatarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final option = avatarOptionFor(avatarId);
     final hasPhoto = InputRules.isTrustedPhotoUrl(photoUrl);
     return Container(
       width: size,
@@ -75,10 +87,9 @@ class AvatarWidget extends StatelessWidget {
             ? Image.network(
                 photoUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    Image.asset(option.assetPath, fit: BoxFit.cover),
+                errorBuilder: (context, error, stackTrace) => avatarArt(avatarId),
               )
-            : Image.asset(option.assetPath, fit: BoxFit.cover),
+            : avatarArt(avatarId),
       ),
     );
   }
@@ -104,6 +115,9 @@ class AnimatedAvatar extends StatelessWidget {
   });
 
   Widget _fallback() {
+    if (paintedAvatarFor(avatarId) != null) {
+      return SizedBox(width: size, height: size, child: avatarArt(avatarId));
+    }
     if (avatarId == 'mascot') {
       return MascotWidget(mood: mood, size: size);
     }

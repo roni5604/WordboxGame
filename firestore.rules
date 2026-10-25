@@ -225,7 +225,7 @@ service cloud.firestore {
         && request.resource.data.roomCode.matches('[0-9]{5}')
         && intIn(request.resource.data.gridSize, 3, 8)
         && intIn(request.resource.data.roundSeconds, 10, 3600)
-        && request.resource.data.entryFee in [5, 10, 20, 50]
+        && request.resource.data.entryFee in [5, 10, 20, 50, 100, 200, 500]
         && request.resource.data.status == 'pending'
         && request.resource.data.createdAt == request.time
         && exists(/databases/$(database)/documents/rooms/$(request.resource.data.roomCode)/players/$(request.auth.uid))
@@ -266,7 +266,7 @@ service cloud.firestore {
         && request.resource.data.totalRounds >= 1
         && request.resource.data.totalRounds <= 10
         && request.resource.data.currentRound == 1
-        && request.resource.data.entryFee in [5, 10, 20, 50]
+        && request.resource.data.entryFee in [5, 10, 20, 50, 100, 200, 500]
         && request.resource.data.pot == request.resource.data.entryFee
         && request.resource.data.potAwarded == false;
 
@@ -372,17 +372,22 @@ service cloud.firestore {
         // עדכון: או בעל/ת המסמך מעדכנ/ת ניקוד עצמי בלבד (מונוטוני ובגבולות
         // סבירים), או מנהל/ת החדר מאפס/ת ניקוד לכולם בעת "משחק חוזר" /
         // סבב הבא (ראו rooms/{roomCode} allow update למעלה).
-        allow update: if signedIn() && changedOnly(['score', 'wordsFound']) && (
+        // words: רשימת המילים שמצאתי (ל"הצצה" בתשלום של החברים) - אופציונלית,
+        // כדי שגרסאות ישנות שלא שולחות אותה ימשיכו לעבוד.
+        allow update: if signedIn() && changedOnly(['score', 'wordsFound', 'words']) && (
           (
             request.auth.uid == uid
             && intIn(request.resource.data.score, resource.data.score, 1000000)
             && intIn(request.resource.data.wordsFound, resource.data.wordsFound, 10000)
+            && (!('words' in request.resource.data)
+                || (request.resource.data.words is list && request.resource.data.words.size() <= 300))
           )
           ||
           (
             get(/databases/$(database)/documents/rooms/$(roomCode)).data.hostUid == request.auth.uid
             && request.resource.data.score == 0
             && request.resource.data.wordsFound == 0
+            && (!('words' in request.resource.data) || request.resource.data.words.size() == 0)
           )
         );
         allow delete: if isUser(uid);

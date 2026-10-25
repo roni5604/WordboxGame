@@ -62,7 +62,7 @@ daily_play, profile, settings, store, auth, other`.
 | `sign_up` | `method` | `features/auth/auth_screen.dart` `_logAuth`: a guest upgraded in place (same uid), or a new guest |
 | `login` | `method` | same: sign-in to an existing account |
 | `earn_virtual_currency` | `virtual_currency_name` (`coins`/`hints`), `value`, `source` (`level`/`daily`/`ad`/`wheel`/`purchase`/`gift`/`other`), `item_name` | `game_screen.dart` (level coins, finale bonus hints, lucky box/star drop = gift, wheel), `daily_challenge_game_screen.dart` (daily coins), `home_screen.dart` (daily login hints and coins), `rewarded_gift_button.dart` + `game_screen.dart` (ads), `iap_controller.dart` (purchase), `store_screen.dart` (hint pack = other), multiplayer refunds/pot (other) |
-| `spend_virtual_currency` | `virtual_currency_name`, `value`, `item_name` (`word_hint`, `reveal_letter`, `shuffle`, `level_skip`, `hint_pack_N`, `skin_<slot>_<id>`, `room_entry_fee`) | `game_screen.dart`, `level_result_screen.dart`, `store_screen.dart`, `create_room_screen.dart`, `join_room_screen.dart` |
+| `spend_virtual_currency` | `virtual_currency_name`, `value`, `item_name` (`word_hint`, `reveal_word`, `shuffle`, `level_skip`, `hint_pack_N`, `skin_<slot>_<id>`, `room_entry_fee`) | `game_screen.dart`, `level_result_screen.dart`, `store_screen.dart`, `create_room_screen.dart`, `join_room_screen.dart` |
 | `ad_offer_shown` | `placement`, `reward` | `features/ads/rewarded_gift_button.dart` (first time the button is tappable), `game_screen.dart` `_tryGrantHintFromAd` |
 | `ad_reward_earned` | `placement`, `reward` | same places, after the reward callback |
 | `ad_show_failed` | `placement`, `format` (`rewarded`/`interstitial`), `reason` | same places + `level_result_screen.dart` `_exit` (interstitial). Reasons come from `AdsGateway.lastShowFailureReason` (`not_loaded`, `show_error_<code>`, `no_consent`, `timeout`, `not_started`, Ad Placement API `breakStatus`, ...). A viewer closing a rewarded ad early is not a failure. |
@@ -84,7 +84,7 @@ All in `lib/features/game/game_screen.dart` unless noted.
 | `level_start` | `level_id`, `world`, `level_kind` (`normal`/`master`/`worldFinale`), `grid_size`, `attempt` | board built (`_initSession`) |
 | `level_end` | the above + `success` (1 = ≥1 star), `score`, `stars`, `words_found`, `score_target`, `words_possible`, `time_sec`, `wall_sec`, `hints_used`, `shuffles_used`, `reason`, `coins_earned`, `first_clear` | `_finishLevel` |
 | `level_quit` | `level_id`, `world`, `level_kind`, `grid_size`, `attempt`, `time_sec`, `words_found`, `score`, `quit_type` (`exit`/`restart`/`skip`/`abandon`) | pause menu exit/restart, paid skip, screen disposed mid-run |
-| `hint_used` | `level_id`, `hint_type` (`word_hint`/`reveal_letter`/`shuffle`), `cost`, `cost_currency` (`hints`/`coins`) | `_useHint`, `_revealLetter`, `_shuffleBoard` |
+| `hint_used` | `level_id`, `hint_type` (`word_hint`/`reveal_word`/`shuffle`), `cost`, `cost_currency` (`hints`/`coins`) | `_useHint`, `_revealWord`, `_shuffleBoard` |
 | `world_unlocked` | `world` | finale passed (`_finishLevel`) or skipped (`_confirmSkip`, `level_result_screen.dart` `_skipFromResult`) |
 | `chapter_gate_shown` | `chapter`, `missing_stars` | closed chapter gate shown (`features/home/widgets/chapter_gate.dart`) |
 | `chapter_unlocked` | `chapter`, `method` (`coins`), `cost`, `missing_stars` | chapter gate opened with coins (same file) |

@@ -86,7 +86,10 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
 
     if (_navigatedAway) return;
 
-    if (room.status == RoomStatus.inProgress) {
+    // finishRoom רץ בטרנזקציה, אז העדכון הראשון כאן עוד יכול להראות את הסבב
+    // שזה עתה נגמר כ-inProgress. חוזרים למשחק רק כשמתחיל סבב חדש באמת.
+    final finishedRound = widget.result.round;
+    if (room.status == RoomStatus.inProgress && finishedRound != null && room.currentRound > finishedRound) {
       _navigatedAway = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) context.pushReplacement('/multiplayer/online/race/${widget.roomCode}');
@@ -135,6 +138,8 @@ class _OnlineRaceResultScreenState extends ConsumerState<OnlineRaceResultScreen>
 
   void _maybeAwardPot(GameRoom room) {
     if (_potCredited || !room.isLastRound || room.pot <= 0 || _myUid == null) return;
+    // רק אחרי שהשרת אישר את סיום הסבב (ולא בעדכון ישן של הסבב שעוד רץ).
+    if (room.status != RoomStatus.finished) return;
     if (room.players.isEmpty) return;
 
     final standings = _standingsFor(room);

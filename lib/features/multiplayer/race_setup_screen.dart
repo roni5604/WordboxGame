@@ -8,9 +8,12 @@ import 'package:go_router/go_router.dart';
 import '../../core/feedback/haptics.dart';
 import '../../core/ui/candy_button.dart';
 import '../../core/ui/game_backdrop.dart';
+import '../../core/ui/segmented_setting.dart';
 import '../../game_engine/bot_player.dart';
 import '../../providers/player_profile_provider.dart';
 import '../game/widgets/letter_tile.dart';
+import '../profile/avatars/avatar_catalog.dart';
+import '../profile/widgets/avatar_widget.dart';
 import 'models/race_config.dart';
 
 const _botNamePool = ['עומר', 'נועה', 'דנה', 'יובל', 'טל', 'מאיה', 'איתי', 'שירה'];
@@ -79,9 +82,9 @@ class _RaceSetupScreenState extends ConsumerState<RaceSetupScreen> {
               child: _Arena(opponents: _totalPlayers - 1, difficulty: _difficulty),
             ),
             const SizedBox(height: 10),
-            _SettingsCard(
+            SettingsPanel(
               children: [
-                _SettingRow<int>(
+                SegmentedSetting<int>(
                   icon: Icons.groups_rounded,
                   label: 'יריבים',
                   values: const [1, 2, 3],
@@ -89,7 +92,7 @@ class _RaceSetupScreenState extends ConsumerState<RaceSetupScreen> {
                   labelOf: (v) => '$v',
                   onSelect: (v) => _pick(() => _totalPlayers = v + 1),
                 ),
-                _SettingRow<BotDifficulty>(
+                SegmentedSetting<BotDifficulty>(
                   icon: Icons.psychology_rounded,
                   label: 'רמה',
                   values: BotDifficulty.values,
@@ -97,7 +100,7 @@ class _RaceSetupScreenState extends ConsumerState<RaceSetupScreen> {
                   labelOf: (d) => d.labelHe,
                   onSelect: (d) => _pick(() => _difficulty = d),
                 ),
-                _SettingRow<int>(
+                SegmentedSetting<int>(
                   icon: Icons.grid_view_rounded,
                   label: 'לוח',
                   values: const [3, 4, 5, 6],
@@ -105,7 +108,7 @@ class _RaceSetupScreenState extends ConsumerState<RaceSetupScreen> {
                   labelOf: (v) => '$v×$v',
                   onSelect: (v) => _pick(() => _gridSize = v),
                 ),
-                _SettingRow<int>(
+                SegmentedSetting<int>(
                   icon: Icons.timer_rounded,
                   label: 'זמן',
                   values: const [60, 90, 120],
@@ -321,9 +324,15 @@ class _RobotSquad extends StatelessWidget {
     );
     Widget robot(int i) => Transform.translate(
       offset: Offset(0, math.sin(t + i * 1.7) * 5),
-      child: _Robot(key: ValueKey('bot-$i'), size: size, difficulty: difficulty, blink: (t + i) % (math.pi * 2) < 0.18)
-          .animate(key: ValueKey('in-$i-$count'))
-          .scale(begin: const Offset(0.3, 0.3), curve: Curves.elasticOut, duration: 600.ms),
+      child:
+          _BotFace(
+                key: ValueKey('bot-$i'),
+                name: _botNamePool[i % _botNamePool.length],
+                size: size,
+                difficulty: difficulty,
+              )
+              .animate(key: ValueKey('in-$i-$count'))
+              .scale(begin: const Offset(0.3, 0.3), curve: Curves.elasticOut, duration: 600.ms),
     );
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -412,259 +421,61 @@ class _VsBadge extends StatelessWidget {
   }
 }
 
-/// רובוט עגלגל בתלת-ממד (ראש מבריק, אנטנה, עיניים), בצבע לפי הרמה:
-/// קליל ירוק ומחייך, בינוני כתום, מומחה אדום עם גבות כועסות.
-class _Robot extends StatelessWidget {
+/// יריב: הדמות הייחודית שלו (לפי שמו) בטבעת בצבע הרמה, ותג "רמה" קטן -
+/// קליל ירוק 🙂, בינוני כתום 😎, מומחה אדום 🔥.
+class _BotFace extends StatelessWidget {
+  final String name;
   final double size;
   final BotDifficulty difficulty;
-  final bool blink;
 
-  const _Robot({super.key, required this.size, required this.difficulty, required this.blink});
+  const _BotFace({super.key, required this.name, required this.size, required this.difficulty});
 
   @override
   Widget build(BuildContext context) {
+    final colors = difficulty.colors;
+    final badge = switch (difficulty) {
+      BotDifficulty.easy => '🙂',
+      BotDifficulty.normal => '😎',
+      BotDifficulty.hard => '🔥',
+    };
     return SizedBox(
       width: size,
       height: size * 1.15,
-      child: CustomPaint(painter: _RobotPainter(difficulty.colors, difficulty, blink)),
-    );
-  }
-}
-
-class _RobotPainter extends CustomPainter {
-  final List<Color> colors;
-  final BotDifficulty difficulty;
-  final bool blink;
-
-  _RobotPainter(this.colors, this.difficulty, this.blink);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final head = Rect.fromLTWH(w * 0.06, h * 0.2, w * 0.88, h * 0.72);
-    // צל על הרצפה.
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(w / 2, h * 0.97), width: w * 0.7, height: h * 0.08),
-      Paint()..color = Colors.black.withValues(alpha: 0.18),
-    );
-    // אנטנה.
-    canvas.drawLine(
-      Offset(w / 2, head.top),
-      Offset(w / 2, h * 0.06),
-      Paint()
-        ..color = const Color(0xFF9AA5B8)
-        ..strokeWidth = w * 0.05
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawCircle(Offset(w / 2, h * 0.06), w * 0.07, Paint()..color = colors.first);
-    // ראש מבריק.
-    final rr = RRect.fromRectAndRadius(head, Radius.circular(w * 0.28));
-    canvas.drawRRect(rr.shift(Offset(0, h * 0.03)), Paint()..color = Color.lerp(colors.last, Colors.black, 0.35)!);
-    canvas.drawRRect(
-      rr,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color.lerp(colors.first, Colors.white, 0.35)!, colors.first, colors.last],
-        ).createShader(head),
-    );
-    // מסך פנים כהה.
-    final face = Rect.fromLTWH(head.left + w * 0.12, head.top + h * 0.12, head.width - w * 0.24, head.height * 0.52);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(face, Radius.circular(w * 0.16)),
-      Paint()..color = const Color(0xFF1E2140),
-    );
-    // עיניים זוהרות.
-    final eyeY = face.center.dy - face.height * 0.06;
-    final eyePaint = Paint()..color = Color.lerp(colors.first, Colors.white, 0.5)!;
-    for (final dx in [-0.22, 0.22]) {
-      final c = Offset(face.center.dx + face.width * dx, eyeY);
-      if (blink) {
-        canvas.drawLine(c.translate(-w * 0.06, 0), c.translate(w * 0.06, 0), eyePaint..strokeWidth = w * 0.035);
-      } else {
-        canvas.drawCircle(c, w * 0.07, eyePaint);
-        canvas.drawCircle(c.translate(-w * 0.02, -w * 0.02), w * 0.025, Paint()..color = Colors.white);
-      }
-    }
-    // גבות כועסות למומחה, פה לפי רמה.
-    final mouth = Paint()
-      ..color = eyePaint.color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * 0.035
-      ..strokeCap = StrokeCap.round;
-    final my = face.bottom - face.height * 0.22;
-    if (difficulty == BotDifficulty.hard) {
-      for (final s in [-1.0, 1.0]) {
-        canvas.drawLine(
-          Offset(face.center.dx + s * face.width * 0.34, eyeY - w * 0.13),
-          Offset(face.center.dx + s * face.width * 0.1, eyeY - w * 0.08),
-          mouth,
-        );
-      }
-      canvas.drawLine(Offset(face.center.dx - w * 0.09, my), Offset(face.center.dx + w * 0.09, my), mouth);
-    } else {
-      final smile = difficulty == BotDifficulty.easy ? 0.09 : 0.05;
-      canvas.drawArc(
-        Rect.fromCenter(center: Offset(face.center.dx, my - w * smile), width: w * 0.24, height: w * smile * 2.4),
-        0.15,
-        math.pi - 0.3,
-        false,
-        mouth,
-      );
-    }
-    // הברקה על הראש.
-    canvas.drawOval(
-      Rect.fromLTWH(head.left + w * 0.12, head.top + h * 0.03, w * 0.32, h * 0.08),
-      Paint()..color = Colors.white.withValues(alpha: 0.55),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_RobotPainter old) => old.colors != colors || old.blink != blink || old.difficulty != difficulty;
-}
-
-// ---------------------------------------------------------------- הגדרות
-
-class _SettingsCard extends StatelessWidget {
-  final List<Widget> children;
-
-  const _SettingsCard({required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.white, Color(0xFFEFF5FF)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E3A8A).withValues(alpha: 0.35),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.topCenter,
         children: [
-          for (var i = 0; i < children.length; i++) ...[if (i > 0) const SizedBox(height: 8), children[i]],
-        ],
-      ),
-    );
-  }
-}
-
-/// שורת הגדרה: אייקון + שם, ובורר מחליק עם "גלולה" שזזה לבחירה.
-class _SettingRow<T> extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final List<T> values;
-  final T selected;
-  final String Function(T) labelOf;
-  final ValueChanged<T> onSelect;
-
-  const _SettingRow({
-    required this.icon,
-    required this.label,
-    required this.values,
-    required this.selected,
-    required this.labelOf,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final index = values.indexOf(selected);
-    final rtl = Directionality.of(context) == TextDirection.rtl;
-    final x = values.length == 1 ? 0.0 : -1 + index * 2 / (values.length - 1);
-    return Row(
-      children: [
-        SizedBox(
-          width: 78,
-          child: Row(
-            children: [
-              Icon(icon, size: 20, color: const Color(0xFF3B82F6)),
-              const SizedBox(width: 5),
-              // גדלי טקסט גדולים (נגישות) מקטינים את התווית במקום לגלוש.
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    label,
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF1E3A8A)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Container(
-            height: 42,
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(color: const Color(0xFFE3EDFF), borderRadius: BorderRadius.circular(14)),
-            child: Stack(
-              children: [
-                AnimatedAlign(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutBack,
-                  alignment: Alignment(rtl ? -x : x, 0),
-                  child: FractionallySizedBox(
-                    widthFactor: 1 / values.length,
-                    heightFactor: 1,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(11),
-                        gradient: const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0xFF6FD3FF), Color(0xFF2E8BFF)],
-                        ),
-                        boxShadow: const [BoxShadow(color: Color(0xFF1A5BC4), offset: Offset(0, 3))],
-                      ),
-                    ),
-                  ),
-                ),
-                Row(
-                  children: [
-                    for (final v in values)
-                      Expanded(
-                        child: Semantics(
-                          button: true,
-                          selected: v == selected,
-                          label: '$label ${labelOf(v)}',
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => onSelect(v),
-                            child: Center(
-                              child: AnimatedDefaultTextStyle(
-                                duration: const Duration(milliseconds: 200),
-                                style: TextStyle(
-                                  fontFamily: DefaultTextStyle.of(context).style.fontFamily,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 15,
-                                  color: v == selected ? Colors.white : const Color(0xFF3B5BA9),
-                                ),
-                                child: FittedBox(fit: BoxFit.scaleDown, child: Text(labelOf(v), maxLines: 1)),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+          Container(
+            width: size,
+            height: size,
+            padding: EdgeInsets.all(size * 0.06),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors),
+              boxShadow: [
+                BoxShadow(color: colors.last.withValues(alpha: 0.55), blurRadius: 14, offset: const Offset(0, 6)),
               ],
             ),
+            child: AvatarWidget(avatarId: botAvatarId(name), size: size * 0.88, ring: false),
           ),
-        ),
-      ],
+          Positioned(
+            bottom: 0,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: size * 0.1, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: colors.last, width: 1.5),
+              ),
+              child: Text(
+                '$badge $name',
+                maxLines: 1,
+                style: TextStyle(fontSize: math.max(10, size * 0.15), fontWeight: FontWeight.w900, color: colors.last),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

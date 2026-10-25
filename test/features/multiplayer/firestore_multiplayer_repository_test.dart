@@ -111,10 +111,7 @@ void main() {
 
     test('זורק שגיאה כשהחדר לא קיים', () async {
       final guest = repoFor('guest-uid');
-      expect(
-        () => guest.joinRoom(roomCode: 'ZZZZZ', displayName: 'מישהו'),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => guest.joinRoom(roomCode: 'ZZZZZ', displayName: 'מישהו'), throwsA(isA<StateError>()));
     });
 
     test('זורק שגיאה כשהחדר מלא', () async {
@@ -129,10 +126,7 @@ void main() {
       );
 
       final guest = repoFor('guest-uid');
-      expect(
-        () => guest.joinRoom(roomCode: room.roomCode, displayName: 'עומר'),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => guest.joinRoom(roomCode: room.roomCode, displayName: 'עומר'), throwsA(isA<StateError>()));
     });
 
     test('זורק שגיאה כשהמשחק כבר התחיל', () async {
@@ -148,10 +142,7 @@ void main() {
       await host.startGame(room.roomCode);
 
       final guest = repoFor('guest-uid');
-      expect(
-        () => guest.joinRoom(roomCode: room.roomCode, displayName: 'עומר'),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => guest.joinRoom(roomCode: room.roomCode, displayName: 'עומר'), throwsA(isA<StateError>()));
     });
 
     test('הצטרפות כפולה של אותו שחקן/ית לא יוצרת כפילות', () async {
@@ -224,12 +215,13 @@ void main() {
       final guest = repoFor('guest-uid');
       await guest.joinRoom(roomCode: room.roomCode, displayName: 'עומר');
 
-      await guest.updateMyScore(room.roomCode, score: 42, wordsFound: 5);
+      await guest.updateMyScore(room.roomCode, score: 42, wordsFound: 5, words: ['בית', 'שלום']);
 
       final updated = await host.watchRoom(room.roomCode).first;
       final guestPlayer = updated.players.firstWhere((p) => p.uid == 'guest-uid');
       expect(guestPlayer.score, 42);
       expect(guestPlayer.wordsFound, 5);
+      expect(guestPlayer.words, ['בית', 'שלום']);
       // המנהל/ת לא נפגע/ה מעדכון הניקוד של שחקן/ית אחר/ת.
       final hostPlayer = updated.players.firstWhere((p) => p.uid == 'host-uid');
       expect(hostPlayer.score, 0);

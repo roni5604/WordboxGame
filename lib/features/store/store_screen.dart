@@ -544,7 +544,9 @@ Future<bool> buyWithCoins({
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           content: const Text('אין מספיק מטבעות', style: TextStyle(fontWeight: FontWeight.w800)),
           action: SnackBarAction(label: 'להשיג עוד', textColor: Colors.white, onPressed: onNeedCoins),
-          duration: const Duration(seconds: 3),
+          // עם כפתור, SnackBar נשאר עד שלוחצים - persist: false מחזיר היעלמות.
+          persist: false,
+          duration: const Duration(milliseconds: 1800),
         ),
       );
   }
