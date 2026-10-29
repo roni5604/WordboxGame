@@ -41,7 +41,7 @@
 
 מה מחכה לכם:
 • 100 שלבים בעולמות צבעוניים, והלוח גדל משלב לשלב מ-3×3 ועד 6×6 (ועד 7×7 במשחק מול חברים)
-• מילון עברי עשיר עם עשרות אלפי מילים: שמות עצם, פעלים בכל הבניינים, תארים, נטיות וסלנג
+• מילון עברי עשיר עם כמעט 190 אלף מילים: שמות עצם, פעלים בכל הבניינים, תארים, נטיות וסלנג
 • אותיות קשות (ז, ט, צ, ג, ס, ק, פ) בסגול, שוות נקודה נוספת
 • שלושה כוכבים לכל שלב, תיבות מזל, גלגל מזל ופרסים
 • תחרות נגד המחשב: מרוץ מול 1-3 יריבים עם שעון רץ
@@ -89,6 +89,42 @@
 ```
 
 ---
+
+## Version 1.1.1 (build 18) - מילון מעודכן
+
+עדכון המילון מהמאגר [`hebrew-words-db`](https://github.com/roni5604/hebrew-words-db)
+(196,227 מילים במאגר → 188,501 מילים ייחודיות במשחק, לעומת 65,288 ב-1.1.0).
+צילומי מסך, סרטון ופרטיות - ללא שינוי מ-1.1.0.
+
+**What's New - 1.1.1** (עברית):
+
+```
+מילון חדש וגדול פי שלושה!
+• כמעט 190 אלף מילים: עכשיו המשחק מכיר הרבה יותר נטיות, פעלים, צורות רבים וסלנג
+• מילים שגיליתם בשלבים ולא התקבלו? רובן כבר בפנים
+• הוסרו מהמילון צורות שגויות ישנות
+• טעינה מהירה וחלקה יותר של המשחק
+```
+
+**What's New - 1.1.1** (English (Australia)):
+
+```
+A brand-new dictionary, three times bigger!
+• Almost 190,000 Hebrew words: many more inflections, verb forms, plurals and slang are now accepted
+• Words you found in levels that weren't accepted before? Most of them are in now
+• Old incorrect word forms were removed
+• Faster, smoother game loading
+```
+
+**Description**: כמו 1.1.0, רק השורה על המילון עודכנה ל-"מילון עברי עשיר עם כמעט 190 אלף מילים: ..."
+(באנגלית: "A rich Hebrew dictionary with almost 190,000 words: ...").
+
+**App Review Notes - 1.1.1**: ההערות של 1.1.0, עם פסקה חדשה בראש:
+
+```
+WHAT'S NEW IN 1.1.1 (build 18)
+A dictionary update only: the Hebrew word list grew from about 65,000 to about 188,500 words (more inflections, verb forms and plurals; some incorrect legacy forms were removed). The dictionary is built on a background thread at startup for a smoother launch. No changes to ads, privacy, purchases, accounts or features since 1.1.0.
+```
 
 ## Version 1.1.0 (build 17) - גרסת הבוטים, החברים והפרסומות
 
@@ -144,7 +180,7 @@ A big update:
 
 מה מחכה לכם:
 • 100 שלבים במפה חיה, והלוח גדל משלב לשלב מ-3×3 ועד 6×6
-• מילון עברי עשיר עם עשרות אלפי מילים: שמות עצם, פעלים בכל הבניינים, תארים, נטיות וסלנג
+• מילון עברי עשיר עם כמעט 190 אלף מילים: שמות עצם, פעלים בכל הבניינים, תארים, נטיות וסלנג
 • אותיות קשות (ז, ט, צ, ג, ס, ק, פ) בסגול, שוות נקודה נוספת
 • שלושה כוכבים לכל שלב, תיבות מזל, גלגל מזל ופרסים
 • "גלה מילה": תקועים? המשחק מראה מילה שמסתתרת בלוח, ואתם מוצאים אותה
