@@ -164,7 +164,7 @@ class LevelBoardBuilder {
 
     if (best != null) return best;
 
-    // רשת אחרונה לבטיחות (לא אמורה לקרות בפועל עם מילון של 65K מילים):
+    // רשת אחרונה לבטיחות (לא אמורה לקרות בפועל עם מילון של ~190K מילים):
     // בונה לוח רנדומלי טהור בשיטה הישנה, שרק סופרת כמות מילים.
     final fallback = BoardGenerator(trie: trie, letterWeights: letterWeights).generate(
       size: config.gridSize,

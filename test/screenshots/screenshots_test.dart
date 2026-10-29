@@ -399,6 +399,18 @@ void main() {
             }
           },
         ),
+    // לדף החנות: "גלה מילה" פתוח - המילה הסודית מרחפת מעל הלוח.
+    'game_reveal': (t) => _shoot(
+          t,
+          'game_reveal',
+          () => const GameScreen(levelNumber: 9),
+          settle: const Duration(milliseconds: 1200),
+          realWaitSeconds: 12,
+          interact: (tester) async {
+            await tester.pump(const Duration(seconds: 2));
+            await tester.tap(find.text('גלה מילה'));
+          },
+        ),
     'race_game': (t) => _shoot(
           t,
           'race_game',

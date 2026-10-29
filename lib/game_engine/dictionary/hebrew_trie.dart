@@ -46,8 +46,10 @@ class HebrewTrie {
   void insert(String normalizedWord) {
     if (normalizedWord.isEmpty) return;
     var node = _root;
-    for (final ch in normalizedWord.split('')) {
-      node = node.children.putIfAbsent(ch, () => TrieNode());
+    // לולאה לפי אינדקס (ולא split) - חוסך הקצאת רשימה לכל מילה כשבונים
+    // מילון של ~190 אלף מילים.
+    for (var i = 0; i < normalizedWord.length; i++) {
+      node = node.children.putIfAbsent(normalizedWord[i], TrieNode.new);
     }
     if (!node.isWord) {
       node.isWord = true;
@@ -75,8 +77,8 @@ class HebrewTrie {
 
   TrieNode? _nodeForPrefix(String prefix) {
     var node = _root;
-    for (final ch in prefix.split('')) {
-      final next = node.children[ch];
+    for (var i = 0; i < prefix.length; i++) {
+      final next = node.children[prefix[i]];
       if (next == null) return null;
       node = next;
     }
